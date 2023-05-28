@@ -1,0 +1,3 @@
+Int Char Bool Float String let mut const where class True False
+()[]{} ++ + - * / ^ = += -= *= /= , . .. ! != == && || | > >= < <= -> => ; : ::
+?

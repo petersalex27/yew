@@ -1,0 +1,14 @@
+let is [Int] = []
+let is' [Int] = [0]
+let is'' [Int] = [0,]
+let is''' [Int] = [0,0]
+let fs [Float] = [1.]
+let bs [Bool] = [True]
+let cs [Char] = ['a']
+let ss [String] = ["a"]
+
+-- test ops
+let ints = 0:is
+let ints' = ints ++ ints
+let zero = head ints
+let empty = tail ints
