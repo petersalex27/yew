@@ -36,7 +36,9 @@ List ::= `[` ListElements `]`\
 ListElements ::= ɛ \
     &emsp;| VALUE ListTail\
 ListTail ::= `,` ListElements \
-Type ::= `(` TypeAnotation `)`\
+Type ::= `(` TypeListInitial `)`\
+    &emsp;| `(` Type `)`\
+    &emsp;| FunctionType\
     &emsp;| `(` NamedTypes `)`\
     &emsp;| `[` Type ListSize `]`\
     &emsp;| `Int`\
@@ -45,6 +47,13 @@ Type ::= `(` TypeAnotation `)`\
     &emsp;| `Float`\
     &emsp;| `String`\
     &emsp;| Kind\
+FunctionType ::= TypeList `->` Type\
+TypeListInitial ::= ɛ\
+    &emsp;| TypeList\
+TypeList ::= Type TypeListTail
+TypeListTail ::= ɛ\
+    &emsp;| `,` ɛ
+    &emsp;| `,` TypeList\
 Kind ::= VALUE\
     &emsp;| TypeConstructor\
 TypeConstructor ::= ID Type\
@@ -59,17 +68,27 @@ TypeAnotation ::= ɛ\
     &emsp;| Type\
 Declaration ::= MaybeAnotation `let` ID TypeAnotation\
     &emsp;| MaybeAnotation FunctionDeclaration\
-FunctionDeclaration ::= ID TypeAnotationList\
+FunctionDeclaration ::= ID TypeAnotationList `->` Type\
 TypeAnotationListInitial ::= `(` `)`\
     &emsp;| TypeAnotationList\
 TypeAnotationList ::= \
     ID TypeAnotation TypeAnotationListTail\
     &emsp;| Pattern TypeAnotationTail\
 TypeAnotationListTail ::= ɛ\
-    &emsp;| `,` TypeAnotationList_
+    &emsp;| `,` TypeAnotationList\
 Pattern ::= \
 Definition ::= Declaration `=` Assignment\
 Assignment ::= Expression\
 Application ::=\
 Function ::=\
-Class ::= \
+Class ::= `class` ID `where` ClassStart\
+ClassStart ::= `{` ClassBodies `}`\
+    &emsp;| `{` ClassSequence `}`\
+    &emsp;| ClassSequence\
+ClassBodies ::= ClassBody ClassBodiesTail\
+ClassBodiesTail ::= ɛ\
+    &emsp;| ClassBodies\
+ClassSequence ::= ClassBody ClassSequenceTail\
+ClassSequenceTail ::= ɛ\
+    &emsp;| `;` ClassSequence\
+ClassBody ::= ID FunctionType 
