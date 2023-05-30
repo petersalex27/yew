@@ -26,8 +26,23 @@ Expression2 ::= `(` Expression `)`\
     &emsp;| _ID_\
     &emsp;| Operation\
     &emsp;| UnaryOperation\
-Operation ::=\
-UnaryOperation ::=\
+Operation ::= Expression BinaryOp Expression\
+UnaryOperation ::= UnaryOp Expression\
+BinaryOp ::= `+`\
+    &emsp;| `-`\
+    &emsp;| `*`\
+    &emsp;| `/`\
+    &emsp;| `^`\
+    &emsp;| `:`\
+    &emsp;| `++`\
+    &emsp;| `.`\
+    &emsp;| `>`\
+    &emsp;| `>=`\
+    &emsp;| `<`\
+    &emsp;| `<=`\
+    &emsp;| `&&`\
+    &emsp;| `||`\
+UnaryOp ::= 
 ExpressionSequence ::= \
     ExpressionSequence `;` Expression\
 Value ::= VALUE \
