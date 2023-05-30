@@ -1,4 +1,8 @@
 # Yew Grammar (W.I.P.)
+## Definitions
+_VALUE_ ∈ {x : x matches  }\
+_ID_ ∈ {x : x matches [A-Za-z]+[A-Za-z0-9'_]*}\
+## Grammar
 Top ::= Package Modules\
 MaybeAnotation ::= ɛ\
     &emsp;| `@` _ID_\
