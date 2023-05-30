@@ -1,12 +1,12 @@
 # Yew Grammar (W.I.P.)
 Top ::= Package Modules\
 MaybeAnotation ::= ɛ\
-    &emsp;| `@` ID\
+    &emsp;| `@` _ID_\
 Modules ::= ɛ\
     &emsp;| Program Modules\
     &emsp;| Module Modules\
-Module ::= MaybeAnotation `module` ID `where` `{` Program `}`\
-Package ::= MaybeAnotation `package` ID\
+Module ::= MaybeAnotation `module` _ID_ `where` `{` Program `}`\
+Package ::= MaybeAnotation `package` _ID_\
 Program ::= Definition ProgramTail\
     &emsp;| Expression ProgramTail\
     &emsp;| `{` ProgramTail `}`\
@@ -19,7 +19,7 @@ Expression2 ::= `(` Expression `)`\
     &emsp;| Value\
     &emsp;| ExpressionSequence\
     &emsp;| Program\
-    &emsp;| ID\
+    &emsp;| _ID_\
     &emsp;| Operation\
     &emsp;| UnaryOperation\
 Operation ::=\
@@ -34,7 +34,7 @@ Value ::= VALUE \
 Tuple ::= `(` ListElements `)`\
 List ::= `[` ListElements `]`\
 ListElements ::= ɛ \
-    &emsp;| VALUE ListTail\
+    &emsp;| _VALUE_ ListTail\
 ListTail ::= `,` ListElements \
 Type ::= `(` TypeListInitial `)`\
     &emsp;| `(` Type `)`\
@@ -56,19 +56,22 @@ TypeListTail ::= ɛ\
     &emsp;| `,` TypeList\
 Kind ::= VALUE\
     &emsp;| TypeConstructor\
-TypeConstructor ::= ID Type\
-    &emsp;| ID \
+TypeConstructor ::= _ID_ Type\
+    &emsp;| _ID_ \
 ListSize ::= ɛ\
-    &emsp;| `;` VALUE\
-NamedTypes ::= ID Type NamedTypesTail\
+    &emsp;| `;` _VALUE_\
+NamedTypes ::= _ID_ Type NamedTypesTail\
 NamedTypesTail ::= ɛ\
     &emsp;| `,` ɛ\
     &emsp;| `,` NamedTypes\
 TypeAnotation ::= ɛ\
     &emsp;| Type\
-Declaration ::= MaybeAnotation `let` ID TypeAnotation\
+DeclarationKind ::= `let`\
+    &emsp;| `const`\
+    &emsp;| `mut`\
+Declaration ::= MaybeAnotation `let` _ID_ TypeAnotation\
     &emsp;| MaybeAnotation FunctionDeclaration\
-FunctionDeclaration ::= ID TypeAnotationList `->` Type\
+FunctionDeclaration ::= _ID_ TypeAnotationList `->` Type\
 TypeAnotationListInitial ::= `(` `)`\
     &emsp;| TypeAnotationList\
 TypeAnotationList ::= \
@@ -81,7 +84,7 @@ Definition ::= Declaration `=` Assignment\
 Assignment ::= Expression\
 Application ::=\
 Function ::=\
-Class ::= `class` ID `where` ClassStart\
+Class ::= `class` _ID_ `where` ClassStart\
 ClassStart ::= `{` ClassBodies `}`\
     &emsp;| `{` ClassSequence `}`\
     &emsp;| ClassSequence\
@@ -91,4 +94,4 @@ ClassBodiesTail ::= ɛ\
 ClassSequence ::= ClassBody ClassSequenceTail\
 ClassSequenceTail ::= ɛ\
     &emsp;| `;` ClassSequence\
-ClassBody ::= ID FunctionType 
+ClassBody ::= _ID_ FunctionType 
