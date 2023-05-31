@@ -15,7 +15,7 @@ _ID_ ∈ {x : x matches [A-Za-z]+[A-Za-z0-9'_]*}\
 | Order | `> >= < <=` | left to right |
 | Equality | `== !=` | left to right |
 | Logical And | `&` | left to right |
-| Logical Or | <code>&|;&|;</code> | left to right |
+| Logical Or | <code>&#124;&#124;</code> | left to right |
 ## Grammar
 Top ::= Package Modules\
 MaybeAnotation ::= ɛ\
