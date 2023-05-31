@@ -2,6 +2,20 @@
 ## Definitions
 _VALUE_ ∈ {x : x matches  }\
 _ID_ ∈ {x : x matches [A-Za-z]+[A-Za-z0-9'_]*}\
+## Operator Precedence and Evaluation Direction 
+| Operator Class | Members | Direction |
+|--|--|--|
+| Composition | `.` | left to right |
+| Application | - | left to right |
+| Power | `^` | right to left |
+| Postfix | `!` | left to right |
+| Unary | `! - +` | right to left |
+| Productive | `* /` | left to right |
+| Addative | `+ - ++ :` | left to right |
+| Order | `> >= < <=` | left to right |
+| Equality | `== !=` | left to right |
+| Logical And | `&` | left to right |
+| Logical Or | `||` | left to right |
 ## Grammar
 Top ::= Package Modules\
 MaybeAnotation ::= ɛ\
