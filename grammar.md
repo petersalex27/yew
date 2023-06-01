@@ -7,10 +7,10 @@ _ID_ ∈ {x : x matches [A-Za-z]+[A-Za-z0-9'_]*}\
 |--|--|--|
 | Composition | `.` | left to right |
 | Application | - | left to right |
-| Power | `^` | right to left |
 | Postfix | `!` | left to right |
+| Power | `^` | right to left |
 | Unary | `! - +` | right to left |
-| Productive | `* /` | left to right |
+| Productive | `* / mod` | left to right |
 | Addative | `+ - ++ :` | left to right |
 | Order | `> >= < <=` | left to right |
 | Equality | `== !=` | left to right |
