@@ -3,6 +3,7 @@
 _VALUE_ ∈ {x : x matches  }\
 _ID_ ∈ {x : x matches [A-Za-z]+[A-Za-z0-9'_]*}\
 ## Operator Precedence and Evaluation Direction 
+Top: highest precedence; Bottom: lowest precedence
 | Operator Class | Members | Direction |
 |--|--|--|
 | Composition | `.` | left to right |
@@ -14,7 +15,7 @@ _ID_ ∈ {x : x matches [A-Za-z]+[A-Za-z0-9'_]*}\
 | Addative | `+ - ++ :` | left to right |
 | Order | `> >= < <=` | left to right |
 | Equality | `== !=` | left to right |
-| Logical And | `&` | left to right |
+| Logical And | `&&` | left to right |
 | Logical Or | <code>&#124;&#124;</code> | left to right |
 | Map | `->` | right to left |
 | Anotation | `::` | left to right |
