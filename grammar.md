@@ -43,6 +43,7 @@ Expression2 ::= `(` Expression `)`\
     &emsp;| _ID_\
     &emsp;| Operation\
     &emsp;| UnaryOperation\
+    &emsp;| Lambda\
 Operation ::= Expression BinaryOp Expression\
 UnaryOperation ::= UnaryOp Expression\
 BinaryOp ::= `+`\
@@ -59,9 +60,11 @@ BinaryOp ::= `+`\
     &emsp;| `<=`\
     &emsp;| `&&`\
     &emsp;| `||`\
-UnaryOp ::= 
+UnaryOp ::= `-`\
+    &emsp;| `+`\
+    &emsp;| `!`\
 ExpressionSequence ::= \
-    ExpressionSequence `;` Expression\
+    Expression `;` Expression\
 Value ::= VALUE \
     &emsp;| List\
     &emsp;| Tuple\
@@ -118,8 +121,10 @@ TypeAnotationListTail ::= ɛ\
 Pattern ::= \
 Definition ::= Declaration `=` Assignment\
 Assignment ::= Expression\
-Application ::=\
-Function ::=\
+Application ::= Function Expression\
+Function ::= Application \
+    &emsp;| _ID_ \
+    &emsp;| Lambda \
 Class ::= `class` _ID_ `where` ClassStart\
 ClassStart ::= `{` ClassBodies `}`\
     &emsp;| `{` ClassSequence `}`\
@@ -130,4 +135,9 @@ ClassBodiesTail ::= ɛ\
 ClassSequence ::= ClassBody ClassSequenceTail\
 ClassSequenceTail ::= ɛ\
     &emsp;| `;` ClassSequence\
-ClassBody ::= _ID_ FunctionType 
+ClassBody ::= _ID_ FunctionType \
+Lambda ::= LambdaHead `->` Expression\
+LambdaHead ::= `\` _ID_ TypeAnotation LambdaHeadTail\
+LambdaHeadTail ::= ɛ\
+    &emsp;| `,` ɛ\
+    &emsp;| `,` _ID_ TypeAnotation LambdaHeadTail\
