@@ -108,7 +108,7 @@ TypeAnotation ::= ɛ\
 DeclarationKind ::= `let`\
     &emsp;| `const`\
     &emsp;| `mut`\
-Declaration ::= MaybeAnotation `let` _ID_ TypeAnotation\
+Declaration ::= MaybeAnotation DeclarationKind _ID_ TypeAnotation\
     &emsp;| MaybeAnotation FunctionDeclaration\
 FunctionDeclaration ::= _ID_ TypeAnotationList `->` Type\
 TypeAnotationListInitial ::= `(` `)`\
