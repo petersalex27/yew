@@ -1,0 +1,36 @@
+-- Int ==========================================
+-- Int arithmetic
+addInt a Int, b Int -> Int = @instr("add", "i64", a, b)
+subtractInt a Int, b Int -> Int = @instr("sub", "i64", a, b)
+multiplyInt a Int, b Int -> Int = @instr("mul", "i64", a, b)
+divideInt a Int, b Int -> Int = @instr("sdiv", "i64", a, b)
+powerInt a Int, b Int -> Int = a ^ b
+positiveInt a Int -> Int = a
+negativeInt a Int -> Int = @instr("sub", "i64", 0, a)
+-- Int equality
+equalsInt a Int, b Int -> Bool = a == b
+notEqualsInt a Int, b Int -> Bool = a != b
+-- Int ordering
+greaterInt a Int, b Int -> Bool = a > b
+lesserInt a Int, b Int -> Bool = a < b
+greaterOrEqualInt a Int, b Int -> Bool = a >= b
+lesserOrEqualInt a Int, b Int -> Bool = a <= b
+
+-- Float ==========================================
+-- Float arithmetic
+addFloat a Float, b Float -> Float = a + b
+subtractFloat a Float, b Float -> Float = a - b
+multiplyFloat a Float, b Float -> Float = a * b
+divideFloat a Float, b Float -> Float = a / b
+powerFloat a Float, b Float -> Float = a ^ b
+positiveFloat a Float -> Float = +a
+negativeFloat a Float -> Float = -a
+-- Float equality
+equalsFloat a Float, b Float -> Bool = a == b
+notEqualsFloat a Float, b Float -> Bool = a != b
+-- Float ordering
+greaterFloat a Float, b Float -> Bool = a > b
+lesserFloat a Float, b Float -> Bool = a < b
+greaterOrEqualFloat a Float, b Float -> Bool = a >= b
+lesserOrEqualFloat a Float, b Float -> Bool = a <= b
+
