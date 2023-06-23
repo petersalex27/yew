@@ -1,9 +1,6 @@
 package scan
 
 import (
-	//"fmt"
-	//"fmt"
-	"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -14,6 +11,9 @@ import (
 	types "yew/type"
 	"yew/value"
 )
+
+// underscore id token
+var UnderscoreIdToken = IdToken{ id: "_", index: 0, line: 0, char: 0, }
 
 type Lexer interface {
 	Next() Token
@@ -31,6 +31,21 @@ type InputStream struct {
 	source string
 	
 	tokens []Token
+}
+
+/* 
+GetTokenAtOffset returns token at current index + offset (offset can be negative).
+The parser holds the token at offset -1 in its `Next` field and the token at offset -2 
+in its `Current` field; thus, to get the most recently forgoten token (the one that was
+in `Current` before the current token in `Current`) use an offset of -3.
+*/
+func (stream *InputStream) GetTokenAtOffset(offset int64) Token {
+	index := stream.streamIndex + offset
+	if index < 0 || index >= stream.streamLength {
+		err.PrintBug()
+		panic("")
+	}
+	return stream.tokens[index]
 }
 
 // TODO: find average number of tokens based on length of stream, use this for init of `tokens`
@@ -305,6 +320,7 @@ const (
 	E_ILLEGAL_ESCAPE
 	E_UNEXPECTED_TOKEN
 	E_EXPECTED_CHAR_CLOSE
+	E_EXPECTED_RAW_ID_CLOSE
 	E_UNEXPECTED_CONTROL
 	E_TRAILING_UNDERSCORE
 	E_STRING_ONLY_ESCAPE
@@ -315,6 +331,7 @@ var inputErrors = map[inputErrorType] _errorGenFn {
 	E_ILLEGAL_ESCAPE: inputErrorGen("illegal escape sequence"),
 	E_UNEXPECTED_TOKEN: inputErrorGen("unexpected token"),
 	E_EXPECTED_CHAR_CLOSE: inputErrorGen("expected end of character literal"),
+	E_EXPECTED_RAW_ID_CLOSE: inputErrorGen("expected closing backtick"),
 	E_UNEXPECTED_CONTROL: inputErrorGen("unexpected control character"),
 	E_TRAILING_UNDERSCORE: inputErrorGen("trailing digit seperator"),
 	E_STRING_ONLY_ESCAPE: inputErrorGen("escape sequence is not allowed for char literals"),
@@ -322,6 +339,7 @@ var inputErrors = map[inputErrorType] _errorGenFn {
 }
 
 var ID_REGEX = regexp.MustCompile("[A-Za-z][A-Za-z0-9_]*(')*")
+var EXT_ID_REGEX = regexp.MustCompile(`[^0-9\{\}\[\]\(\)\s\x60[[:cntrl:]]@]+`)
 var HEX_REGEX = regexp.MustCompile("0(x|X)([0-9A-Fa-f]_?)*[0-9A-Fa-f]+")
 var OCT_REGEX = regexp.MustCompile("0(o|O)([0-7]_?)*[0-7]+")
 var BIN_REGEX = regexp.MustCompile("0(b|B)([01]_?)*[01]+")
@@ -340,11 +358,14 @@ var keywords = map[string]Token {
 	"let": OtherToken{LET, 0, 0, 0},
 	"mut": OtherToken{MUT, 0, 0, 0},
 	"const": OtherToken{CONST, 0, 0, 0},
+	"mod" : OtherToken{MOD, 0, 0, 0},
 	"True": ValueToken{value.Bool(true), 0, 0, 0},
 	"False": ValueToken{value.Bool(false), 0, 0, 0},
+	"package": OtherToken{PACKAGE, 0, 0, 0},
+	"module": OtherToken{MODULE, 0, 0, 0},
 }
 
-func (in *Input) getIdOrKeyword() Token {
+func (in *Input) getIdOrKeyword2(forceId bool) Token {
 	loc := ID_REGEX.FindStringIndex(in.source[in.sourceIndex:])
 	if loc == nil || loc[0] != 0 { 
 		// this should be impossible
@@ -352,11 +373,16 @@ func (in *Input) getIdOrKeyword() Token {
 	}
 	
 	str := in.source[in.sourceIndex : in.sourceIndex + loc[1]]
-	key, found := keywords[str]
+	var key Token
+	var found bool = false // keyword is never found when id is forced 
+	if !forceId {
+		key, found = keywords[str]
+	}
 	start := in.charNumber
 	in.charNumber += loc[1]
 	in.sourceIndex += loc[1]
 	if !found {
+		// always returns here when id is forced
 		return IdToken{id: str, line: in.lineNumber, char: start}
 	}
 	if VALUE == key.GetType() {
@@ -370,6 +396,10 @@ func (in *Input) getIdOrKeyword() Token {
 		out.line = in.lineNumber
 		return out
 	}
+}
+
+func (in *Input) getIdOrKeyword() Token {
+	return in.getIdOrKeyword2(false)
 }
 
 func (in *Input) hasTrailingUnderscore() bool {
@@ -489,6 +519,20 @@ func (in *Input) ungetChar() {
 	}
 }
 
+/*func (in *Input) nonAsciiId() Token {
+	loc := EXT_ID_REGEX.FindStringIndex(in.source[in.sourceIndex:])
+	if loc == nil || loc[0] != 0 {
+		return inputErrors[E_UNEXPECTED_TOKEN](in)
+	}
+	length := loc[1]
+	id := in.source[in.sourceIndex:in.sourceIndex+length]
+	charBefore := in.charNumber
+	indexBefore := in.sourceIndex
+	in.charNumber += length
+	in.sourceIndex += length
+	return IdToken{id: id, index: indexBefore, line: in.lineNumber, char: charBefore}
+} */
+
 func (in *Input) Next() Token {
 	/*if length := len(in.stored); length > 0 {
 		tok := in.stored[length - 1]
@@ -548,6 +592,10 @@ func (in *Input) Next() Token {
 	case ':':
 		if in.peek() == ':' {
 			in.nextChar()
+			if in.peek() == '=' {
+				in.nextChar()
+				return in.tokenUnit(COLON_COLON_EQUAL)
+			}
 			return in.tokenUnit(COLON_COLON)
 		}
 		return in.tokenUnit(COLON)
@@ -614,6 +662,15 @@ func (in *Input) Next() Token {
 			return in.tokenUnit(BAR_BAR)
 		}
 		return in.tokenUnit(BAR)
+	/*case '`':
+		tok := in.nonAsciiId()
+		if tok.GetType() == ERROR {
+			return tok
+		}
+		if in.nextChar() != '`' {
+			return inputErrors[E_EXPECTED_RAW_ID_CLOSE](in)
+		}
+		return tok*/
 	case '"':
 		return in.getString()
 	case '\'':
@@ -621,13 +678,15 @@ func (in *Input) Next() Token {
 	case '\\':
 		return in.tokenUnit(BACKSLASH)
 	case '@':
-		
+		return AnotationToken(in.getIdOrKeyword2(true).(IdToken))
 	case 0:
 		return in.tokenUnit(EOF)
 	default:
+		/*in.ungetChar()
+		return in.nonAsciiId()*/
 		return inputErrors[E_UNEXPECTED_TOKEN](in)
 	}
-	return inputErrors[E_UNEXPECTED_TOKEN](in)
+	//return inputErrors[E_UNEXPECTED_TOKEN](in)
 }
 
 var patternMap = map[TokenType]byte {
@@ -751,7 +810,7 @@ func CompileTokenPattern(ts []TokenType) TokenPattern {
 	return TokenPattern{pattern: regexp.MustCompile(pat), newLines: nl}
 } 
 
-func (in *InputStream) Match(pattern TokenPattern) int {
+func (in InputStream) Match(pattern TokenPattern) int {
 	if in.asStringPattern == "" {
 		ts := make([]TokenType, len(in.tokens))
 		for i, t := range in.tokens {
@@ -767,20 +826,13 @@ func (in *InputStream) Match(pattern TokenPattern) int {
 	return loc[1]
 } 
 
-func (in *Input) getImage() Input { return *in }
-
-/*func (in *Input) Match(pattern TokenPattern) int {
-	img := in.getImage()
-
-}*/
-
 func (in *InputStream) Next() Token {
 	if in.streamIndex + 1 >= in.streamLength {
 		if in.tokens[in.streamIndex].GetType() != EOF {
 			err.PrintBug()
 			panic("")
 		}
-		return in.tokens[in.streamIndex - 1]
+		return in.tokens[in.streamIndex] // should return EOF 
 	}
 	in.streamIndex++
 	return in.tokens[in.streamIndex - 1]

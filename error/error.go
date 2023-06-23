@@ -137,8 +137,42 @@ func curryMessage(path string) _lineToMessage {
 	}
 }
 
+type ErrorLocation struct {
+	line int
+	char int
+	index int
+	path string
+	source string
+}
+
+func MakeErrorLocation(line int, char int, index int, path string, source string) ErrorLocation {
+	return ErrorLocation{
+		line: line, 
+		char: char, 
+		index: index, 
+		path: path, 
+		source: source, 
+	}
+}
+
+func (e ErrorLocation) GetLineCharString() string {
+	return strconv.Itoa(e.line) + ":" + strconv.Itoa(e.char)
+}
+func (e ErrorLocation) ToString() string {
+	if e.path == "" {
+		return e.GetLineCharString()
+	}
+	return e.path + ":" + e.GetLineCharString()
+}
+func (e ErrorLocation) GetLine() int { return e.line }
+func (e ErrorLocation) GetChar() int { return e.char }
+func (e ErrorLocation) GetPath() string { return e.path }
+func (e ErrorLocation) GetSource() string { return e.source }
+func (e ErrorLocation) GetSourceIndex() int { return e.index }
+
 var NoHeaderMessage = curryMessage("")(0)(0)(0)("")
 var SystemError = NoHeaderMessage(ERROR)(SYSTEM)
+var SyntaxError = SYNTAX.CompileError
 
 // compileMessage creates an error or warning message from the params
 func CompileMessage(
@@ -151,6 +185,13 @@ func CompileMessage(
 		return Warning{message: m, subtype: subtype, path: path, line: line, char: char, index: index}
 	}
 	return Error{message: m, subtype: subtype}
+}
+
+func (est ErrorSubType) CompileError(m string, e ErrorLocation) Error {
+	return CompileMessage(m, ERROR, est, e.path, e.line, e.char, e.index, e.source).(Error)
+}
+func (est ErrorSubType) CompileWarning(m string, e ErrorLocation) Warning {
+	return CompileMessage(m, WARNING, est, e.path, e.line, e.char, e.index, e.source).(Warning)
 }
 
 func (e ErrorSubType) CompileMessage(

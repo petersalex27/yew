@@ -1,0 +1,83 @@
+package ast
+
+import (
+	"fmt"
+	. "yew/parser/node-type"
+	. "yew/parser/parser"
+	"yew/symbol"
+	types "yew/type"
+	err "yew/error"
+)
+
+type Application struct {
+	left  Expression
+	right Expression
+}
+
+func (app Application) Split() (Expression, Expression) {
+	return app.split()
+}
+
+func (app Application) ExpressionType() types.Types {
+	return app.left.ExpressionType().Apply(app.right.ExpressionType())
+}
+func (app Application) ResolveNames(table *symbol.SymbolTable) bool {
+	return app.left.ResolveNames(table) && app.right.ResolveNames(table)
+	// TODO
+}
+func (app Application) DoTypeInference(newTypeInformation types.Types) types.Types {
+	// TODO
+	panic("")
+}
+
+func (app Application) GetNodeType() NodeType { return APPLICATION }
+
+// Application ::= Function Expression
+var appRule1 = NodeRule{
+	Production: APPLICATION,
+	Expression: []NodeType{FUNCTION, EXPRESSION},
+}
+// Application ::= Expression Expression
+var appRule2 = NodeRule{
+	Production: APPLICATION,
+	Expression: []NodeType{EXPRESSION, EXPRESSION},
+}
+
+func (app Application) Make(p *Parser) bool {
+	valid, _ := p.Stack.TryValidate(appRule1.Expression)
+	if valid {
+		app.right = p.Stack.Pop().(Expression)
+		app.left = p.Stack.Pop().(Function).function
+	} else {
+		var e err.Error
+		valid, e = p.Stack.Validate(appRule2)
+		if !valid {
+			e.Print()
+			return false
+		}
+		app.right = p.Stack.Pop().(Expression)
+		app.left = p.Stack.Pop().(Expression)
+	}
+
+	p.Stack.Push(app)
+	return true
+}
+
+func (app Application) Equal_test(a Ast) bool {
+	equal := a.GetNodeType() == APPLICATION
+	app2 := a.(Application)
+	return equal &&
+		app2.left.Equal_test(app.left) &&
+		app2.right.Equal_test(app.right)
+}
+func (app Application) Print(lines []string) {
+	next := printLines(lines)
+	fmt.Printf("Application\n")
+	next = append(next, " ├─")
+	app.left.Print(next)
+	next[len(next)-1] = " └─"
+	app.right.Print( next)
+}
+func MakeApplication(left Expression, right Expression) Application {
+	return Application{left: left, right: right}
+}

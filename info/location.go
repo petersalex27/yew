@@ -1,11 +1,17 @@
 package info
 
+import (
+	"strconv"
+	util "yew/utils"
+)
+
 // for things which can be located
 type Locatable interface {
 	GetLocation() Location
 }
 
 type Location interface {
+	util.Stringable
 	GetLine() int
 	GetChar() int
 	GetPath() string
@@ -24,6 +30,18 @@ type Path string
 
 func MakeLocation(line int, char int) Location {
 	return noPathLocation{line: line, char: char}
+}
+
+func (p pathLocation) toNoPath() noPathLocation {
+	return noPathLocation{line: p.line, char: p.char}
+}
+
+func (p pathLocation) ToString() string {
+	return p.path + ":" + p.toNoPath().ToString()
+}
+
+func (p noPathLocation) ToString() string {
+	return strconv.Itoa(p.line) + ":" + strconv.Itoa(p.char)
 }
 
 func (p Path) MakeLocation(line int, char int) Location {

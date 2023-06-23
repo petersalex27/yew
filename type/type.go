@@ -171,6 +171,8 @@ const (
 	CLASS 
 	DICTIONARY
 	APPLICATION
+	DATA
+	CONSTRUCTOR
 	ERROR
 	VALUE
 )
@@ -221,6 +223,15 @@ type Qualifier struct {
 	Class Class
 	TypeVariable Tau
 	Qualified Types
+}
+type Data struct {
+	Name string
+	TypeVariables []Tau
+	Constructors map[string]Constructor
+}
+type Constructor struct {
+	Name string
+	Members Application
 }
 type Error err.Error
 func (e Error) ToError() err.Error {
@@ -307,6 +318,28 @@ func (a Application) ToString() string {
 
 	return res[:len(res) - 1]
 }
+func (d Data) ToString() string {
+	var builder strings.Builder
+	builder.WriteString(d.Name)
+	builder.WriteByte(' ')
+	for _, v := range d.TypeVariables {
+		builder.WriteString(v.ToString())
+		builder.WriteByte(' ')
+	}
+	builder.WriteString("::")
+	for k, c := range d.Constructors {
+		builder.WriteByte(' ')
+		builder.WriteString(k)
+		builder.WriteByte(' ')
+		builder.WriteString(c.Members.ToString())
+		builder.WriteString(" |")
+	}
+	res := builder.String()
+	return res[:len(res)-2]
+}
+func (c Constructor) ToString() string {
+	return c.Name + " " + c.Members.ToString()
+}
 
 func (i Int) Apply(t Types) Types {
 	return Application([]Types{i, t})
@@ -363,6 +396,18 @@ func (q Qualifier) Apply(t Types) Types {
 func (a Application) Apply(t Types) Types {
 	return Application([]Types{a, t})
 }
+func (d Data) Apply(t Types) Types {
+	if t.GetTypeType() == TAU {
+		c, found := d.Constructors[t.(Tau).ToString()]
+		if found {
+			return c
+		}
+	}
+	return Application{d, t}
+}
+func (c Constructor) Apply(t Types) Types {
+	return Application{c, t}
+}
 
 func (i Int) GetTypeType() TypeType {
 	return INT
@@ -402,6 +447,12 @@ func (c Class) GetTypeType() TypeType {
 }
 func (a Application) GetTypeType() TypeType {
 	return APPLICATION
+}
+func (d Data) GetTypeType() TypeType {
+	return DATA
+}
+func (c Constructor) GetTypeType() TypeType {
+	return CONSTRUCTOR
 }
 
 func (i Int) Equals(t Types) bool {
@@ -500,6 +551,49 @@ func (a Application) Equals(t Types) bool {
 	}
 	return true
 }
+func (d Data) Equals(t Types) bool {
+	if DATA != t.GetTypeType() {
+		return false 
+	}
+
+	d2 := t.(Data)
+	if d.Name != d2.Name {
+		return false
+	}
+
+	if len(d.TypeVariables) != len(d2.TypeVariables) {
+		return false
+	}
+
+	if len(d.Constructors) != len(d2.Constructors) {
+		return false
+	}
+
+	for i := range d.TypeVariables {
+		if !d.TypeVariables[i].Equals(d2.TypeVariables[i]) {
+			return false
+		}
+	}
+
+	for key, val := range d.Constructors {
+		val2, found := d2.Constructors[key]
+		if !found {
+			return false
+		}
+		if !val.Equals(val2) {
+			return false
+		}
+	}
+
+	return true
+}
+func (c Constructor) Equals(t Types) bool {
+	if t.GetTypeType() != CONSTRUCTOR {
+		return false
+	}
+	c2 := t.(Constructor)
+	return c.Name == c2.Name && c.Members.Equals(c2.Members)
+}
 
 func (i Int) ReplaceTau(tau Tau, t Types) Types {
 	return i
@@ -553,7 +647,7 @@ func (q NamedTuple) ReplaceTau(_ Tau, _ Types) Types {
 	err.PrintBug()
 	panic("")
 }
-func (a Application) ReplaceTau(tau Tau, t Types) Types {
+/*func (a Application) ReplaceTau(tau Tau, t Types) Types {
 	// replace tau, then try application if applicable
 	tryApplication := 
 			FUNCTION == t.GetTypeType() &&
@@ -586,11 +680,41 @@ func (a Application) ReplaceTau(tau Tau, t Types) Types {
 		return newApplication[len(newApplication) - 1]
 	}
 	return newApplication
+}*/
+func (a Application) ReplaceTau(tau Tau, ty Types) Types {
+	out := make(Application, len(a))
+	for i, v := range a {
+		out[i] = v.ReplaceTau(tau, ty)
+	}
+	return out
+}
+func (d Data) ReplaceTau(tau Tau, ty Types) Types {
+	for _, v := range d.TypeVariables {
+		if string(v) == string(tau) {
+			for key, con := range d.Constructors {
+				d.Constructors[key] = con.ReplaceTau(tau, ty).(Constructor)
+			}
+
+			break
+		}
+	}
+
+	return d
+}
+
+func (c Constructor) ReplaceTau(tau Tau, ty Types) Types {
+	c.Members = c.Members.ReplaceTau(tau, ty).(Application)
+	return c
 }
 
 func DoTypeInference(t Types, newType Types) Types {
 	if TAU == newType.GetTypeType() {
 		res, ok := inferences.addRule(newType.(Tau), t)
+		if ok {
+			return res
+		}
+	} else if TAU == t.GetTypeType() {
+		res, ok := inferences.addRule(t.(Tau), newType)
 		if ok {
 			return res
 		}
@@ -658,6 +782,14 @@ func (c Class) InferType(newType Types) Types {
 	err.PrintBug()
 	panic("")
 }
+func (Constructor) InferType(Types) Types {
+	err.PrintBug()
+	panic("")
+}
+func (Data) InferType(Types) Types {
+	err.PrintBug()
+	panic("")
+}
 func (as Application) InferType(newType Types) Types {
 	if APPLICATION != newType.GetTypeType() {
 		return Error{}
@@ -677,6 +809,199 @@ func (as Application) InferType(newType Types) Types {
 	return as
 }
 
+func (a Application) Head() Types {
+	if len(a) == 0 {
+		return a
+	}
+	return a[0]
+}
+func (a Application) Tail() Types {
+	if len(a) == 0 {
+		return Tuple{}
+	} else if len(a) == 1 {
+		return Tuple{}
+	} else if len(a) == 2 {
+		return a[1]
+	}
+
+	return a[1:]
+}
+
+func (a Application) Split() (left Types, right Types) {
+	return a.Head(), a.Tail()
+}
+
+func GrabConstructorName(from Types) (Constructor, bool, err.Error) {
+	if from.GetTypeType() != TAU {
+		return Constructor{}, false, TypeErrors[E_UNEXPECTED]().(err.Error)
+	}
+	name := from.(Tau)
+	return Constructor{Name: string(name), Members: make(Application, 0)}, true, err.Error{}
+}
+
+func ToConstructor(from Types) (Constructor, bool) {
+	tt := from.GetTypeType()
+	if tt == TAU {
+		c, ok, e := GrabConstructorName(from)
+		if !ok {
+			e.Print()
+		}
+		return c, ok
+	} else if tt == APPLICATION {
+		head, tail := from.(Application).Split()
+		c, ok, e := GrabConstructorName(head)
+		if !ok {
+			e.Print()
+			return c, ok
+		}
+
+		if tail.GetTypeType() == APPLICATION {
+			c.Members = tail.(Application)
+		} else {
+			c.Members = Application{tail}
+		}
+		return c, ok
+	}
+
+	TypeErrors[E_UNEXPECTED]().Print()
+	return Constructor{}, false
+}
+
+func GrabDataName(from Types) (Data, bool, err.Error) {
+	if from.GetTypeType() != TAU {
+		return Data{}, false, TypeErrors[E_UNEXPECTED]().(err.Error)
+	}
+	name := from.(Tau)
+	//println("name =", string(name), "len(", len(string(name)), ")")
+	return Data{
+		Name: string(name), 
+		Constructors: make(map[string]Constructor, 0),
+		TypeVariables: make([]Tau, 0),
+	}, true, err.Error{}
+}
+
+func redeclareTypeVarError(name string, vars Application, i int) err.Error {
+	var builder strings.Builder
+	builder.WriteString("type variable redeclared:\n")
+	spaces, _ := builder.WriteString(name)
+	builder.WriteByte(' ')
+	spaces = spaces + 1
+
+	for j, v := range vars {
+		tmp, _ := builder.WriteString(v.ToString())
+		builder.WriteByte(' ')
+		tmp = tmp + 1
+
+		if j < i {
+			spaces = spaces + tmp
+		}
+	}
+	for j := 0; j < spaces; j++ {
+		builder.WriteByte(' ')
+	}
+	builder.WriteString("^-- here")
+ 	return typeErrorGen(builder.String())().(err.Error)
+}
+
+func addTypeVariables(d Data, vars Types) (Data, bool) {
+	if vars.GetTypeType() == APPLICATION {
+		maybeVars := vars.(Application)
+		d.TypeVariables = make([]Tau, 0, len(maybeVars))
+		tVarMap := make(map[string]Tau, len(maybeVars))
+
+		for i, m := range maybeVars {
+			if m.GetTypeType() != TAU {
+				TypeErrors[E_UNEXPECTED]().Print()
+				return d, false
+			}
+			tau := m.(Tau)
+			tauString := string(tau)
+			_, redeclared := tVarMap[tauString]
+			if redeclared {
+				// type variable redeclared
+				redeclareTypeVarError(d.Name, maybeVars, i).Print()
+				return d, false
+			}
+			// else add var to tracking map
+			tVarMap[tauString] = tau
+			// add to type variables
+			d.TypeVariables = append(d.TypeVariables, tau)
+		}
+	} else if vars.GetTypeType() == TAU {
+		d.TypeVariables = append(d.TypeVariables, vars.(Tau))
+	} else {
+		TypeErrors[E_UNEXPECTED]().Print()
+		return d, false
+	}
+
+	return d, true
+}
+
+func MakeConstructor(name string, members Application) Constructor {
+	return Constructor{Name: name, Members: members}
+}
+
+// should only be used after verifying all constructors in `cs` have unique names 
+func mapConstructors(cs []Constructor) map[string]Constructor {
+	out := make(map[string]Constructor, len(cs))
+	for _, c := range cs {
+		_, found := out[c.Name]
+		if found {
+			err.PrintBug()
+			panic("")
+		}
+		out[c.Name] = c
+	}
+	return out
+}
+
+func MakeTaus(s ...string) []Tau {
+	out := make([]Tau, len(s))
+	for i := range s {
+		out[i] = Tau(s[i])
+	}
+	return out
+}
+
+func MakeData2(name string, vars []string, cons []Constructor) Data {
+	return Data{
+		Name: name,
+		TypeVariables: MakeTaus(vars...),
+		Constructors: mapConstructors(cons),
+	}
+}
+
+func MakeData(name string, vars []Tau, cons []Constructor) Data {
+	return Data{
+		Name: name,
+		TypeVariables: vars, 
+		Constructors: mapConstructors(cons),
+	}
+}
+
+func ToData(from Types) (Data, bool) {
+	tt := from.GetTypeType()
+	if tt == TAU {
+		d, ok, e := GrabDataName(from)
+		if !ok {
+			e.Print()
+		}
+		return d, ok
+	} else if tt == APPLICATION {
+		head, tail := from.(Application).Split()
+		d, ok, e := GrabDataName(head)
+		if !ok {
+			e.Print()
+			return d, ok
+		}
+
+		return addTypeVariables(d, tail)
+	}
+
+	TypeErrors[E_UNEXPECTED]().Print()
+	return Data{}, false
+}
+
 type _errorGenFn (func () err.UserMessage)
 
 func typeErrorGen(message string) _errorGenFn {
@@ -688,9 +1013,13 @@ func typeErrorGen(message string) _errorGenFn {
 type typeErrorType int
 const (
 	E_UNEXPECTED typeErrorType = iota
+	E_EXPECTED_ARRAY
+	E_EXPECTED_TUPLE
 )
 var TypeErrors = map[typeErrorType] _errorGenFn {
 	E_UNEXPECTED: typeErrorGen("unexpected type"),
+	E_EXPECTED_ARRAY: typeErrorGen("expected array type"),
+	E_EXPECTED_TUPLE: typeErrorGen("expected tuple type"),
 }
 
 // a 1 1; a <- (+)

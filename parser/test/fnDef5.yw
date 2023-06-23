@@ -1,0 +1,1 @@
+myFunction x :: Int -> Maybe Int = Just x

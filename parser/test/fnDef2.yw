@@ -1,0 +1,1 @@
+fn x y :: Int -> Int -> Int = x

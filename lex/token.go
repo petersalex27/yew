@@ -75,6 +75,8 @@ const (
 	GREAT_EQUALS
 	LESS_EQUALS
 
+	MOD
+
 	TRUE
 	FALSE
 	
@@ -84,11 +86,21 @@ const (
 
 	UNDERSCORE
 
+	PACKAGE
+
+	MODULE
+
 	NEW_LINE
+
+	COLON_COLON_EQUAL
 
 	ERROR
 
 	EOF
+
+	BANG_POSTFIX__
+	MINUS_PREFIX__
+	PLUS_PREFIX__
 
 	_ANY__
 	_REPEAT__
@@ -103,8 +115,6 @@ type Token interface {
 	info.Locatable
 	GetType() TokenType
 	GetSourceIndex() int
-	//GetLineAndChar() (int, int)
-	//GetLocation() info.Location
 }
 type ValueToken struct {
 	value value.Value
@@ -130,10 +140,28 @@ type ErrorToken struct {
 }
 type AnotationToken IdToken
 
+func (in InputStream) MakeErrorLocation(token Token) err.ErrorLocation {
+	loc := token.GetLocation()
+	return err.MakeErrorLocation(
+		loc.GetLine(), 
+		loc.GetChar(), 
+		token.GetSourceIndex(), 
+		in.path,
+		in.source)
+}
+
+func (o OtherToken) ChangeTokenType(ty TokenType) Token {
+	o.tokenType = ty
+	return o
+}
+
 func (v ValueToken) GetValue() value.Value {
 	return v.value
 }
 
+func (a AnotationToken) GetLocation() info.Location {
+	return info.MakeLocation(a.line, a.char)
+}
 func (v ValueToken) GetLocation() info.Location {
 	return info.MakeLocation(v.line, v.char)
 }
@@ -147,6 +175,9 @@ func (e ErrorToken) GetLocation() info.Location {
 	return e.err.GetLocation()
 }
 
+func (a AnotationToken) GetSourceIndex() int {
+	return a.index
+}
 func (v ValueToken) GetSourceIndex() int {
 	return v.index
 }
@@ -160,6 +191,9 @@ func (e ErrorToken) GetSourceIndex() int {
 	return e.index
 }
 
+func (a AnotationToken) GetType() TokenType {
+	return AT
+}
 func (v ValueToken) GetType() TokenType {
 	return VALUE
 }
@@ -173,6 +207,9 @@ func (e ErrorToken) GetType() TokenType {
 	return ERROR
 }
 
+func (a AnotationToken) ToString() string {
+	return "@" + a.id
+}
 func (v ValueToken) ToString() string {
 	return v.value.ToString()
 }

@@ -6,6 +6,21 @@ type Stringable interface {
 	ToString() string
 }
 
+type Equatable[T any] interface {
+	Equals(T) bool
+}
+
+type Stackable[K any] interface {
+	Push(K)
+	Pop() K
+	Peek() K
+	//Make() *Stackable[K]
+}
+
+func NewStack[K any]()*Stackable[K] {
+	return new(Stackable[K])
+}
+
 type ColorString struct {
 
 }

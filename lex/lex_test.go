@@ -147,6 +147,24 @@ var inputCases = []TestInput {
 			OtherToken{EOF, 0, 0, 0},
 		},
 	},
+	/*{
+		path: folderLoc + "infix-id.yw",
+		expected: "(>>)",
+		expectedTokens: []Token{
+			OtherToken{LPAREN, 0, 0, 0},
+			IdToken{">>", 0, 0, 0},
+			OtherToken{RPAREN, 0, 0, 0},
+			OtherToken{EOF, 0, 0, 0},
+		},
+	},
+	{
+		path: folderLoc + "prefix-non-ascii-id.yw",
+		expected: "`$`",
+		expectedTokens: []Token{
+			IdToken{"$", 0, 0, 0},
+			OtherToken{EOF, 0, 0, 0},
+		},
+	},*/
 }
 
 func TestInit(t *testing.T) {
