@@ -86,7 +86,9 @@ func (pack Package) Equal_test(ast Ast) bool {
 	return pack.belongsToPackage.Equal_test(pack.belongsToPackage) &&
 			pack.program.Equal_test(pack2.program)
 }
-func (pack Package) Print(lines []string) {
+func (pack Package) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Package\n")
 	lines = append(lines, " ├─")

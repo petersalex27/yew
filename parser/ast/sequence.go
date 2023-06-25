@@ -77,7 +77,9 @@ func (s Sequence) Equal_test(a Ast) bool {
 	}
 	return equal
 }
-func (s Sequence) Print(lines []string) {
+func (s Sequence) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Sequence\n")
 	lines = append(lines, " ├─")

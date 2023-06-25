@@ -89,7 +89,7 @@ func (o OpType) StackLogString() string {
 }
 
 func (o OpType) Print(lines []string) {
-	lines = printLines(lines)
+	printLines(lines)
 	fmt.Printf("OpType == %s\n", o.ToString())
 }
 

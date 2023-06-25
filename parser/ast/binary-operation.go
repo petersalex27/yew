@@ -65,7 +65,9 @@ func (b BinaryOperation) Equal_test(a Ast) bool {
 		b.left.Equal_test(b2.left) &&
 		b.right.Equal_test(b2.right)
 }
-func (b BinaryOperation) Print(lines []string) {
+func (b BinaryOperation) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("BinaryOperation\n")
 	lines = append(lines, " ├─")

@@ -35,7 +35,9 @@ func (m ModuleMembership) Equal_test(ast Ast) bool {
 	m2 := ast.(ModuleMembership)
 	return Id(m).Equal_test(Id(m2))
 }
-func (m ModuleMembership) Print(lines []string) {
+func (m ModuleMembership) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Module Membership\n")
 	lines = append(lines, " └─")

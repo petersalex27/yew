@@ -62,7 +62,9 @@ func (u UnaryOperation) Equal_test(a Ast) bool {
 		u.op == u2.op &&
 		u.operand.Equal_test(u2.operand)
 }
-func (u UnaryOperation) Print(lines []string) {
+func (u UnaryOperation) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("UnaryOperation\n")
 	lines = append(lines, " ├─")

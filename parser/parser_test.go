@@ -420,6 +420,7 @@ func TestParse(t *testing.T) {
 		/*if test.path == "./test/compose3.yw" {
 			ast.PrintAst(prog)
 		}//*/
+		ast.PrintAst(prog)
 		if !ast.EqualTest(prog, test.ast_) {
 			fmt.Fprintf(os.Stderr, ">>> failed: %s <<<\n", test.path)
 			fmt.Printf("Expected: \n")

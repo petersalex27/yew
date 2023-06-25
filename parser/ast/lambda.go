@@ -48,7 +48,9 @@ func (b Binder) Equal_test(a Ast) bool {
 	b2 := a.(Binder)
 	return equal && Parameter(b).Equal_test(Parameter(b2))
 }
-func (b Binder) Print(lines []string) {
+func (b Binder) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Binder\n")
 	lines = append(lines, " └─")
@@ -117,7 +119,9 @@ func (lambda Lambda) Equal_test(a Ast) bool {
 		lambda.bound.Equal_test(l2.bound)
 }
 
-func (l Lambda) Print(lines []string) {
+func (l Lambda) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Lambda\n")
 	lines = append(lines, " ├─")

@@ -46,8 +46,10 @@ func (e EmptyExpression) DoTypeInference(newTypeInformation types.Types) types.T
 func (e EmptyExpression) Equal_test(a Ast) bool {
 	return a.GetNodeType() == EMPTY__
 }
-func (e EmptyExpression) Print(lines []string) {
+func (e EmptyExpression) Print(ls []string) {
 	name := "EmptyExpression"
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	if e.statement == nil {
 		fmt.Printf("%s ()\n", name)

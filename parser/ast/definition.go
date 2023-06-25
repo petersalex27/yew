@@ -61,7 +61,9 @@ func (def Definition) Equal_test(a Ast) bool {
 	return equal
 }
 
-func (def Definition) Print(lines []string) {
+func (def Definition) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Definition\n")
 	lines = append(lines, " └─")

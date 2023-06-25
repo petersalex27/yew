@@ -80,7 +80,9 @@ func (app Application) Equal_test(a Ast) bool {
 		app2.right.Equal_test(app.right)
 }
 func (app Application) Print(lines []string) {
-	next := printLines(lines)
+	next := make([]string, len(lines))
+	next = append(next, lines...)
+	next = printLines(next)
 	fmt.Printf("Application\n")
 	next = append(next, " ├─")
 	app.left.Print(next)

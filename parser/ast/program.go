@@ -94,13 +94,17 @@ func (p Program) Equal_test(a Ast) bool {
 	return true
 }
 
-func (p Program) Print(lines []string) {
+func (p Program) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Program\n")
 	lines = append(lines, " ├─")
-	if p == nil || len(p) == 0 {
+	if len(p) == 0 {
 		lines[len(lines)-1] = " └─"
+		printLines(lines)
 		fmt.Printf("ø\n")
+		return
 	}
 	for _, q := range p[:len(p)-1] {
 		q.Print(lines)

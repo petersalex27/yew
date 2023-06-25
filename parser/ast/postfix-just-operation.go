@@ -49,7 +49,7 @@ const (
 )
 
 func (o PostOpType) Print(lines []string) {
-	lines = printLines(lines)
+	printLines(lines)
 	fmt.Printf("PostOpType == %s\n", o.ToString())
 }
 

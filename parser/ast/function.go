@@ -298,7 +298,9 @@ func (f Function) Equal_test(a Ast) bool {
 		f.function.Equal_test(f2.function)
 }
 
-func (f Function) Print(lines []string) {
+func (f Function) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Function\n")
 	lines = append(lines, " ├─")

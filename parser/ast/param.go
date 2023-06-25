@@ -55,7 +55,9 @@ func (p Parameter) Equal_test(a Ast) bool {
 		p.paramIndex == p2.paramIndex &&
 		p.pattern.Equal_test(p2.pattern)
 }
-func (p Parameter) Print(lines []string) {
+func (p Parameter) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Parameter (idx=%d)\n", p.paramIndex)
 	lines = append(lines, " └─")

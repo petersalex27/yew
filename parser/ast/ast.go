@@ -8,7 +8,9 @@ import (
 	types "yew/type"
 )
 
-func printLines(xs []string) []string {
+func printLines(xs_ []string) []string {
+	xs := make([]string, 0, len(xs_))
+	xs = append(xs, xs_...)
 	for _, x := range xs {
 		fmt.Printf("%s", x)
 	}

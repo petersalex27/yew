@@ -111,17 +111,20 @@ func (pat Pattern) Equal_test(a parser.Ast) bool {
 	}
 	return true
 }
+
 func (pat Pattern) Print(lines []string) {
-	lines = printLines(lines)
+	copy := make([]string, 0, len(lines))
+	copy = append(copy, lines...)
+	copy = printLines(copy)
 	fmt.Printf("Pattern\n")
-	lines = append(lines, " ├─")
-	pat.Expression.Print(lines)
+	copy = append(copy, " ├─")
+	pat.Expression.Print(copy)
 	for i := 0; i < len(pat.Matchers)-1; i++ {
-		pat.Matchers[i].Print(lines)
+		pat.Matchers[i].Print(copy)
 	}
 	if len(pat.Matchers) > 0 {
-		lines[len(lines)-1] = " └─"
-		pat.Matchers[len(pat.Matchers)-1].Print(lines)
+		copy[len(copy)-1] = " └─"
+		pat.Matchers[len(pat.Matchers)-1].Print(copy)
 	}
 }
 func (pat Pattern) ResolveNames(table *symbol.SymbolTable) bool {

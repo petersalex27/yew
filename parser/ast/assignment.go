@@ -52,10 +52,12 @@ func (a Assignment) Equal_test(ast Ast) bool {
 }
 
 func (a Assignment) Print(lines []string) {
-	lines = printLines(lines)
+	next := make([]string, len(lines))
+	next = append(next, lines...)
+	next = printLines(next)
 	fmt.Printf("Assignment\n")
-	lines = append(lines, " ├─")
-	a.target.Print(lines)
-	lines[len(lines)-1] = " └─"
-	a.expression.Print(lines)
+	next = append(next, " ├─")
+	a.target.Print(next)
+	next[len(next)-1] = " └─"
+	a.expression.Print(next)
 }

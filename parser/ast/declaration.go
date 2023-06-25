@@ -111,7 +111,9 @@ func (dq DeclarationQualifier) ToString() string {
 	panic("")
 }
 
-func (dec Declaration) Print(lines []string) {
+func (dec Declaration) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Declaration (%s)\n", dec.Qualifier.ToString())
 	lines = append(lines, " └─")

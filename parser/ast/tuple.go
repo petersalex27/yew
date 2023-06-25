@@ -42,7 +42,9 @@ func (t Tuple) Equal_test(a parser.Ast) bool {
 	}
 	return true
 }
-func (t Tuple) Print(lines []string) {
+func (t Tuple) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Tuple\n")
 	lines = append(lines, " ├─")

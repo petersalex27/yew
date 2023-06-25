@@ -42,7 +42,9 @@ func (ls List) Equal_test(a Ast) bool {
 	}
 	return true
 }
-func (ls List) Print(lines []string) {
+func (ls List) Print(lns []string) {
+	lines := make([]string, len(lns))
+	lines = append(lines, lns...)
 	lines = printLines(lines)
 	fmt.Printf("List\n")
 	lines = append(lines, " ├─")

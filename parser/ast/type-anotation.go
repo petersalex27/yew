@@ -46,7 +46,9 @@ func (e ExpressionTypeAnnotation) Equal_test(a Ast) bool {
 		e.expression.Equal_test(e2.expression) &&
 		checkTypeEqual(e.expressionType, e2.expressionType)
 }
-func (e ExpressionTypeAnnotation) Print(lines []string) {
+func (e ExpressionTypeAnnotation) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("Expression :: %s\n", e.expressionType.ToString())
 	lines = append(lines, " └─")

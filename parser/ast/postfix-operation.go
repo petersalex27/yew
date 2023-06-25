@@ -48,7 +48,9 @@ func (post PostfixOperation) Equal_test(a Ast) bool {
 		post.op.Equal_test(post2.op) &&
 		post.operand.Equal_test(post2.operand)
 }
-func (post PostfixOperation) Print(lines []string) {
+func (post PostfixOperation) Print(ls []string) {
+	lines := make([]string, len(ls))
+	lines = append(lines, ls...)
 	lines = printLines(lines)
 	fmt.Printf("PostfixOperation\n")
 	lines = append(lines, " ├─")
