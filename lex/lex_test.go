@@ -268,7 +268,7 @@ func TestMatch(test *testing.T) {
 		streamCapacity: 6,
 		source: "let x Int = 1",
 		asStringPattern: "",
-		tokens: []Token{LET_TOKEN, MakeIdToken("x", 0, 0), INT_TOKEN, EQUALS_TOKEN, ValueToken{value: value.Int(1)}, EOF_TOKEN},
+		tokens: []Token{LET_TOKEN, MakeIdToken("x", 0, 0), INT_TOKEN, EQUALS_TOKEN, ValueToken{value.Int(1),0,0,0}, EOF_TOKEN},
 	}
 	pats := []TokenPattern{
 		CompileTokenPattern([]TokenType{LET, ID, INT, EQUALS, VALUE, EOF}),

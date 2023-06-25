@@ -119,8 +119,9 @@ var nodeTypeStringMap = map[NodeType]string{
 	MODULE_MEMBERSHIP:  "Module-Membership",
 	LIST:               "List",
 	TUPLE:              "Tuple",
-	TYPE_DEF:          "Type-Definition",
+	TYPE_DEF:           "Type-Definition",
 	TYPE:               "Type",
+	PATTERN:            "Pattern",
 	STACK_MARKER:       "",
 	REPEAT__:           "",
 	REPEAT_OR_NONE__:   "",
@@ -174,6 +175,7 @@ const (
 	TUPLE
 	TYPE
 	TYPE_DEF
+	PATTERN
 	REPEAT__
 	REPEAT_OR_NONE__
 	IN_PROGRESS__ NodeType = 0x80

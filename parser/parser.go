@@ -6,6 +6,7 @@ import (
 	scan "yew/lex"
 	ast "yew/parser/ast"
 	bp "yew/parser/bp"
+	errorgen "yew/parser/error-gen"
 	nodetype "yew/parser/node-type"
 	. "yew/parser/parser"
 	symbol "yew/symbol"
@@ -38,14 +39,7 @@ func printError(p *Parser, errToken scan.Token) {
 	error(p, errToken)
 }
 
-func generateSyntaxError(message string) func(scan.Token, scan.InputStream) err.Error {
-	return func(t scan.Token, i scan.InputStream) err.Error {
-		loc := t.GetLocation()
-		return err.CompileMessage(
-			message, err.ERROR, err.SYNTAX, (i).GetPath(), loc.GetLine(), loc.GetChar(),
-			t.GetSourceIndex(), (i).GetSource()).(err.Error)
-	}
-}
+var generateSyntaxError = errorgen.GenerateSyntaxError
 
 var expectedID = generateSyntaxError("expected identifier")
 var expectedEndOfStatement = generateSyntaxError("expected end of statement")
@@ -67,7 +61,7 @@ func isPrefixTypeToken(t scan.TokenType) bool {
 }
 
 func parseTypePrefix(p *Parser) (types.Types, bool) {
-	p.Stack.Push(ast.StackMarker{})
+	p.Stack.Mark(p)
 
 	i := 0
 	for {
@@ -148,11 +142,10 @@ func parseTypePrefix(p *Parser) (types.Types, bool) {
 	}
 
 	ty := p.Stack.Pop().(ast.Type).GetType()
-	if p.Stack.GetTopNodeType() != nodetype.STACK_MARKER {
+	if !p.Stack.Demark(p) { // removes stack marker
 		err.PrintBug()
 		panic("")
 	}
-	p.Stack.Pop() // remove stack marker
 
 	return ty, true
 }
@@ -339,12 +332,12 @@ func parseId(p *Parser) bool {
 	return true
 }
 
-func parseDeclaration(p *Parser) bool {
+func parseDeclaration(p *Parser, qualifier ast.DeclarationQualifier) bool {
 	// whether it finds a type or not, a type annotation is pushed; if it doesn't
 	// find one, a tau type is pushed
 	return parseId(p) &&
 		initialParseTypeAnnotation(p) &&
-		ast.Declaration{}.Make(p)
+		ast.Declaration{Qualifier: qualifier}.Make(p)
 }
 
 func parseInit(p *Parser) bool {
@@ -356,9 +349,9 @@ func parseInit(p *Parser) bool {
 	return parseExpression(p, bp.None) //&& ast.Assignment{}.Make(p)
 }
 
-func letParse(p *Parser) bool {
+func parseQualifiedDeclaration(p *Parser, qualifier ast.DeclarationQualifier) bool {
 	// definition ::= `let` ID `::` typeAnotation = expression
-	return parseDeclaration(p) &&
+	return parseDeclaration(p, qualifier) &&
 		parseInit(p) &&
 		ast.Definition{}.Make(p)
 }
@@ -373,8 +366,8 @@ func identifier(p *Parser, token scan.Token) bool {
 	return true
 }
 func value_(p *Parser, token scan.Token) bool {
-	val := token.(scan.ValueToken).GetValue()
-	p.Stack.Push(ast.MakeValue(val))
+	val := token.(scan.ValueToken)
+	p.Stack.Push(ast.Value(val))
 	return true
 }
 func parseError(p *Parser, token scan.Token) bool {
@@ -393,8 +386,7 @@ func paren(p *Parser, token scan.Token) bool {
 }
 
 func block(p *Parser, token scan.Token) bool {
-	err.PrintBug()
-	panic("TODO")
+	return parseProgram(p, false, true)
 }
 
 func sequence(p *Parser, delimiter scan.TokenType, action func(*Parser, scan.Token) bool) bool {
@@ -513,6 +505,19 @@ func binary(p *Parser, token scan.Token) bool {
 
 var postfixOp = binary
 
+func patternFunction(p *Parser, token scan.Token) bool {
+	if !(ast.Parameter{}.MakePatternParam(p)) {
+		return false
+	}
+
+	p.Advance()
+	if !parseExpression(p, bp.Mapping) {
+		return false
+	}
+
+	return ast.Lambda{}.Make2(p)
+}
+
 func lambda(p *Parser, token scan.Token) bool {
 	p.Advance()
 	// do not use binding power of -> here, else -> would become left-to-right; but, it's
@@ -530,11 +535,11 @@ func createBinder(p *Parser, token scan.Token) bool {
 		if tok.GetType() != scan.ID {
 			return true // end of action
 		}
-		if !parseDeclaration(par) {
+		if !parseDeclaration(par, ast.ParamDeclare) {
 			return false
 		}
 		dec := par.Stack.Peek().(ast.Declaration)
-		par.Stack.Push(ast.Id(dec))
+		par.Stack.Push(dec)
 		if !(ast.Binder{}.Make(p)) {
 			return false
 		}
@@ -610,8 +615,8 @@ func ignore(*Parser, scan.Token) bool {
 }
 
 func pattern(p *Parser, token scan.Token) bool {
-	err.PrintBug()
-	panic("TODO")
+	p.Advance()
+	return parseExpression(p, 0) && ast.Pattern{}.MakePattern(p, token)
 }
 
 func annotation(p *Parser, token scan.Token) bool {
@@ -638,7 +643,7 @@ func compose(p *Parser, token scan.Token) bool {
 	// 	composition right-to-left
 	p.Advance()
 	ok :=
-		parseExpression(p, bp.Compose - 1) &&
+		parseExpression(p, bp.Compose-1) &&
 			ast.Application{}.Make(p)
 	return ok
 }
@@ -721,6 +726,85 @@ func parseApplication(p *Parser, _ scan.Token) bool {
 	return ok
 }
 
+func newSequenceFromExpression(p *Parser) ast.Sequence {
+	expr := p.Stack.Pop().(ast.Expression)
+	return ast.Sequence{expr}
+}
+
+func embedStatementNewSequence(p *Parser) ast.Sequence {
+	statement := p.Stack.Pop().(ast.Statement)
+	return ast.Sequence{ast.MakeEmptyExpression(statement)}
+}
+
+func isDeclarationQualifier(t scan.TokenType) bool {
+	return t == scan.LET || t == scan.CONST || t == scan.MUT
+}
+
+func getQualifier(t scan.TokenType) ast.DeclarationQualifier {
+	switch t {
+	case scan.LET:
+		return ast.LetDeclare
+	case scan.MUT:
+		return ast.MutDeclare
+	case scan.CONST:
+		return ast.ConstDeclare
+	}
+
+	err.PrintBug()
+	panic("")
+}
+
+func isIgnorable(t scan.TokenType) bool {
+	return t == scan.NEW_LINE || t == scan.SEMI_COLON
+}
+func ignoreLeadingIgnorables(p *Parser) {
+	for lead := p.Current.GetType(); isIgnorable(lead); lead = p.Current.GetType() {
+		p.Advance()
+	}
+}
+
+func parseSequence(p *Parser, _ scan.Token) bool {
+	// create new sequence
+	topType := p.Stack.GetTopNodeType()
+	var seq ast.Sequence
+	if IsExpression(topType) {
+		seq = newSequenceFromExpression(p)
+	} else if IsStatement(topType) {
+		seq = embedStatementNewSequence(p)
+	} else {
+		err.PrintBug()
+		panic("")
+	}
+	p.Stack.Push(seq)
+
+	ok := false
+	for p.Current.GetType() == scan.SEMI_COLON {
+		ignoreLeadingIgnorables(p)
+
+		currentType := p.Current.GetType()
+		if isDeclarationQualifier(currentType) {
+			qualifier := getQualifier(currentType)
+			ok = parseQualifiedDeclaration(p, qualifier) &&
+				ast.EmptyExpression{}.Make(p)
+		} else {
+			ok = parseExpression(p, bp.Sequencer)
+		}
+
+		ok = ok && ast.Sequence{}.Make(p)
+		if !ok {
+			break
+		}
+
+		if p.Next.GetType() == scan.SEMI_COLON {
+			p.Advance()
+		} else {
+			break
+		}
+	}
+
+	return ok
+}
+
 // initializes parse table (safe to call from multiple threads)
 func InitParseTable() {
 	// this function is needed to avoid circular initializations
@@ -765,7 +849,7 @@ func InitParseTable() {
 			scan.COLON:             {bp.Additive, parseError, binary, operation},
 			scan.COLON_COLON:       {bp.ExpressionAnotation, parseError, typeAnnotation, typeAnnotation},
 			scan.COLON_COLON_EQUAL: {bp.None, parseError, parseError, nil},
-			scan.SEMI_COLON:        {bp.None, ignore, parseError, nil},
+			scan.SEMI_COLON:        {bp.Sequencer, parseError, parseSequence, nil},
 			scan.QUESTION:          {bp.PatternMatch, parseError, pattern, nil},
 			scan.COMMA:             {bp.None, parseError, parseError, comma},
 			scan.BANG:              {bp.Postfix, prefix, postfixOp, operation},
@@ -774,7 +858,7 @@ func InitParseTable() {
 			scan.BAR:               {bp.None, parseError, parseError, nil},
 			scan.AMPER_AMPER:       {bp.Conjunctive, parseError, binary, operation},
 			scan.BAR_BAR:           {bp.Disjunctive, parseError, binary, operation},
-			scan.ARROW:             {bp.Mapping, parseError, lambda, nil},
+			scan.ARROW:             {bp.Mapping, parseError, patternFunction, nil},
 			scan.FAT_ARROW:         {bp.None, parseError, parseError, nil},
 			scan.DOT:               {bp.Compose, parseError, compose, compose},
 			scan.DOT_DOT:           {bp.None, parseError, parseError, nil},
@@ -849,29 +933,14 @@ func moduleParse(p *Parser) bool {
 
 	//p.Advance()
 	validModuleDefinition :=
-		parseProgram(p, parseProgramBlock) && // attempt to parse module definition
+		parseProgram(p, false, true) && // attempt to parse module definition
 			ast.Module{}.Make(p) // attempt to create module
 	return validModuleDefinition
 }
 
 func parseFunctionDeclaration(p *Parser, functionName ast.Id) bool {
 	return ast.DeclareFunction(p, functionName, func(par *Parser) bool {
-		// parses function body
-		if par.Next.GetType() == scan.LCURL {
-			par.Advance()
-			// skip leading newlines
-			for ty := par.Next.GetType(); ty == scan.RCURL || ty == scan.NEW_LINE; ty = par.Next.GetType() {
-				if ty == scan.RCURL {
-					// end of function, push empty valued expression to stack
-					par.Stack.Push(ast.EmptyExpression{})
-					break
-				}
-				par.Advance()
-			}
-			return parseProgram(p, parseProgramBlock)
-		} else {
-			return parseProgram(p, parseProgramSequence)
-		}
+		return parseExpression(p, 0)
 	})
 }
 
@@ -941,85 +1010,23 @@ func functionParse(p *Parser) bool {
 
 	// possibly function def
 	if p.Next.GetType() == scan.EQUALS { // is function def
-		//p.Advance()
+		p.Advance()
 		p.Advance()
 		return parseFunctionDeclaration(p, id)
 	}
 	return ok
 }
 
-// for blocks, top-level scope, and sequences
-func onSemi_any(p *Parser, end *bool) bool {
-	*end = false
-	return ast.Sequence{}.Make(p)
-}
-
-// for blocks and top-level scope
-func onNewLine_block_top(p *Parser, end *bool) bool {
-	*end = false
-	if p.Stack.GetTopNodeType() != nodetype.STACK_MARKER {
-		//fmt.Printf("**** %s ****\n", p.Stack.GetTopNodeType().ToString())
-		return ast.Sequence{}.Make(p)
-	}
-	return true
-	//return ast.Sequence{}.Make(p)
-}
-
-func onEOF_block(p *Parser, end *bool) bool {
-	*end = true
-	printError(p, p.Current)
-	return false
-}
-
-// for
-func onEOF_seq_top(p *Parser, end *bool) bool {
-	*end = true
-	return true
-}
-
-// for sequences
-func onNewLine_seq(p *Parser, end *bool) bool {
-	*end = true
-	return true
-}
-
-// for blocks
-func onRCurl_block(p *Parser, end *bool) bool {
-	*end = true
-	return true
-}
-
-// for sequences and top-level
-func onRCurl_top_seq(p *Parser, end *bool) bool {
-	*end = true
-	printError(p, p.Current)
-	return false
-}
-
-var parseProgramBlock = parseProgramAction{
-	onSemi_any, onNewLine_block_top, onRCurl_block, onEOF_block}
-var parseProgramSequence = parseProgramAction{
-	onSemi_any, onNewLine_seq, onRCurl_top_seq, onEOF_seq_top}
-var parseProgramTop = parseProgramAction{
-	onSemi_any, onNewLine_block_top, onRCurl_top_seq, onEOF_seq_top}
-
-type parseProgramAction struct {
-	onSemi    func(*Parser, *bool) bool
-	onNewLine func(*Parser, *bool) bool
-	onRCurl   func(*Parser, *bool) bool
-	onEOF     func(*Parser, *bool) bool
-}
-
 func parseFromKey(tokenType scan.TokenType, p *Parser) bool {
 	switch tokenType {
 	case scan.LET:
-		return letParse(p)
+		return parseQualifiedDeclaration(p, ast.LetDeclare)
 	case scan.MUT:
-		return mutParse(p)
+		return parseQualifiedDeclaration(p, ast.MutDeclare)
+	case scan.CONST:
+		return parseQualifiedDeclaration(p, ast.ConstDeclare)
 	case scan.AT:
 		return annotationParse(p)
-	case scan.CONST:
-		return constParse(p)
 	case scan.CLASS:
 		return classParse(p)
 	case scan.MODULE:
@@ -1034,53 +1041,68 @@ func isEndOfStatementToken(t scan.TokenType) bool {
 	return t == scan.SEMI_COLON || t == scan.NEW_LINE || t == scan.EOF
 }
 
-func parseProgram(p *Parser, action parseProgramAction) bool {
-	ok := true
-	end := false
-
-	p.Stack.Push(ast.StackMarker{})
-
-	for ok && !end {
+func parseStatementNoIgnore(p *Parser) bool {
+	tokenType := p.Current.GetType()
+	switch tokenType {
+	case scan.LET:
+		fallthrough
+	case scan.MUT:
+		fallthrough
+	case scan.AT:
+		fallthrough
+	case scan.CONST:
+		fallthrough
+	case scan.CLASS:
+		fallthrough
+	case scan.MODULE:
 		p.Advance()
+		return parseFromKey(tokenType, p)
+	case scan.ID:
+		return functionParse(p)
+	}
+	return parseExpression(p, 0)
+}
 
-		tokenType := p.Current.GetType()
-		switch tokenType {
-		case scan.LET:
-			fallthrough
-		case scan.MUT:
-			fallthrough
-		case scan.AT:
-			fallthrough
-		case scan.CONST:
-			fallthrough
-		case scan.CLASS:
-			fallthrough
-		case scan.MODULE:
-			p.Advance()
-			ok = parseFromKey(tokenType, p)
-		case scan.ID:
-			ok = functionParse(p)
-		case scan.SEMI_COLON:
-			ok = action.onSemi(p, &end)
-		case scan.NEW_LINE:
-			ok = action.onNewLine(p, &end)
-		case scan.RCURL:
-			ok = action.onRCurl(p, &end)
-		case scan.EOF:
-			ok = action.onEOF(p, &end)
-		default:
-			ok = parseExpression(p, 0)
+func parseStatement(p *Parser) bool {
+	ignoreLeadingIgnorables(p)
+	return parseStatementNoIgnore(p)
+}
+
+func parseProgram(p *Parser, allowEof bool, endAtRCurl bool) bool {
+	ok := true
+
+	p.Stack.Mark(p)
+
+	for ok {
+		p.Advance()
+		ignoreLeadingIgnorables(p)
+		curr := p.Current.GetType()
+		if curr == scan.EOF {
+			if allowEof {
+				break
+			}
+
+			printError(p, p.Current) // TODO: should have specific error for this
+			return false
+		} else if curr == scan.RCURL {
+			if !endAtRCurl {
+				printError(p, p.Current)
+				return false
+			}
+			break
 		}
+
+		ok = parseStatementNoIgnore(p)
 	}
 
 	ok = ok && ast.Program{}.Make(p)
 	if ok {
 		top := p.Stack.Pop()
-		if p.Stack.GetTopNodeType() != nodetype.STACK_MARKER {
+		if !p.Stack.Demark(p) { // remove marker
 			err.PrintBug()
 			panic("")
 		}
-		p.Stack.Pop() // remove marker
+
 		p.Stack.Push(top)
 	}
 	return ok
@@ -1169,7 +1191,7 @@ func doParse(p *Parser) (bool, ast.Package) {
 	endParseCallback := maybePackage(p)
 	parsedSuccesfully =
 		endParseCallback != nil &&
-			parseProgram(p, parseProgramTop)
+			parseProgram(p, true, false)
 	if !parsedSuccesfully {
 		return false, ast.Package{}
 	}

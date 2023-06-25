@@ -2,28 +2,31 @@ package ast
 
 import (
 	"fmt"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	//"yew/demangler"
 	symbol "yew/symbol"
 	types "yew/type"
 )
 
 type PostfixOperation struct {
-	op PostOpType
+	op      PostOpType
 	operand Expression
 }
+
 func MakePostfixOperation(op PostOpType, operand Expression) PostfixOperation {
 	return PostfixOperation{op, operand}
 }
 
-func (post PostfixOperation) ResolveNames(table *symbol.SymbolTable) bool { 
-	return post.operand.ResolveNames(table) 
+func (post PostfixOperation) ResolveNames(table *symbol.SymbolTable) bool {
+	return post.operand.ResolveNames(table)
 }
-func (post PostfixOperation) GetNodeType() NodeType { 
+func (post PostfixOperation) GetNodeType() NodeType {
 	return POPERATION
 }
+
 var postOperationRule = NodeRule{Production: POPERATION, Expression: []NodeType{EXPRESSION, POP_}}
+
 func (post PostfixOperation) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(postOperationRule)
 	if !valid {
@@ -41,9 +44,9 @@ func (post PostfixOperation) Equal_test(a Ast) bool {
 		return false
 	}
 	post2 := a.(PostfixOperation)
-	return equal && 
-			post.op.Equal_test(post2.op) &&
-			post.operand.Equal_test(post2.operand)
+	return equal &&
+		post.op.Equal_test(post2.op) &&
+		post.operand.Equal_test(post2.operand)
 }
 func (post PostfixOperation) Print(lines []string) {
 	lines = printLines(lines)
@@ -59,4 +62,7 @@ func (post PostfixOperation) ExpressionType() types.Types {
 func (post PostfixOperation) DoTypeInference(newTypeInformation types.Types) types.Types {
 	ty := post.op.GetFunctionType(nil)
 	return ty.InferType(newTypeInformation)
+}
+func (post PostfixOperation) FindStartToken() scan.Token {
+	return post.operand.FindStartToken()
 }

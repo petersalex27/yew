@@ -2,11 +2,12 @@ package ast
 
 import (
 	"fmt"
-	"yew/parser/node-type"
+	err "yew/error"
+	scan "yew/lex"
+	nodetype "yew/parser/node-type"
 	. "yew/parser/parser"
 	"yew/symbol"
 	types "yew/type"
-	err "yew/error"
 )
 
 type List Sequence
@@ -15,6 +16,7 @@ var listRule = nodetype.NodeRule{
 	Production: nodetype.LIST,
 	Expression: []nodetype.NodeType{nodetype.SEQUENCE},
 }
+
 func (ls List) Make(p *Parser) bool {
 	if valid, e := p.Stack.Validate(listRule); !valid {
 		e.Print()
@@ -44,7 +46,7 @@ func (ls List) Print(lines []string) {
 	lines = printLines(lines)
 	fmt.Printf("List\n")
 	lines = append(lines, " ├─")
-	for i := 0; i < len(ls) - 1; i++ {
+	for i := 0; i < len(ls)-1; i++ {
 		ls[i].Print(lines)
 	}
 
@@ -83,4 +85,8 @@ func (ls List) DoTypeInference(newTypeInformation types.Types) types.Types {
 		}
 	}
 	return newTypeInformation
+}
+
+func (ls List) FindStartToken() scan.Token {
+	return ls[0].FindStartToken()
 }

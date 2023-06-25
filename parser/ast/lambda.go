@@ -3,6 +3,7 @@ package ast
 import (
 	"fmt"
 	err "yew/error"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
 	"yew/symbol"
@@ -15,8 +16,9 @@ func (b Binder) GetNodeType() NodeType { return BINDER }
 
 // Binder ::= Declaration Expression
 var binderRule = NodeRule{
-	DECLARATION, /* ::= */ []NodeType{DECLARATION, EXPRESSION},
+	DECLARATION /* ::= */, []NodeType{DECLARATION, EXPRESSION},
 }
+
 func (b Binder) Make(p *Parser) bool {
 	if valid, e := p.Stack.Validate(binderRule); !valid {
 		e.Print()
@@ -28,7 +30,7 @@ func (b Binder) Make(p *Parser) bool {
 	b = Binder(Parameter{
 		pattern: ExpressionTypeAnnotation{
 			expression:     exp,
-			expressionType: dec.ty,
+			expressionType: dec.id.ty,
 		},
 	})
 	p.Stack.Push(b)
@@ -62,21 +64,14 @@ func (lambda Lambda) GetNodeType() NodeType { return LAMBDA }
 
 // Anonymous-Function ::= Binder Expression
 var lambdaRule = NodeRule{
-	Production: LAMBDA, /* ::= */ Expression: []NodeType{BINDER, EXPRESSION},
+	Production: LAMBDA /* ::= */, Expression: []NodeType{BINDER, EXPRESSION},
 }
 var lambdaRule2 = NodeRule{
 	Production: LAMBDA,
 	Expression: []NodeType{PARAM, EXPRESSION},
 }
-func (lambda Lambda) Make(p *Parser) bool {
-	valid, _ := p.Stack.TryValidate(lambdaRule.Expression)
-	if valid {
-		lambda.bound = p.Stack.Pop().(Expression)
-		lambda.binder = Parameter(p.Stack.Pop().(Parameter))
-		p.Stack.Push(lambda)
-		return true
-	}
-	
+
+func (lambda Lambda) Make2(p *Parser) bool {
 	if valid, e := p.Stack.Validate(lambdaRule2); !valid {
 		e.Print()
 		return false
@@ -86,6 +81,17 @@ func (lambda Lambda) Make(p *Parser) bool {
 	lambda.binder = p.Stack.Pop().(Parameter)
 	p.Stack.Push(lambda)
 	return true
+}
+func (lambda Lambda) Make(p *Parser) bool {
+	valid, _ := p.Stack.TryValidate(lambdaRule.Expression)
+	if valid {
+		lambda.bound = p.Stack.Pop().(Expression)
+		lambda.binder = Parameter(p.Stack.Pop().(Parameter))
+		p.Stack.Push(lambda)
+		return true
+	}
+
+	return lambda.Make2(p)
 }
 func MakeLambda(p Parameter, e Expression) Lambda {
 	return Lambda{binder: p, bound: e}
@@ -118,4 +124,8 @@ func (l Lambda) Print(lines []string) {
 	l.binder.Print(lines)
 	lines[len(lines)-1] = " └─"
 	l.bound.Print(lines)
+}
+
+func (l Lambda) FindStartToken() scan.Token {
+	return l.binder.pattern.expression.FindStartToken()
 }

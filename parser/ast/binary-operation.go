@@ -3,6 +3,7 @@ package ast
 import (
 	"fmt"
 	"yew/ir"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
 	symbol "yew/symbol"
@@ -17,10 +18,10 @@ type BinaryOperation struct {
 
 func MakeBinaryOperation(op OpType, left Expression, right Expression) BinaryOperation {
 	return BinaryOperation{op, left, right}
-} 
+}
 
-func (b BinaryOperation) ResolveNames(table *symbol.SymbolTable) bool { 
-	return b.left.ResolveNames(table) && b.right.ResolveNames(table) 
+func (b BinaryOperation) ResolveNames(table *symbol.SymbolTable) bool {
+	return b.left.ResolveNames(table) && b.right.ResolveNames(table)
 }
 
 func (b BinaryOperation) ExpressionType() types.Types {
@@ -39,9 +40,11 @@ func (b BinaryOperation) Compile(builder *ir.IrBuilder) {
 
 }
 func (b BinaryOperation) GetNodeType() NodeType { return OPERATION }
+
 var binaryOperationRule = NodeRule{
-	Production: OPERATION, /* ::= */ Expression: []NodeType{EXPRESSION, BOP_, EXPRESSION},
+	Production: OPERATION /* ::= */, Expression: []NodeType{EXPRESSION, BOP_, EXPRESSION},
 }
+
 func (b BinaryOperation) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(binaryOperationRule)
 	if !valid {
@@ -70,4 +73,8 @@ func (b BinaryOperation) Print(lines []string) {
 	b.op.Print(lines)
 	lines[len(lines)-1] = " └─"
 	b.right.Print(lines)
+}
+
+func (b BinaryOperation) FindStartToken() scan.Token {
+	return b.left.FindStartToken()
 }

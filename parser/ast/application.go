@@ -2,11 +2,12 @@ package ast
 
 import (
 	"fmt"
+	err "yew/error"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
 	"yew/symbol"
 	types "yew/type"
-	err "yew/error"
 )
 
 type Application struct {
@@ -37,10 +38,15 @@ var appRule1 = NodeRule{
 	Production: APPLICATION,
 	Expression: []NodeType{FUNCTION, EXPRESSION},
 }
+
 // Application ::= Expression Expression
 var appRule2 = NodeRule{
 	Production: APPLICATION,
 	Expression: []NodeType{EXPRESSION, EXPRESSION},
+}
+
+func (app Application) FindStartToken() scan.Token {
+	return app.left.FindStartToken()
 }
 
 func (app Application) Make(p *Parser) bool {
@@ -65,7 +71,10 @@ func (app Application) Make(p *Parser) bool {
 
 func (app Application) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == APPLICATION
-	app2 := a.(Application)
+	app2, ok := a.(Application)
+	if !ok {
+		return false
+	}
 	return equal &&
 		app2.left.Equal_test(app.left) &&
 		app2.right.Equal_test(app.right)
@@ -76,7 +85,7 @@ func (app Application) Print(lines []string) {
 	next = append(next, " ├─")
 	app.left.Print(next)
 	next[len(next)-1] = " └─"
-	app.right.Print( next)
+	app.right.Print(next)
 }
 func MakeApplication(left Expression, right Expression) Application {
 	return Application{left: left, right: right}

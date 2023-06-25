@@ -2,11 +2,12 @@ package ast
 
 import (
 	"fmt"
-	"yew/parser/node-type"
+	err "yew/error"
+	scan "yew/lex"
+	nodetype "yew/parser/node-type"
 	"yew/parser/parser"
 	"yew/symbol"
 	types "yew/type"
-	err "yew/error"
 )
 
 type Tuple Sequence
@@ -15,6 +16,7 @@ var tupleRule = nodetype.NodeRule{
 	Production: nodetype.TUPLE,
 	Expression: []nodetype.NodeType{nodetype.SEQUENCE},
 }
+
 func (t Tuple) Make(p *parser.Parser) bool {
 	if valid, e := p.Stack.Validate(tupleRule); !valid {
 		e.Print()
@@ -44,7 +46,7 @@ func (t Tuple) Print(lines []string) {
 	lines = printLines(lines)
 	fmt.Printf("Tuple\n")
 	lines = append(lines, " ├─")
-	for i := 0; i < len(t) - 1; i++ {
+	for i := 0; i < len(t)-1; i++ {
 		t[i].Print(lines)
 	}
 
@@ -87,4 +89,8 @@ func (t Tuple) DoTypeInference(newTypeInformation types.Types) types.Types {
 		}
 	}
 	return newTypeInformation
+}
+
+func (t Tuple) FindStartToken() scan.Token {
+	return t[0].FindStartToken()
 }

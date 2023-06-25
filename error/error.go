@@ -145,6 +145,14 @@ type ErrorLocation struct {
 	source string
 }
 
+var BuiltinErrorLocation = ErrorLocation{
+	line: 0,
+	char: 0,
+	index: 0,
+	path: "builtin",
+	source: "",
+}
+
 func MakeErrorLocation(line int, char int, index int, path string, source string) ErrorLocation {
 	return ErrorLocation{
 		line: line, 

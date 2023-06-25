@@ -6,6 +6,7 @@ import (
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
 	"yew/symbol"
+	types "yew/type"
 )
 
 type Parameter struct {
@@ -24,6 +25,28 @@ func (Parameter) Make(*Parser) bool {
 	err.PrintBug()
 	panic("")
 }
+func (par Parameter) MakePatternParam(p *Parser) bool {
+	valid, e := p.Stack.Validate(NodeRule{PARAM, []NodeType{EXPRESSION}})
+	if !valid {
+		e.Print()
+		return false
+	}
+
+	var annot ExpressionTypeAnnotation
+	expr := p.Stack.Pop().(Expression)
+	if expr.GetNodeType() != TYPE_ANNOTATION {
+		annot = ExpressionTypeAnnotation{
+			expression:     expr,
+			expressionType: types.GetNewTau(),
+		}
+	} else {
+		annot = expr.(ExpressionTypeAnnotation)
+	}
+	par.paramIndex = 0
+	par.pattern = annot
+	p.Stack.Push(par)
+	return true
+}
 func (p Parameter) GetNodeType() NodeType { return PARAM }
 func (p Parameter) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == PARAM
@@ -34,7 +57,7 @@ func (p Parameter) Equal_test(a Ast) bool {
 }
 func (p Parameter) Print(lines []string) {
 	lines = printLines(lines)
-	fmt.Printf("Parameter\n")
+	fmt.Printf("Parameter (idx=%d)\n", p.paramIndex)
 	lines = append(lines, " └─")
 	p.pattern.Print(lines)
 }

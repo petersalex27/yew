@@ -5,6 +5,7 @@ import (
 	//err "yew/error"
 	//. "yew/parser/node-type"
 	"yew/parser/parser"
+	types "yew/type"
 )
 
 func printLines(xs []string) []string {
@@ -46,4 +47,11 @@ func EqualTest(a parser.Ast, b parser.Ast) bool {
 
 func PrintAst(a parser.Ast) {
 	a.Print([]string{""})
+}
+
+func checkTypeEqual(a types.Types, b types.Types) bool {
+	if a.GetTypeType() == types.TAU {
+		return b.GetTypeType() == types.TAU
+	}
+	return a.Equals(b)
 }

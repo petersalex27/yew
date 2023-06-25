@@ -17,47 +17,39 @@ import (
 
 var defExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeDeclaration(ast.MakeId(scan.MakeIdToken("x", 1, 4))),
-			ast.MakeDefinition(ast.MakeAssignment(
-				ast.MakeId(scan.MakeIdToken("x", 1, 4)),
-				ast.MakeValue(value.Int(1)),
-			)),
-		},
-		ast.EmptyExpression{},
-	),
+	ast.Program{
+		ast.MakeDeclaration(ast.MakeId(scan.MakeIdToken("x", 1, 4))),
+		ast.MakeDefinition(ast.MakeAssignment(
+			ast.MakeId(scan.MakeIdToken("x", 1, 4)),
+			ast.MakeValue(value.Int(1)),
+		)),
+	},
 )
 
 var def2Expected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeDeclaration(ast.MakeId(scan.MakeIdToken("x", 1, 4))),
-			ast.MakeDefinition(ast.MakeAssignment(
-				ast.MakeId(scan.MakeIdToken("x", 1, 4)),
-				ast.MakeValue(value.Int(1)),
-			)),
-		},
-		ast.EmptyExpression{},
-	),
+	ast.Program{
+		ast.MakeDeclaration(ast.MakeId(scan.MakeIdToken("x", 1, 4))),
+		ast.MakeDefinition(ast.MakeAssignment(
+			ast.MakeId(scan.MakeIdToken("x", 1, 4)),
+			ast.MakeValue(value.Int(1)),
+		)),
+	},
 )
 
 var appExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{},
+	ast.Program{
 		ast.MakeApplication(
 			ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
 			ast.MakeValue(value.Int(1)),
 		),
-	),
+	},
 )
 
 var app2Expected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{},
+	ast.Program{
 		ast.MakeApplication(
 			ast.MakeApplication(
 				ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
@@ -65,191 +57,158 @@ var app2Expected = ast.MakePackage(
 			),
 			ast.MakeValue(value.Int(1)),
 		),
-	),
+	},
 )
 
 var fnDefExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeFunction(
-				ast.MakeId(scan.MakeIdToken("id", 1, 0)),
-				ast.MakeLambda(
-					ast.MakeParameter(0,
-						ast.MakeTypeAnnotation(
-							ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-							types.Int{},
-						),
-					),
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("id", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
 					ast.MakeTypeAnnotation(
-						ast.MakeProgram(
-							[]ast.Statement{},
-							ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-						),
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
 						types.Int{},
 					),
 				),
+				ast.MakeTypeAnnotation(
+					ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+					types.Int{},
+				),
 			),
-		},
-		ast.EmptyExpression{},
-	),
+		),
+	},
 )
 
 var fnDef2Expected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeFunction(
-				ast.MakeId(scan.MakeIdToken("fn", 1, 0)),
-				ast.MakeLambda(
-					ast.MakeParameter(1,
-						ast.MakeTypeAnnotation(
-							ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-							types.Int{},
-						),
-					),
-					ast.MakeLambda(
-						ast.MakeParameter(0,
-							ast.MakeTypeAnnotation(
-								ast.MakeId(scan.MakeIdToken("y", 1, 0)),
-								types.Int{},
-							),
-						),
-						ast.MakeTypeAnnotation(
-							ast.MakeProgram(
-								[]ast.Statement{},
-								ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-							),
-							types.Int{},
-						),
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("fn", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(1,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
 					),
 				),
-			),
-		},
-		ast.EmptyExpression{},
-	),
-)
-
-var fnDef3Expected = ast.MakePackage(
-	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeFunction(
-				ast.MakeId(scan.MakeIdToken("fn", 1, 0)),
-				ast.MakeLambda(
-					ast.MakeParameter(1,
-						ast.MakeTypeAnnotation(
-							ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-							types.Int{},
-						),
-					),
-					ast.MakeLambda(
-						ast.MakeParameter(0,
-							ast.MakeTypeAnnotation(
-								ast.MakeId(scan.MakeIdToken("y", 1, 0)),
-								types.Char{},
-							),
-						),
-						ast.MakeTypeAnnotation(
-							ast.MakeProgram(
-								[]ast.Statement{},
-								ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-							),
-							types.Int{},
-						),
-					),
-				),
-			),
-		},
-		ast.EmptyExpression{},
-	),
-)
-
-var fnDef4Expected = ast.MakePackage(
-	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeFunction(
-				ast.MakeId(scan.MakeIdToken("id", 1, 0)),
 				ast.MakeLambda(
 					ast.MakeParameter(0,
 						ast.MakeTypeAnnotation(
-							ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+							ast.MakeId(scan.MakeIdToken("y", 1, 0)),
 							types.Int{},
 						),
 					),
 					ast.MakeTypeAnnotation(
-						ast.MakeProgram(
-							[]ast.Statement{},
-							ast.Sequence{
-								ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-							},
-						),
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
 						types.Int{},
 					),
 				),
 			),
-		},
-		ast.EmptyExpression{},
-	),
+		),
+	},
+)
+
+var fnDef3Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("fn", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(1,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+				ast.MakeLambda(
+					ast.MakeParameter(0,
+						ast.MakeTypeAnnotation(
+							ast.MakeId(scan.MakeIdToken("y", 1, 0)),
+							types.Char{},
+						),
+					),
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+			),
+		),
+	},
+)
+
+var fnDef4Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("id", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+				ast.MakeTypeAnnotation(
+					ast.Program{
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+					},
+					types.Int{},
+				),
+			),
+		),
+	},
 )
 
 var fnDef5Expected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeFunction(
-				ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
-				ast.MakeLambda(
-					ast.MakeParameter(0,
-						ast.MakeTypeAnnotation(
-							ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-							types.Int{},
-						),
-					),
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
 					ast.MakeTypeAnnotation(
-						ast.MakeProgram(
-							[]ast.Statement{},
-							ast.MakeApplication(
-								ast.MakeId(scan.MakeIdToken("Just", 1, 0)),
-								ast.MakeId(scan.MakeIdToken("x", 1, 0)),
-							),
-						),
-						types.Application{types.Tau("Maybe"), types.Int{}},
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
 					),
 				),
+				ast.MakeTypeAnnotation(
+					ast.MakeApplication(
+						ast.MakeId(scan.MakeIdToken("Just", 1, 0)),
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+					),
+					types.Application{types.Tau("Maybe"), types.Int{}},
+				),
 			),
-		},
-		ast.EmptyExpression{},
-	),
+		),
+	},
 )
 
 var opExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{},
+	ast.Program{
 		ast.MakeBinaryOperation(
 			ast.ADD,
-			ast.MakeValue(value.Int(1)),
-			ast.MakeValue(value.Int(1)),
+			ast.Value(scan.ValueToken{Value: value.Int(1)}),
+			ast.Value(scan.ValueToken{Value: value.Int(1)}),
 		),
-	),
+	},
 )
 
 var factorialExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{},
+	ast.Program{
 		ast.MakePostfixOperation(
 			ast.FACTORIAL,
 			ast.MakeValue(value.Int(1)),
 		),
-	),
+	},
 )
 var composeExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{},
+	ast.Program{
 		ast.MakeApplication(
 			ast.MakeApplication(
 				ast.MakeId(scan.MakeIdToken("f", 1, 0)),
@@ -257,12 +216,11 @@ var composeExpected = ast.MakePackage(
 			),
 			ast.MakeId(scan.MakeIdToken("h", 1, 0)),
 		),
-	),
+	},
 )
 var compose2Expected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{},
+	ast.Program{
 		ast.MakeApplication(
 			ast.MakeId(scan.MakeIdToken("f", 1, 0)),
 			ast.MakeApplication(
@@ -270,12 +228,11 @@ var compose2Expected = ast.MakePackage(
 				ast.MakeId(scan.MakeIdToken("h", 1, 0)),
 			),
 		),
-	),
+	},
 )
 var compose3Expected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{},
+	ast.Program{
 		ast.MakeApplication(
 			ast.MakeId(scan.MakeIdToken("f", 1, 0)),
 			ast.MakeApplication(
@@ -289,117 +246,131 @@ var compose3Expected = ast.MakePackage(
 				),
 			),
 		),
-	),
+	},
 )
 
 var prefixOperationExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{},
+	ast.Program{
 		ast.MakeUnaryOperation(
 			ast.POSITIVE,
 			ast.MakeValue(value.Int(1)),
 		),
-	),
+	},
 )
 
 var packageExpected = ast.MakePackage2(
 	scan.MakeIdToken("myPackage", 1, 0),
-	ast.MakeProgram( // empty program
-		[]ast.Statement{},
-		ast.EmptyExpression{},
-	),
+	ast.Program{},
 )
 
 var moduleExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeModule(
-				scan.MakeIdToken("myModule", 1, 0),
-				ast.MakeProgram( //empty program
-					[]ast.Statement{},
-					ast.EmptyExpression{},
-				),
-			),
-		},
-		ast.EmptyExpression{},
-	),
+	ast.Program{
+		ast.MakeModule(
+			scan.MakeIdToken("myModule", 1, 0),
+			ast.Program{},
+		),
+	},
 )
 
 var assignAppExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeDeclaration(ast.MakeId(scan.MakeIdToken("i", 1, 4))),
-			ast.MakeDefinition(ast.MakeAssignment(
-				ast.MakeId(scan.MakeIdToken("i", 1, 4)),
-				ast.MakeApplication(
-					ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
-					ast.MakeValue(value.Int(1)),
-				),
-			)),
-		},
-		ast.EmptyExpression{},
-	),
+	ast.Program{
+		ast.MakeDeclaration(ast.MakeId(scan.MakeIdToken("i", 1, 4))),
+		ast.MakeDefinition(ast.MakeAssignment(
+			ast.MakeId(scan.MakeIdToken("i", 1, 4)),
+			ast.MakeApplication(
+				ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
+				ast.MakeValue(value.Int(1)),
+			),
+		)),
+	},
 )
 
 var typeExpected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeTypeDefinition(
-				scan.MakeIdToken("Color", 0, 0),
-				types.MakeData(
-					"Color", 
-					[]types.Tau{}, 
-					[]types.Constructor{
-						types.MakeConstructor("Red", types.Application{}),
-						types.MakeConstructor("Blue", types.Application{}),
-					},
-				),
+	ast.Program{
+		ast.MakeTypeDefinition(
+			scan.MakeIdToken("Color", 0, 0),
+			types.MakeData(
+				"Color", 
+				[]types.Tau{}, 
+				[]types.Constructor{
+					types.MakeConstructor("Red", types.Application{}),
+					types.MakeConstructor("Blue", types.Application{}),
+				},
 			),
-		},
-		ast.EmptyExpression{},
-	),
+		),
+	},
 )
 
 var type2Expected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeTypeDefinition(
-				scan.MakeIdToken("Maybe", 0, 0),
-				types.MakeData2(
-					"Maybe", []string{"a"}, 
-					[]types.Constructor{
-						types.MakeConstructor("Just", types.Application{types.Tau("a")}),
-						types.MakeConstructor("Nothing", types.Application{}),
-					},
-				),
+	ast.Program{
+		ast.MakeTypeDefinition(
+			scan.MakeIdToken("Maybe", 0, 0),
+			types.MakeData2(
+				"Maybe", []string{"a"}, 
+				[]types.Constructor{
+					types.MakeConstructor("Just", types.Application{types.Tau("a")}),
+					types.MakeConstructor("Nothing", types.Application{}),
+				},
 			),
-		},
-		ast.EmptyExpression{},
-	),
+		),
+	},
 )
 
 var type3Expected = ast.MakePackage(
 	DefaultNameSpaceId,
-	ast.MakeProgram(
-		[]ast.Statement{
-			ast.MakeTypeDefinition(
-				scan.MakeIdToken("Either", 0, 0),
-				types.MakeData2(
-					"Either", []string{"a", "b"}, 
-					[]types.Constructor{
-						types.MakeConstructor("Left", types.Application{types.Tau("a")}),
-						types.MakeConstructor("Right", types.Application{types.Tau("b")}),
-					},
-				),
+	ast.Program{
+		ast.MakeTypeDefinition(
+			scan.MakeIdToken("Either", 0, 0),
+			types.MakeData2(
+				"Either", []string{"a", "b"}, 
+				[]types.Constructor{
+					types.MakeConstructor("Left", types.Application{types.Tau("a")}),
+					types.MakeConstructor("Right", types.Application{types.Tau("b")}),
+				},
 			),
+		),
+	},
+)
+
+var patternExpected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.Pattern{
+			Expression: ast.MakeId(scan.MakeIdToken("a", 0, 0)),
+			Matchers: []ast.Lambda{
+				ast.MakeLambda( // 1 -> 0
+					ast.MakeParameter(0, 
+						ast.MakeTypeAnnotation(
+							ast.MakeValue(value.Int(1)),
+							types.Tau(".t?"),
+						),
+					),
+					ast.MakeValue(value.Int(0)),
+				),
+				ast.MakeLambda( // x -> x
+					ast.MakeParameter(0, 
+						ast.MakeTypeAnnotation(
+							ast.MakeId(scan.MakeIdToken("x", 0, 0)),
+							types.Tau(".t?"),
+						),
+					),
+					ast.MakeId(scan.MakeIdToken("x", 0, 0)),
+				),
+			},
 		},
-		ast.EmptyExpression{},
-	),
+	},
+)
+
+var pattern2Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.Pattern{},
+	},
 )
 
 var asts = []struct {
@@ -427,11 +398,12 @@ var asts = []struct {
 	{"./test/compose.yw", composeExpected},
 	{"./test/compose2.yw", compose2Expected},
 	{"./test/compose3.yw", compose3Expected},
-	
+	{"./test/pattern.yw", patternExpected},
 }
 
 func TestParse(t *testing.T) {
 	for _, test := range asts {
+		//fmt.Fprintf(os.Stderr, ">>> running: %s\n", test.path)
 		in, e := scan.Init(test.path)
 		if nil != e {
 			fmt.Fprintf(os.Stderr, ">>> failed: %s <<<\n", test.path)

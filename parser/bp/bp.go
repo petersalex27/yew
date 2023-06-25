@@ -4,6 +4,7 @@ type BindingPower int
 
 const (
 	None BindingPower = iota
+	Sequencer
 	PatternMatch
 	ExpressionAnotation
 	Mapping

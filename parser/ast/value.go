@@ -3,15 +3,16 @@ package ast
 import (
 	"fmt"
 	err "yew/error"
+	"yew/ir"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/ir"
 	"yew/symbol"
 	"yew/type"
 	"yew/value"
 )
 
-type Value struct { value value.Value }
+type Value scan.ValueToken
 
 /*func (v Value) Matches(p Pattern) bool {
 	if 
@@ -21,16 +22,16 @@ type Value struct { value value.Value }
 }*/
 
 func (v Value) ExpressionType() types.Types {
-	return (v.value).GetType()
+	return (v.Value).GetType()
 }
 func (Value) ResolveNames(*symbol.SymbolTable) bool {
 	return true
 }
 func (v Value) DoTypeInference(newTypeInformation types.Types) types.Types {
-	if types.ERROR == newTypeInformation.InferType((v.value).GetType()).GetTypeType() {
+	if types.ERROR == newTypeInformation.InferType((v.Value).GetType()).GetTypeType() {
 		return types.Error{}
 	}
-	return (v.value).GetType()
+	return (v.Value).GetType()
 }
 func (v Value) Compile(builder *ir.IrBuilder) {
 	
@@ -41,14 +42,18 @@ func (v Value) Make(*Parser) bool {
 	panic("")
 }
 func MakeValue(v value.Value) Value {
-	return Value{v}
+	return Value(scan.ValueToken{Value: v, Index: 0, Line: 0, Char: 0})
 }
 func (v Value) Equal_test(a Ast) bool {
 	return a.GetNodeType() == VALUE && 
-			v.value.GetType().Equals(a.(Value).value.GetType()) &&
-			v.value.ToString() == a.(Value).value.ToString()
+			v.Value.GetType().Equals(a.(Value).Value.GetType()) &&
+			v.Value.ToString() == a.(Value).Value.ToString()
 }
 func (v Value) Print(lines []string) {
 	printLines(lines)
-	fmt.Printf("Value == %s\n", v.value.ToString())
+	fmt.Printf("Value == %s\n", v.Value.ToString())
+}
+
+func (v Value) FindStartToken() scan.Token {
+	return scan.ValueToken(v)
 }

@@ -34,7 +34,7 @@ func (def Definition) Make(p *Parser) bool {
 	}
 	expr := p.Stack.Pop().(Expression)
 	declaration := p.Stack.Peek().(Declaration)
-	def.assignment = MakeAssignment(MakeId(declaration.token), expr)
+	def.assignment = MakeAssignment(declaration.id, expr)
 
 	p.Stack.Push(def)
 	return true

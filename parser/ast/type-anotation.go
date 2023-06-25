@@ -4,6 +4,7 @@ import (
 	"fmt"
 	err "yew/error"
 	"yew/ir"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
 	"yew/symbol"
@@ -37,10 +38,13 @@ func (e ExpressionTypeAnnotation) Equal_test(a Ast) bool {
 	if !equal {
 		return false
 	}
-	e2 := a.(ExpressionTypeAnnotation)
+	e2, ok := a.(ExpressionTypeAnnotation)
+	if !ok {
+		return false
+	}
 	return equal &&
 		e.expression.Equal_test(e2.expression) &&
-		e.expressionType.Equals(e2.expressionType)
+		checkTypeEqual(e.expressionType, e2.expressionType)
 }
 func (e ExpressionTypeAnnotation) Print(lines []string) {
 	lines = printLines(lines)
@@ -59,4 +63,8 @@ func MakeTypeAnnotation(e Expression, t types.Types) ExpressionTypeAnnotation {
 
 func (e ExpressionTypeAnnotation) GetExpression() Expression {
 	return e.expression
+}
+
+func (e ExpressionTypeAnnotation) FindStartToken() scan.Token {
+	return e.expression.FindStartToken()
 }

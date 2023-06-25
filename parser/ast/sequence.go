@@ -2,10 +2,11 @@ package ast
 
 import (
 	"fmt"
+	err "yew/error"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
 	"yew/symbol"
-	err "yew/error"
 	types "yew/type"
 	util "yew/utils"
 )
@@ -80,11 +81,15 @@ func (s Sequence) Print(lines []string) {
 	lines = printLines(lines)
 	fmt.Printf("Sequence\n")
 	lines = append(lines, " ├─")
-	for i := 0; i < len(s) - 1; i++ {
+	for i := 0; i < len(s)-1; i++ {
 		s[i].Print(lines)
 	}
 	if len(s) > 0 {
 		lines[len(lines)-1] = " └─"
 		s[len(s)-1].Print(lines)
 	}
+}
+
+func (s Sequence) FindStartToken() scan.Token {
+	return s[0].FindStartToken()
 }

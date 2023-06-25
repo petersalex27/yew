@@ -102,3 +102,7 @@ func (u UOpType) GetFunctionType(*symbol.SymbolTable) types.Types {
 	err.PrintBug()
 	panic("")
 }
+
+func (u UOpType) FindStartLocation() err.ErrorLocation {
+	return err.BuiltinErrorLocation
+}

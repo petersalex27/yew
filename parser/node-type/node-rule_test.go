@@ -47,6 +47,7 @@ func TestNodeTypeToString(t *testing.T) {
 		{TUPLE, "Tuple", ""},
 		{TYPE_DEF, "Type-Definition", ""},
 		{TYPE, "Type", ""},
+		{PATTERN, "Pattern", ""},
 		{REPEAT__, "", ""},
 		{REPEAT_OR_NONE__, "", ""},
 	}

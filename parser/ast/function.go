@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	err "yew/error"
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
@@ -35,28 +34,6 @@ func (f Function) SetType(t types.Types) symbol.Symbolic {
 }
 func (f Function) IsDefined() bool {
 	return true
-}
-
-type StackMarker struct{}
-
-func (StackMarker) ResolveNames(*symbol.SymbolTable) bool {
-	err.PrintBug()
-	panic("")
-}
-func (StackMarker) Make(*Parser) bool {
-	err.PrintBug()
-	panic("")
-}
-func (StackMarker) GetNodeType() NodeType {
-	return STACK_MARKER
-}
-func (StackMarker) Equal_test(Ast) bool {
-	err.PrintBug()
-	panic("")
-}
-func (StackMarker) Print([]string) {
-	err.PrintBug()
-	panic("")
 }
 
 func (a Application) split() (Expression, Expression) {
@@ -129,9 +106,10 @@ func buildUnannotated(p *Parser, i int) bool {
 	p.Stack.Push(app2)
 	return true
 }
+
 var progressLambdas = []NodeRule{
-	{NodeType(IN_PROGRESS__ | LAMBDA), /* ::= */ []NodeType{LAMBDA, APPLICATION}},
-	{NodeType(IN_PROGRESS__ | LAMBDA), /* ::= */ []NodeType{TYPE_ANNOTATION, LAMBDA, APPLICATION}},
+	{NodeType(IN_PROGRESS__ | LAMBDA) /* ::= */, []NodeType{LAMBDA, APPLICATION}},
+	{NodeType(IN_PROGRESS__ | LAMBDA) /* ::= */, []NodeType{TYPE_ANNOTATION, LAMBDA, APPLICATION}},
 }
 
 func validateUnannotated(stack *AstStack) bool {
@@ -150,7 +128,7 @@ func createInitial(
 ) func(p *Parser) bool {
 	return func(p *Parser) bool {
 		rule := NodeRule{
-			Production: NodeType(IN_PROGRESS__ | FUNCTION), 
+			Production: NodeType(IN_PROGRESS__ | FUNCTION),
 			Expression: validNodeTypes,
 		}
 		if valid, e := p.Stack.Validate(rule); !valid {
@@ -180,8 +158,8 @@ func createInitial(
 }
 
 type unrollAction struct {
-	initial func(*Parser) bool
-	build func(*Parser, int) bool
+	initial  func(*Parser) bool
+	build    func(*Parser, int) bool
 	validate func(*AstStack) bool
 }
 
@@ -195,12 +173,13 @@ func buildFunctionDeclaration(p *Parser, action unrollAction, start int) bool {
 }
 
 var functionRule2 = NodeRule{
-	Production: IN_PROGRESS__ | FUNCTION, /* ::= */ 
+	Production: IN_PROGRESS__ | FUNCTION, /* ::= */
 	Expression: []NodeType{LAMBDA, IDENTIFIER},
 }
+
 func unrollApplication(p *Parser, action unrollAction, functionName Id, fnType types.Types) bool {
-	// first, find function name and add it to the symbol table (might be used 
-	// 	inside function definition, so it needs to be declared prior to 
+	// first, find function name and add it to the symbol table (might be used
+	// 	inside function definition, so it needs to be declared prior to
 	// 	resolving names inside the function definition)
 	e, decd := p.Table.DeclareLocal(symbol.MakeSymbol(functionName.token), fnType)
 	if !decd {
@@ -213,12 +192,12 @@ func unrollApplication(p *Parser, action unrollAction, functionName Id, fnType t
 	var ok bool = false
 	var fn Function
 	for { // does not loop! this is just here so `break` can be used
-		ok = action.initial(p) && 
-				buildFunctionDeclaration(p, action, 1)
+		ok = action.initial(p) &&
+			buildFunctionDeclaration(p, action, 1)
 		if !ok {
 			break
 		}
-		valid, e :=	p.Stack.Validate(functionRule2)
+		valid, e := p.Stack.Validate(functionRule2)
 		if !valid {
 			ok = valid
 			e.Print()
@@ -243,7 +222,7 @@ func unrollApplication(p *Parser, action unrollAction, functionName Id, fnType t
 	return ok
 }
 
-// breaks apart function's type annotation 
+// breaks apart function's type annotation
 func pushFunctionTypeAnnotation(stack *AstStack, tyAnnot types.Function) {
 	if tyAnnot.Codomain.GetTypeType() == types.FUNCTION {
 		stack.Push(ExpressionTypeAnnotation{expressionType: tyAnnot.Domain})
@@ -281,7 +260,7 @@ func DeclareFunction(p *Parser, functionName Id, parseFunctionBody func(*Parser)
 		return unrollApplication(p, action, functionName, tyAnnot)
 	} else if valid, _ := p.Stack.TryValidate([]NodeType{APPLICATION}); valid {
 		ty := ExpressionTypeAnnotation{
-			expression: EmptyExpression{}, 
+			expression:     EmptyExpression{},
 			expressionType: types.GetNewTau(), // return type
 		}
 		tmp := p.Stack.Pop()
@@ -330,7 +309,7 @@ func (f Function) Print(lines []string) {
 
 // Function ::= Declaration Anonymous-Function
 var functionRule = NodeRule{
-	FUNCTION, /* ::= */ []NodeType{DECLARATION, LAMBDA},
+	Production: FUNCTION /* ::= */, Expression: []NodeType{DECLARATION, LAMBDA},
 }
 
 func (f Function) Make(p *Parser) bool {
@@ -342,7 +321,7 @@ func (f Function) Make(p *Parser) bool {
 
 	lambda := p.Stack.Pop().(Lambda)
 	dec := p.Stack.Pop().(Declaration)
-	f.dec = MakeId(dec.token)
+	f.dec = dec.id
 	f.function = lambda
 	p.Stack.Push(f)
 	return true
@@ -350,4 +329,8 @@ func (f Function) Make(p *Parser) bool {
 
 func (f Function) StackLogString() string {
 	return fmt.Sprintf("%s; %s", f.GetNodeType().ToString(), Id(f.dec).token.ToString())
+}
+
+func (f Function) FindStartToken() scan.Token {
+	return f.dec.FindStartToken()
 }

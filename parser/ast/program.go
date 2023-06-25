@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	err "yew/error"
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
@@ -11,10 +12,11 @@ import (
 
 // can get any order of definitions and expressions by nesting Programs in a
 // program's `expression` member (and possibly leaving definitions empty)
-type Program struct {
+/*type Program struct {
 	statements []Statement
 	expression Expression
-}
+}//*/
+type Program []Ast
 
 func (p Program) GetProgram() Program {
 	return p
@@ -24,15 +26,28 @@ func (p Program) GetNameSpace() Id {
 }
 
 func (p Program) ExpressionType() types.Types {
-	return p.expression.ExpressionType()
+	if nil == p || len(p) == 0 {
+		return EmptyExpression{}.ExpressionType()
+	}
+
+	last := p[len(p)-1]
+	if IsStatement(last.GetNodeType()) {
+		return EmptyExpression{}.ExpressionType()
+	} else if IsExpression(last.GetNodeType()) {
+		expr := last.(Expression)
+		return expr.ExpressionType()
+	} else {
+		err.PrintBug()
+		panic("")
+	}
 }
 func (p Program) ResolveNames(table *symbol.SymbolTable) bool {
-	for _, s := range p.statements {
-		if !s.ResolveNames(table) {
+	for _, q := range p {
+		if !q.ResolveNames(table) {
 			return false
 		}
 	}
-	return p.expression.ResolveNames(table)
+	return true
 }
 func (p Program) DoTypeInference(newTypeInformation types.Types) types.Types {
 	panic("TODO: implement")
@@ -41,33 +56,23 @@ func (p Program) DoTypeInference(newTypeInformation types.Types) types.Types {
 func (p Program) GetNodeType() NodeType { return PROGRAM }
 
 func (p Program) Make(parser *Parser) bool {
-	valid, _ := parser.Stack.TryValidate([]NodeType{EXPRESSION})
-	if valid {
-		p.expression = parser.Stack.Pop().(Expression)
-	} else {
-		p.expression = EmptyExpression{}
+	// count len
+	tmp, ok := parser.Stack.CutAtMark(parser)
+	if !ok {
+		return false
 	}
-
-	//var e err.Error
-	p.statements = []Statement{}
-	valid, _ = parser.Stack.TryValidate([]NodeType{STATEMENT})
-	for valid {
-		p.statements = append(p.statements, parser.Stack.Pop().(Statement))
-		valid, _ = parser.Stack.TryValidate([]NodeType{STATEMENT})
-	}
-
-	// reverse statements
-	for i, j := 0, len(p.statements)-1; i < j; i, j = i+1, j-1 {
-		p.statements[i], p.statements[j] = p.statements[j], p.statements[i]
-	}
-	
+	p = Program(tmp)
 	parser.Stack.Push(p)
+
 	return true
 }
 
-func MakeProgram(ss []Statement, e Expression) Program {
-	return Program{statements: ss, expression: e}
+var programStatementRule = NodeRule{
+	Production: PROGRAM,
+	Expression: []NodeType{STATEMENT},
 }
+
+func MakeProgram(as ...Ast) Program { return Program(as) }
 
 func (p Program) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == PROGRAM
@@ -75,26 +80,49 @@ func (p Program) Equal_test(a Ast) bool {
 		return false
 	}
 
-	p2 := a.(Program)
-	equal = equal &&
-		len(p2.statements) == len(p.statements) &&
-		p.expression.Equal_test(p2.expression)
+	p2, ok := a.(Program)
+	equal = equal && ok && len(p2) == len(p)
 	if !equal {
 		return false
 	}
-	for i, d := range p2.statements {
-		equal = equal && p.statements[i].Equal_test(d)
+
+	for i := range p {
+		if !p[i].Equal_test(p2[i]) {
+			return false
+		}
 	}
-	return equal
+	return true
 }
 
 func (p Program) Print(lines []string) {
 	lines = printLines(lines)
 	fmt.Printf("Program\n")
 	lines = append(lines, " ├─")
-	for _, d := range p.statements {
-		d.Print(lines)
+	if p == nil || len(p) == 0 {
+		lines[len(lines)-1] = " └─"
+		fmt.Printf("ø\n")
+	}
+	for _, q := range p[:len(p)-1] {
+		q.Print(lines)
 	}
 	lines[len(lines)-1] = " └─"
-	p.expression.Print(lines)
+	p[len(p)-1].Print(lines)
+}
+
+func (p Program) FindStartTokenOfPart(i int) scan.Token {
+	if p == nil || len(p) <= i {
+		return scan.ErrorToken{}
+	}
+	q := p[i]
+	if IsStatement(q.GetNodeType()) {
+		return q.(Statement).GetSymbol().GetIdToken()
+	} else if IsExpression(q.GetNodeType()) {
+		return q.(Expression).FindStartToken()
+	}
+
+	return scan.ErrorToken{}
+}
+
+func (p Program) FindStartToken() scan.Token {
+	return p.FindStartTokenOfPart(0)
 }

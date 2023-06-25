@@ -1,12 +1,11 @@
 package parser
 
 import (
-	"yew/lex"
+	scan "yew/lex"
 	"yew/symbol"
 	types "yew/type"
 	//util "yew/utils"
 )
-
 
 func (stack *TypeStack) CreateFunction() bool {
 	if len(*stack) < 2 {
@@ -23,7 +22,7 @@ func (stack *TypeStack) CreateTuple(n int) bool {
 		return false
 	}
 	tup := make(types.Tuple, n)
-	for ; n > 0 ; n-- {
+	for ; n > 0; n-- {
 		tup[n-1] = stack.Pop()
 	}
 	stack.Push(tup)
@@ -31,6 +30,7 @@ func (stack *TypeStack) CreateTuple(n int) bool {
 }
 
 type TypeStack []types.Types
+
 func (stack *TypeStack) Push(t types.Types) {
 	(*stack) = append((*stack), t)
 }
@@ -49,21 +49,30 @@ func NewTypeStack() *TypeStack {
 }
 
 type Parser struct {
-	Input   scan.InputStream
-	Next    scan.Token
-	Current scan.Token
-	Table   *symbol.SymbolTable
-	Stack   *AstStack
+	Input     scan.InputStream
+	Next      scan.Token
+	Current   scan.Token
+	Table     *symbol.SymbolTable
+	Stack     *AstStack
+	markIndex int
 	TypeStack *TypeStack
 	//functions []ast.Function
 }
 
+func (p *Parser) setMarkIndex(new int) (old int) {
+	old = p.markIndex
+	p.markIndex = new
+	return
+}
+
+func (p *Parser) getMarkIndex() int { return p.markIndex }
+
 func InitParser(in scan.InputStream) *Parser {
 	p := new(Parser)
 	*p = Parser{
-		Input: in,
-		Table: symbol.InitSymbolTable(in.GetPath()),
-		Stack: NewAstStack(),
+		Input:     in,
+		Table:     symbol.InitSymbolTable(in.GetPath()),
+		Stack:     NewAstStack(),
 		TypeStack: NewTypeStack(),
 	}
 	return p
