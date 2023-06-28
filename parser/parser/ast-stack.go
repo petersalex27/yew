@@ -243,7 +243,7 @@ func (stack *AstStack) TryValidate(expectedNodes []nodetype.NodeType) (bool, int
 	return true, 0
 }
 
-var dummyLocation = err.MakeErrorLocation(0, 0, 0, "", "")
+var dummyLocation = err.MakeErrorLocation(0, 0, "", []string{""})
 
 func (stack *AstStack) Validate(rule nodetype.NodeRule) (bool, err.Error) {
 	valid, index := stack.TryValidate(rule.Expression)

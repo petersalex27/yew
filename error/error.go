@@ -6,6 +6,7 @@ import (
 	"strings"
 	"yew/info"
 	"yew/utils"
+
 	"github.com/fatih/color"
 )
 
@@ -54,7 +55,7 @@ func writePrefix(path string, line int, char int) string {
 
 func PrintBug() {
 	var pc []uintptr
-	runtime.Callers(2, pc)
+	runtime.Callers(1, pc)
 	f, _ := runtime.CallersFrames(pc).Next()
 	panic("Bug in " + f.Function + ".\n")
 }
@@ -118,16 +119,16 @@ type _messageToMessage func(msg string) UserMessage
 type _lineToMessage func(line int) _charToMessage
 type _charToMessage func(char int) _indexToMessage
 type _indexToMessage func(index int) _sourceToMessage
-type _sourceToMessage func(source string) _typeToMessage
+type _sourceToMessage func(source []string) _typeToMessage
 func curryMessage(path string) _lineToMessage {
 	return func(line int) _charToMessage {
 		return func(char int) _indexToMessage {
 			return func(index int) _sourceToMessage {
-				return func(source string) _typeToMessage {
+				return func(source []string) _typeToMessage {
 					return func (type_ ErrorType) _subtypeToMessage  {
 						return func(subtype ErrorSubType) _messageToMessage { 
 							return func(msg string) UserMessage {
-								return CompileMessage(msg, type_, subtype, path, line, char, index, source)
+								return CompileMessage(msg, type_, subtype, path, line, char, source)
 							}
 						}
 					}
@@ -140,24 +141,21 @@ func curryMessage(path string) _lineToMessage {
 type ErrorLocation struct {
 	line int
 	char int
-	index int
 	path string
-	source string
+	source []string
 }
 
 var BuiltinErrorLocation = ErrorLocation{
 	line: 0,
 	char: 0,
-	index: 0,
 	path: "builtin",
-	source: "",
+	source: []string{""},
 }
 
-func MakeErrorLocation(line int, char int, index int, path string, source string) ErrorLocation {
+func MakeErrorLocation(line int, char int, path string, source []string) ErrorLocation {
 	return ErrorLocation{
 		line: line, 
 		char: char, 
-		index: index, 
 		path: path, 
 		source: source, 
 	}
@@ -175,35 +173,34 @@ func (e ErrorLocation) ToString() string {
 func (e ErrorLocation) GetLine() int { return e.line }
 func (e ErrorLocation) GetChar() int { return e.char }
 func (e ErrorLocation) GetPath() string { return e.path }
-func (e ErrorLocation) GetSource() string { return e.source }
-func (e ErrorLocation) GetSourceIndex() int { return e.index }
+func (e ErrorLocation) GetSource() []string { return e.source }
 
-var NoHeaderMessage = curryMessage("")(0)(0)(0)("")
+var NoHeaderMessage = curryMessage("")(0)(0)(0)([]string{""})
 var SystemError = NoHeaderMessage(ERROR)(SYSTEM)
 var SyntaxError = SYNTAX.CompileError
 
 // compileMessage creates an error or warning message from the params
 func CompileMessage(
 		m string, type_ ErrorType, subtype ErrorSubType, 
-		path string, line int, char int, index int, source string) UserMessage {
+		path string, line int, char int, source []string) UserMessage {
 	subtype = fixSubtype(subtype) // makes sure subtype is always valid
 	if ERROR == type_ {
-		return Error{message: m, subtype: subtype, path: path, line: line, char: char, index: index}
+		return Error{message: m, subtype: subtype, path: path, line: line, char: char,}
 	} else if WARNING == type_ {
-		return Warning{message: m, subtype: subtype, path: path, line: line, char: char, index: index}
+		return Warning{message: m, subtype: subtype, path: path, line: line, char: char,}
 	}
 	return Error{message: m, subtype: subtype}
 }
 
 func (est ErrorSubType) CompileError(m string, e ErrorLocation) Error {
-	return CompileMessage(m, ERROR, est, e.path, e.line, e.char, e.index, e.source).(Error)
+	return CompileMessage(m, ERROR, est, e.path, e.line, e.char, e.source).(Error)
 }
 func (est ErrorSubType) CompileWarning(m string, e ErrorLocation) Warning {
-	return CompileMessage(m, WARNING, est, e.path, e.line, e.char, e.index, e.source).(Warning)
+	return CompileMessage(m, WARNING, est, e.path, e.line, e.char, e.source).(Warning)
 }
 
 func (e ErrorSubType) CompileMessage(
 		msg string, type_ ErrorType, 
-		path string, line int, char int, index int, source string) UserMessage {
-	return CompileMessage(msg, type_, e, path, line, char, index, source)
+		path string, line int, char int, source []string) UserMessage {
+	return CompileMessage(msg, type_, e, path, line, char, source)
 }

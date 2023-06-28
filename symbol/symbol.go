@@ -145,7 +145,7 @@ func MakeRedefinedError(original Symbolic, newSymbol Symbolic) err.Error {
 			NameErrorMessages[E_ILLEGAL_REDEF] + messageAppend, err.ERROR, err.NAME, 
 			loc.GetPath(), 
 			loc.GetLine(),
-			loc.GetChar(), 0, "").(err.Error)
+			loc.GetChar(), []string{""}).(err.Error)
 }
 
 func MakeRedeclareError(original Symbolic, newSymbol Symbolic) err.Error {
@@ -157,7 +157,7 @@ func MakeRedeclareError(original Symbolic, newSymbol Symbolic) err.Error {
 			NameErrorMessages[E_ILLEGAL_REDEC] + messageAppend, err.ERROR, err.NAME, 
 			loc.GetPath(), 
 			loc.GetLine(),
-			loc.GetChar(), 0, "").(err.Error)
+			loc.GetChar(), []string{""}).(err.Error)
 }
 
 func MakeTypeMismatchError(original Symbolic, newSymbol Symbolic) err.Error {
@@ -166,7 +166,7 @@ func MakeTypeMismatchError(original Symbolic, newSymbol Symbolic) err.Error {
 			" " + original.GetIdToken().ToString() + " at " + 
 			original.GetIdToken().GetLocation().ToString() + "."
 	return err.TYPE.CompileMessage(NameErrorMessages[E_TYPE_MISMATCH] + messageAppend, err.ERROR,
-			loc.GetPath(), loc.GetLine(), loc.GetChar(), 0, "").(err.Error)
+			loc.GetPath(), loc.GetLine(), loc.GetChar(), []string{""}).(err.Error)
 }
 
 func (s *SymbolTable) GetElseAdd(id Symbolic) (addedSymbol Symbolic, added bool) {

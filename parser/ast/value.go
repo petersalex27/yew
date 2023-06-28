@@ -42,7 +42,7 @@ func (v Value) Make(*Parser) bool {
 	panic("")
 }
 func MakeValue(v value.Value) Value {
-	return Value(scan.ValueToken{Value: v, Index: 0, Line: 0, Char: 0})
+	return Value(scan.ValueToken{Value: v, Line: 0, Char: 0})
 }
 func (v Value) Equal_test(a Ast) bool {
 	return a.GetNodeType() == VALUE && 

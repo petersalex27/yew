@@ -114,28 +114,24 @@ type Token interface {
 	util.Stringable
 	info.Locatable
 	GetType() TokenType
-	GetSourceIndex() int
+	GetSourceIndex() (lineIndex int, charIndex int)
 }
 type ValueToken struct {
 	Value value.Value
-	Index int
 	Line  int
 	Char  int
 }
 type IdToken struct {
 	id    string
-	index int
 	line  int
 	char  int
 }
 type OtherToken struct {
 	tokenType TokenType
-	index     int
 	line      int
 	char      int
 }
 type ErrorToken struct {
-	index int
 	err   err.UserMessage
 }
 type AnotationToken IdToken
@@ -145,7 +141,6 @@ func (in InputStream) MakeErrorLocation(token Token) err.ErrorLocation {
 	return err.MakeErrorLocation(
 		loc.GetLine(),
 		loc.GetChar(),
-		token.GetSourceIndex(),
 		in.path,
 		in.source)
 }
@@ -175,20 +170,20 @@ func (e ErrorToken) GetLocation() info.Location {
 	return e.err.GetLocation()
 }
 
-func (a AnotationToken) GetSourceIndex() int {
-	return a.index
+func (a AnotationToken) GetSourceIndex() (lineIndex int, charIndex int) {
+	return a.line, a.char 
 }
-func (v ValueToken) GetSourceIndex() int {
-	return v.Index
+func (v ValueToken) GetSourceIndex() (lineIndex int, charIndex int) {
+	return v.Line, v.Char
 }
-func (id IdToken) GetSourceIndex() int {
-	return id.index
+func (id IdToken) GetSourceIndex() (lineIndex int, charIndex int) {
+	return id.line, id.char
 }
-func (o OtherToken) GetSourceIndex() int {
-	return o.index
+func (o OtherToken) GetSourceIndex() (lineIndex int, charIndex int) {
+	return o.line, o.char
 }
-func (e ErrorToken) GetSourceIndex() int {
-	return e.index
+func (e ErrorToken) GetSourceIndex() (lineIndex int, charIndex int) {
+	return 0, 0
 }
 
 func (a AnotationToken) GetType() TokenType {

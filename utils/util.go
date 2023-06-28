@@ -99,3 +99,10 @@ func Head[T []any](xs []T) []T {
 	}
 	return xs[1:]
 }
+
+func Max(a int, b int) int { 
+	if a > b {
+		return a
+	}
+	return b
+}

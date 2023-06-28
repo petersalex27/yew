@@ -1,0 +1,4 @@
+myFunction x y :: Int -> Int -> Int = {
+    myFunction' z :: Int -> Int = x + y * z
+    x - y + (myFunction' x)
+}

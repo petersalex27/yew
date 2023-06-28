@@ -381,8 +381,24 @@ func bracket(p *Parser, token scan.Token) bool {
 }
 
 func paren(p *Parser, token scan.Token) bool {
-	err.PrintBug()
-	panic("TODO")
+	p.Advance()
+	if p.Current.GetType() == scan.RPAREN {
+		p.Stack.Push(ast.Tuple{})
+		return true
+	}
+	
+	ok := parseExpression(p, 0)
+	if !ok {
+		return false
+	}
+
+	if p.Next.GetType() != scan.RPAREN {
+		parseError(p, p.Next)
+		return false
+	}
+	
+	p.Advance()
+	return true
 }
 
 func block(p *Parser, token scan.Token) bool {
@@ -1121,7 +1137,7 @@ func endParseCallback_noPackage(p *Parser) (bool, ast.Package) {
 			"could not parse program",
 			err.ERROR,
 			err.SYNTAX,
-			"", 0, 0, 0, "",
+			"", 0, 0, []string{""},
 		).Print()
 		return false, ast.Package{}
 	}
@@ -1143,7 +1159,7 @@ func endParseCallback_package(p *Parser) (bool, ast.Package) {
 			"could not parse program",
 			err.ERROR,
 			err.SYNTAX,
-			"", 0, 0, 0, "",
+			"", 0, 0, []string{""},
 		).Print()
 		return false, ast.Package{}
 	}

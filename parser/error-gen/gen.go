@@ -8,6 +8,6 @@ func GenerateSyntaxError(message string) func(scan.Token, scan.InputStream) err.
 		loc := t.GetLocation()
 		return err.CompileMessage(
 			message, err.ERROR, err.SYNTAX, (i).GetPath(), loc.GetLine(), loc.GetChar(),
-			t.GetSourceIndex(), (i).GetSource()).(err.Error)
+			(i).GetSource()).(err.Error)
 	}
 }

@@ -1,6 +1,7 @@
 package scan
 
 import (
+	//"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -8,12 +9,13 @@ import (
 	"strings"
 	"unicode"
 	err "yew/error"
+	"yew/source"
 	types "yew/type"
 	"yew/value"
 )
 
 // underscore id token
-var UnderscoreIdToken = IdToken{id: "_", index: 0, line: 0, char: 0}
+var UnderscoreIdToken = IdToken{id: "_", line: 0, char: 0}
 
 type Lexer interface {
 	Next() Token
@@ -28,7 +30,7 @@ type InputStream struct {
 	streamLength    int64
 	streamCapacity  int64
 	asStringPattern string
-	source          string
+	source          source.Source
 
 	tokens []Token
 }
@@ -64,25 +66,55 @@ func InitStream(path string, sourceLen int64) InputStream {
 }
 
 type Input struct {
-	//stored []Token
-	lineNumber                 int
-	prevLineLength             int
-	charNumber                 int
-	sourceIndex                int
-	sourceLength               int
-	path                       string
-	source                     string
-	scanningInterpolatedString int
-	endingInterpolatedString   int
+	lineNumber int
+	charNumber int
+	path       string
+	source     source.Source
 }
 
-func (in InputStream) GetPath() string   { return in.path }
-func (in Input) GetPath() string         { return in.path }
-func (in InputStream) GetSource() string { return in.source }
-func (in Input) GetSource() string       { return in.source }
+func (a Input) equal_test(b Input) bool {
+	ok := a.lineNumber == b.lineNumber &&
+		a.charNumber == b.charNumber &&
+		a.path == b.path &&
+		len(a.source) == len(b.source)
+
+	if !ok {
+		return false
+	}
+
+	for i, source := range a.source {
+		if source != b.source[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (a Input) toString_test() string {
+	sourceStringify := func(source []string) string {
+		var builder strings.Builder
+		for _, s := range source {
+			builder.WriteString("\t\t")
+			builder.WriteString(s)
+		}
+		return builder.String()
+	}
+
+	return "Input{ " +
+		"\n\tlineNumber: " + strconv.Itoa(a.lineNumber) +
+		",\n\tcharNumber: " + strconv.Itoa(a.charNumber) +
+		",\n\tpath: " + a.path +
+		",\n\tsource: ```\n" + sourceStringify(a.source) +
+		"```\n}"
+}
+
+func (in InputStream) GetPath() string     { return in.path }
+func (in Input) GetPath() string           { return in.path }
+func (in InputStream) GetSource() []string { return in.source }
+func (in Input) GetSource() []string       { return in.source }
 
 func Init(path string) (Input, error) {
-	input := Input{sourceIndex: 0, path: path}
+	input := Input{path: path}
 	//fmt.Println(os.Getwd())
 	f, err := os.Open(path)
 	if nil != err {
@@ -93,59 +125,136 @@ func Init(path string) (Input, error) {
 	if nil != err2 {
 		return input, err2
 	}
-	input.source = string(tmp)
+	input.source = make([]string, 0, 1)
+	for i, j := 0, 0; i < len(tmp); i++ {
+		if tmp[i] == '\n' || i+1 == len(tmp) {
+			input.source = append(input.source, string(tmp[j:i+1]))
+			j = i + 1
+		}
+	}
 	input.charNumber = 0 // 0 marks no chars read on line (after new line or before reading anything)
 	input.lineNumber = 1
-	input.sourceLength = len(input.source)
 	return input, nil
 }
 
-func (in *Input) peek() (c byte) {
-	if in.sourceIndex >= in.sourceLength {
-		return 0
-	}
-	return in.source[in.sourceIndex]
+func (in *Input) getCurrentLine() string {
+	return in.source[in.lineNumber-1]
 }
 
-func (in *Input) nextChar() (c byte) {
-	if in.sourceIndex >= len(in.source) {
-		return 0
+func (in *Input) getNextIndexes() (line int, char int, eof bool) {
+	eof = false
+	line = in.lineNumber
+	char = in.charNumber
+
+	//println("len(\"\n\") =", len("\n"))
+
+	if in.lineNumber == len(in.source) {
+		if in.charNumber == len(in.getCurrentLine()) {
+			eof = true
+		} else {
+			char = char + 1
+		}
+	} else if in.charNumber == len(in.getCurrentLine()) {
+		line = line + 1
+		char = 1
+	} else {
+		char = char + 1
 	}
 
-	c = in.source[in.sourceIndex]
-	if c == '\n' {
-		in.prevLineLength = in.charNumber
-		in.charNumber = 0
-		in.lineNumber++
-	} else {
-		in.charNumber++
-	}
-	in.sourceIndex++
 	return
 }
 
-func (in *Input) readUntil(until byte) byte {
+func (in *Input) isAtEndOfLine() bool { return in.charNumber == len(in.getCurrentLine()) }
+func (in *Input) isInFinalLine() bool { return in.lineNumber == len(in.source) }
+
+func (in *Input) isAtEof() bool {
+	return in.isInFinalLine() && in.isAtEndOfLine()
+}
+
+func (in *Input) ungetNextIndexes() (line int, char int) {
+	line = in.lineNumber
+	char = in.charNumber
+
+	if in.charNumber <= 1 {
+		if in.lineNumber > 1 {
+			line = line - 1
+			char = len(in.source.GetLine(line))
+		}
+	} else {
+		char = char - 1
+	}
+
+	return
+}
+
+func (in *Input) unsetNextIndexes() (line int, char int, c byte) {
+	line, char = in.ungetNextIndexes()
+	in.charNumber = char
+	in.lineNumber = line
+	c = in.source[line-1][char-1]
+	return
+}
+
+func (in *Input) setNextIndexes() (line int, char int, c byte) {
+	var eof bool
+	line, char, eof = in.getNextIndexes()
+	in.lineNumber = line
+	in.charNumber = char
+	if eof {
+		c = 0
+	} else {
+		c = in.source[line-1][char-1]
+	}
+	return
+}
+
+func (in *Input) peek() byte {
+	line, char, eof := in.getNextIndexes()
+	if eof {
+		return 0
+	}
+	return in.source[line-1][char-1]
+}
+
+func (in *Input) nextChar() byte {
+	_, _, next := in.setNextIndexes()
+	return next
+}
+
+func (in *Input) readUntil(until byte) (c byte) {
+	c = 0
+	if until == 0 {
+		return
+	}
+
 	for {
-		c := in.nextChar()
-		if c == until {
-			return until
-		} else if until == 0 || c == 0 {
-			return 0
+		c = in.nextChar()
+		if c == until || c == 0 {
+			return
 		}
 	}
 }
 
-func (in *Input) skipWhitespace() (c byte) {
-	for c = in.nextChar(); c != 0 && in.sourceIndex < len(in.source); c = in.nextChar() {
+func (in *Input) skipWhitespace() (c byte, errorToken *ErrorToken) {
+	errorToken = nil
+
+	for c = in.nextChar(); c != 0; c = in.nextChar() {
 		if c == '-' && in.peek() == '-' {
 			// skip single-line comments
-			return in.readUntil('\n')
+			c = in.readUntil('\n')
+			return
 		} else if c == '-' && in.peek() == '*' {
 			// skip multi-line comments
-			for c = in.readUntil('*'); c != 0; c = in.readUntil('*') {
+			for c = in.readUntil('*'); ; c = in.readUntil('*') {
+				if c == 0 {
+					errorToken = new(ErrorToken)
+					*errorToken = inputErrors[E_UNTERMINATED_COMMENT](in)
+					return
+				}
 				if in.peek() == '-' {
 					in.nextChar()
-					return in.nextChar()
+					c = in.nextChar()
+					return
 				}
 			}
 		} else if c == ' ' || c == '\t' {
@@ -211,12 +320,20 @@ func stringValue(s string) value.Array {
 	return value.MakeArray[types.Char]([]value.Char(s))
 }
 
+func (in *Input) getSourceSlice() string {
+	return in.source.GetLineSlice(in.lineNumber, in.charNumber)
+}
+
+func (in *Input) getSourceSliceN(n int) string {
+	return in.source.GetLineSliceN(in.lineNumber, in.charNumber, n)
+}
+
 // regex for unicode escape sequence
 var UNICODE_REGEX = regexp.MustCompile("[0-9a-fA-F]{1,4}")
 
 // returns unicode code point converted to a string
 func (in *Input) getUnicode() (string, *ErrorToken) {
-	loc := UNICODE_REGEX.FindStringIndex(in.source[in.sourceIndex:])
+	loc := UNICODE_REGEX.FindStringIndex(in.getSourceSlice())
 	if loc == nil || loc[0] != 0 {
 		// failed to find code point || failed to find code point next to escape char
 		et := new(ErrorToken)
@@ -225,14 +342,13 @@ func (in *Input) getUnicode() (string, *ErrorToken) {
 	}
 
 	// get unicode as int/code-point
-	res, _ := strconv.ParseInt(in.source[in.sourceIndex:in.sourceIndex+loc[1]], 16, 32)
+	res, _ := strconv.ParseInt(in.getSourceSliceN(loc[1]), 16, 32)
 
 	var builder strings.Builder  // here just for converting from code point to string
 	builder.WriteRune(rune(res)) // write code point as string
 
 	// update location information
 	in.charNumber += loc[1]
-	in.sourceIndex += loc[1]
 
 	return builder.String(), nil
 }
@@ -240,7 +356,6 @@ func (in *Input) getUnicode() (string, *ErrorToken) {
 // get a string value token
 func (in *Input) getString() Token {
 	start := in.charNumber - 1
-	index := in.sourceIndex
 	var builder strings.Builder
 	for c := in.nextChar(); ; c = in.nextChar() {
 		if unicode.IsControl(rune(c)) && c != '\t' {
@@ -264,7 +379,7 @@ func (in *Input) getString() Token {
 			}
 		} else if c == '"' {
 			out := stringValue(builder.String())
-			return ValueToken{out, index, in.lineNumber, start}
+			return ValueToken{out, in.lineNumber, start}
 		} else if c == 0 {
 			return inputErrors[E_END_OF_FILE](in)
 		} else if c == '%' {
@@ -296,22 +411,25 @@ func (in *Input) getChar() Token {
 		// success, continue
 	} else if c == 0 {
 		return inputErrors[E_END_OF_FILE](in)
+	} else if c == '\'' {
+		return inputErrors[E_ILLEGAL_CHAR](in)
 	} else {
 		// ignore
 	}
 
 	if in.nextChar() != '\'' {
+		in.ungetChar()
 		return inputErrors[E_EXPECTED_CHAR_CLOSE](in)
 	}
 
-	return ValueToken{value.Char(c), in.sourceIndex, in.lineNumber, in.charNumber}
+	return ValueToken{value.Char(c), in.lineNumber, in.charNumber}
 }
 
 type _errorGenFn (func(in *Input) ErrorToken)
 
 func inputErrorGen(message string) _errorGenFn {
 	return (func(in *Input) ErrorToken {
-		return ErrorToken{in.sourceIndex, err.CompileMessage(message, err.ERROR, err.INPUT, in.path, in.lineNumber, in.charNumber, in.sourceIndex, in.source)}
+		return ErrorToken{err.CompileMessage(message, err.ERROR, err.INPUT, in.path, in.lineNumber, in.charNumber, in.source)}
 	})
 }
 
@@ -327,6 +445,8 @@ const (
 	E_TRAILING_UNDERSCORE
 	E_STRING_ONLY_ESCAPE
 	E_BAD_UNICODE
+	E_UNTERMINATED_COMMENT
+	E_ILLEGAL_CHAR
 )
 
 var inputErrors = map[inputErrorType]_errorGenFn{
@@ -339,6 +459,8 @@ var inputErrors = map[inputErrorType]_errorGenFn{
 	E_TRAILING_UNDERSCORE:   inputErrorGen("trailing digit seperator"),
 	E_STRING_ONLY_ESCAPE:    inputErrorGen("escape sequence is not allowed for char literals"),
 	E_BAD_UNICODE:           inputErrorGen("malformed unicode code point escape sequence"),
+	E_UNTERMINATED_COMMENT:  inputErrorGen("unterminated multi-line comment"),
+	E_ILLEGAL_CHAR:          inputErrorGen("illegal character literal"),
 }
 
 var ID_REGEX = regexp.MustCompile("[A-Za-z][A-Za-z0-9_]*(')*")
@@ -350,40 +472,40 @@ var INT_REGEX = regexp.MustCompile("([0-9]_?)*[0-9]+")
 var FLOAT_REGEX = regexp.MustCompile(`[0-9]+(((\.[0-9]*)?(e|E)(\+|-)?([0-9]_?)*[0-9]+)|(\.[0-9]*))`)
 
 var keywords = map[string]Token{
-	"Int":     OtherToken{INT, 0, 0, 0},
-	"Bool":    OtherToken{BOOL, 0, 0, 0},
-	"Char":    OtherToken{CHAR, 0, 0, 0},
-	"Float":   OtherToken{FLOAT, 0, 0, 0},
-	"String":  OtherToken{STRING, 0, 0, 0},
-	"class":   OtherToken{CLASS, 0, 0, 0},
-	"where":   OtherToken{WHERE, 0, 0, 0},
-	"lazy":    OtherToken{LAZY, 0, 0, 0},
-	"let":     OtherToken{LET, 0, 0, 0},
-	"mut":     OtherToken{MUT, 0, 0, 0},
-	"const":   OtherToken{CONST, 0, 0, 0},
-	"mod":     OtherToken{MOD, 0, 0, 0},
-	"True":    ValueToken{value.Bool(true), 0, 0, 0},
-	"False":   ValueToken{value.Bool(false), 0, 0, 0},
-	"package": OtherToken{PACKAGE, 0, 0, 0},
-	"module":  OtherToken{MODULE, 0, 0, 0},
+	"Int":     OtherToken{INT, 0, 0},
+	"Bool":    OtherToken{BOOL, 0, 0},
+	"Char":    OtherToken{CHAR, 0, 0},
+	"Float":   OtherToken{FLOAT, 0, 0},
+	"String":  OtherToken{STRING, 0, 0},
+	"class":   OtherToken{CLASS, 0, 0},
+	"where":   OtherToken{WHERE, 0, 0},
+	"lazy":    OtherToken{LAZY, 0, 0},
+	"let":     OtherToken{LET, 0, 0},
+	"mut":     OtherToken{MUT, 0, 0},
+	"const":   OtherToken{CONST, 0, 0},
+	"mod":     OtherToken{MOD, 0, 0},
+	"True":    ValueToken{value.Bool(true), 0, 0},
+	"False":   ValueToken{value.Bool(false), 0, 0},
+	"package": OtherToken{PACKAGE, 0, 0},
+	"module":  OtherToken{MODULE, 0, 0},
 }
 
 func (in *Input) getIdOrKeyword2(forceId bool) Token {
-	loc := ID_REGEX.FindStringIndex(in.source[in.sourceIndex:])
+	loc := ID_REGEX.FindStringIndex(in.getSourceSlice())
 	if loc == nil || loc[0] != 0 {
 		// this should be impossible
 		err.PrintBug()
 	}
 
-	str := in.source[in.sourceIndex : in.sourceIndex+loc[1]]
+	str := in.getSourceSliceN(loc[1])
+	//fmt.Printf("string = `%s`\n", str)
 	var key Token
 	var found bool = false // keyword is never found when id is forced
 	if !forceId {
 		key, found = keywords[str]
 	}
 	start := in.charNumber
-	in.charNumber += loc[1]
-	in.sourceIndex += loc[1]
+	in.charNumber += (loc[1] - 1)
 	if !found {
 		// always returns here when id is forced
 		return IdToken{id: str, line: in.lineNumber, char: start}
@@ -408,7 +530,6 @@ func (in *Input) getIdOrKeyword() Token {
 func (in *Input) hasTrailingUnderscore() bool {
 	if in.peek() == '_' {
 		in.charNumber++
-		in.sourceIndex++
 		return true
 	}
 	return false
@@ -425,13 +546,12 @@ func removeUnderscore(s string) string {
 }
 
 func (in *Input) getNumber() Token {
-	input := in.source[in.sourceIndex:]
+	input := in.getSourceSlice()
 	loc := FLOAT_REGEX.FindStringIndex(input)
 	if nil != loc && loc[0] == 0 {
 		res, _ := strconv.ParseFloat(removeUnderscore(input[:loc[1]]), 64)
 		start := in.charNumber
-		in.charNumber += loc[1]
-		in.sourceIndex += loc[1]
+		in.charNumber += (loc[1] - 1)
 		if in.hasTrailingUnderscore() {
 			return inputErrors[E_TRAILING_UNDERSCORE](in)
 		}
@@ -442,8 +562,7 @@ func (in *Input) getNumber() Token {
 	if nil != loc && loc[0] == 0 {
 		res, _ := strconv.ParseInt(removeUnderscore(input[:loc[1]]), 0, 64)
 		start := in.charNumber
-		in.charNumber += loc[1]
-		in.sourceIndex += loc[1]
+		in.charNumber += (loc[1] - 1)
 		if in.hasTrailingUnderscore() {
 			return inputErrors[E_TRAILING_UNDERSCORE](in)
 		}
@@ -454,8 +573,7 @@ func (in *Input) getNumber() Token {
 	if nil != loc && loc[0] == 0 {
 		res, _ := strconv.ParseInt(removeUnderscore(input[:loc[1]]), 0, 64)
 		start := in.charNumber
-		in.charNumber += loc[1]
-		in.sourceIndex += loc[1]
+		in.charNumber += (loc[1] - 1)
 		if in.hasTrailingUnderscore() {
 			return inputErrors[E_TRAILING_UNDERSCORE](in)
 		}
@@ -466,8 +584,7 @@ func (in *Input) getNumber() Token {
 	if nil != loc && loc[0] == 0 {
 		res, _ := strconv.ParseInt(removeUnderscore(input[:loc[1]]), 0, 64)
 		start := in.charNumber
-		in.charNumber += loc[1]
-		in.sourceIndex += loc[1]
+		in.charNumber += (loc[1] - 1)
 		if in.hasTrailingUnderscore() {
 			return inputErrors[E_TRAILING_UNDERSCORE](in)
 		}
@@ -478,8 +595,7 @@ func (in *Input) getNumber() Token {
 	if nil != loc && loc[0] == 0 {
 		res, _ := strconv.ParseInt(removeUnderscore(input[:loc[1]]), 10, 64)
 		start := in.charNumber
-		in.charNumber += loc[1]
-		in.sourceIndex += loc[1]
+		in.charNumber += (loc[1] - 1)
 		if in.hasTrailingUnderscore() {
 			return inputErrors[E_TRAILING_UNDERSCORE](in)
 		}
@@ -491,35 +607,7 @@ func (in *Input) getNumber() Token {
 }
 
 func (in *Input) ungetChar() {
-	if in.sourceIndex <= 0 {
-		return
-	}
-
-	in.sourceIndex--
-	if in.source[in.sourceIndex] == '\n' {
-		in.lineNumber--
-		if in.prevLineLength == 0 {
-			// need to find previous location since only one is saved
-			in2 := Input{lineNumber: 1, charNumber: 0, sourceIndex: 0, path: in.path, source: in.source}
-			for ; in.lineNumber > in2.lineNumber; in2.readUntil('\n') {
-				if in2.peek() == 0 {
-					// prevents loop from spinning forever (shouldn't happen, but in case I missed something)
-					err.PrintBug()
-					panic("")
-				}
-			}
-			in.lineNumber = in2.lineNumber
-			in.charNumber = in2.charNumber
-			in.prevLineLength = in2.prevLineLength
-			in.sourceIndex = in2.sourceIndex
-			return
-		}
-
-		in.charNumber = in.prevLineLength
-		in.prevLineLength = 0
-	} else {
-		in.charNumber--
-	}
+	in.unsetNextIndexes()
 }
 
 /*func (in *Input) nonAsciiId() Token {
@@ -543,13 +631,18 @@ func (in *Input) Next() Token {
 		return tok
 	}*/
 
-	c := in.skipWhitespace()
+	c, e := in.skipWhitespace()
+	if nil != e {
+		return *e
+	}
+
 	if unicode.IsDigit(rune(c)) {
-		in.ungetChar()
+		//in.ungetChar()
 		return in.getNumber()
 	} else if nil != ID_REGEX.FindStringIndex(string(c)) {
-		in.ungetChar()
-		return in.getIdOrKeyword()
+		//in.ungetChar()
+		res := in.getIdOrKeyword()
+		return res
 	}
 
 	switch c {
@@ -605,9 +698,6 @@ func (in *Input) Next() Token {
 	case ';':
 		return in.tokenUnit(SEMI_COLON)
 	case '\n':
-		in.prevLineLength = in.charNumber
-		in.lineNumber++
-		in.charNumber = 0
 		return in.tokenUnit(NEW_LINE)
 	case '!':
 		if in.peek() == '=' {
@@ -845,7 +935,13 @@ func (in *InputStream) Next() Token {
 // if there are no issues allocating memory for the new buffer
 func (stream *InputStream) grow(in *Input) {
 	// number of chars left to read
-	remainingSourceLength := in.sourceLength - in.sourceIndex
+	remainingSourceLength := len(in.getSourceSlice())
+	if in.lineNumber < len(in.source) {
+		for _, s := range in.source[in.lineNumber:] {
+			remainingSourceLength = remainingSourceLength + len(s)
+		}
+	}
+
 	// new size
 	size := calculateStreamBufferSize(stream.streamLength, int64(remainingSourceLength))
 	// new buffer
@@ -864,14 +960,14 @@ func (stream *InputStream) addNextToken(in *Input) (addedType TokenType) {
 	tok := in.Next()
 	addedType = tok.GetType()
 	add := true
-	if addedType == NEW_LINE && stream.streamLength > 0 { 
+	if addedType == NEW_LINE && stream.streamLength > 0 {
 		// only add one new line in sequences of new lines
-		prev := stream.tokens[stream.streamLength - 1].GetType()
+		prev := stream.tokens[stream.streamLength-1].GetType()
 		if prev == NEW_LINE || prev == SEMI_COLON {
 			add = false
 		}
 	}
-	
+
 	if add {
 		stream.tokens = append(stream.tokens, tok)
 		stream.streamLength++
@@ -881,8 +977,15 @@ func (stream *InputStream) addNextToken(in *Input) (addedType TokenType) {
 
 func TokenizeFromInput(in *Input) (InputStream, *err.Error) {
 	errOut := new(err.Error)
-	stream := InitStream(in.path, int64(in.sourceLength))
+
+	sourceLength := 0
+	for _, s := range in.source {
+		sourceLength = sourceLength + len(s)
+	}
+
+	stream := InitStream(in.path, int64(sourceLength))
 	stream.source = in.source
+
 	for {
 		// always adds a token (poss. EOF or ERROR)
 		tokType := stream.addNextToken(in)

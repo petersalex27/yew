@@ -186,6 +186,109 @@ var fnDef5Expected = ast.MakePackage(
 	},
 )
 
+var fnDef6Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(1,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+				ast.MakeLambda(
+					ast.MakeParameter(0,
+						ast.MakeTypeAnnotation(
+							ast.MakeId(scan.MakeIdToken("y", 1, 0)),
+							types.Int{},
+						),
+					),
+					ast.MakeTypeAnnotation(
+						ast.Program{
+							ast.MakeFunction(
+								ast.MakeId(scan.MakeIdToken("myFunction'", 2, 0)),
+								ast.MakeLambda(
+									ast.MakeParameter(0,
+										ast.MakeTypeAnnotation(
+											ast.MakeId(scan.MakeIdToken("z", 2, 0)),
+											types.Int{},
+										),
+									),
+									ast.MakeTypeAnnotation(
+										ast.MakeBinaryOperation(
+											ast.ADD,
+											ast.MakeId(scan.MakeIdToken("x", 0, 0)),
+											ast.MakeBinaryOperation(
+												ast.MULTIPLY,
+												ast.MakeId(scan.MakeIdToken("y", 0, 0)),
+												ast.MakeId(scan.MakeIdToken("z", 0, 0)),
+											),
+										),
+										types.Int{},
+									),
+								),
+							),
+							ast.MakeBinaryOperation(
+								ast.ADD,
+								ast.MakeBinaryOperation(
+									ast.SUBTRACT,
+									ast.MakeId(scan.MakeIdToken("x", 0, 0)),
+									ast.MakeId(scan.MakeIdToken("y", 0, 0)),
+								),
+								ast.MakeApplication(
+									ast.MakeId(scan.MakeIdToken("myFunction'", 2, 0)),
+									ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+								),
+							),
+						},
+						types.Int{},
+					),
+				),
+			),
+		),
+	},
+)
+
+var fnDef7Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+				ast.MakeTypeAnnotation(
+					ast.Program{
+						ast.MakeFunction(
+							ast.MakeId(scan.MakeIdToken("myFunction'", 2, 0)),
+							ast.MakeLambda(
+								ast.MakeParameter(0,
+									ast.MakeTypeAnnotation(
+										ast.MakeId(scan.MakeIdToken("y", 2, 0)),
+										types.Int{},
+									),
+								),
+								ast.MakeTypeAnnotation(
+									ast.MakeId(scan.MakeIdToken("x", 0, 0)),
+									types.Int{},
+								),
+							),
+						),
+						ast.MakeId(scan.MakeIdToken("myFunction'", 2, 0)),
+					},
+					types.Function{Domain: types.Int{}, Codomain: types.Int{}},
+				),
+			),
+		),
+	},
+)
+
 var opExpected = ast.MakePackage(
 	DefaultNameSpaceId,
 	ast.Program{
@@ -294,8 +397,8 @@ var typeExpected = ast.MakePackage(
 		ast.MakeTypeDefinition(
 			scan.MakeIdToken("Color", 0, 0),
 			types.MakeData(
-				"Color", 
-				[]types.Tau{}, 
+				"Color",
+				[]types.Tau{},
 				[]types.Constructor{
 					types.MakeConstructor("Red", types.Application{}),
 					types.MakeConstructor("Blue", types.Application{}),
@@ -311,7 +414,7 @@ var type2Expected = ast.MakePackage(
 		ast.MakeTypeDefinition(
 			scan.MakeIdToken("Maybe", 0, 0),
 			types.MakeData2(
-				"Maybe", []string{"a"}, 
+				"Maybe", []string{"a"},
 				[]types.Constructor{
 					types.MakeConstructor("Just", types.Application{types.Tau("a")}),
 					types.MakeConstructor("Nothing", types.Application{}),
@@ -327,7 +430,7 @@ var type3Expected = ast.MakePackage(
 		ast.MakeTypeDefinition(
 			scan.MakeIdToken("Either", 0, 0),
 			types.MakeData2(
-				"Either", []string{"a", "b"}, 
+				"Either", []string{"a", "b"},
 				[]types.Constructor{
 					types.MakeConstructor("Left", types.Application{types.Tau("a")}),
 					types.MakeConstructor("Right", types.Application{types.Tau("b")}),
@@ -344,7 +447,7 @@ var patternExpected = ast.MakePackage(
 			Expression: ast.MakeId(scan.MakeIdToken("a", 0, 0)),
 			Matchers: []ast.Lambda{
 				ast.MakeLambda( // 1 -> 0
-					ast.MakeParameter(0, 
+					ast.MakeParameter(0,
 						ast.MakeTypeAnnotation(
 							ast.MakeValue(value.Int(1)),
 							types.Tau(".t?"),
@@ -353,7 +456,7 @@ var patternExpected = ast.MakePackage(
 					ast.MakeValue(value.Int(0)),
 				),
 				ast.MakeLambda( // x -> x
-					ast.MakeParameter(0, 
+					ast.MakeParameter(0,
 						ast.MakeTypeAnnotation(
 							ast.MakeId(scan.MakeIdToken("x", 0, 0)),
 							types.Tau(".t?"),
@@ -366,10 +469,39 @@ var patternExpected = ast.MakePackage(
 	},
 )
 
-var pattern2Expected = ast.MakePackage(
+var pattern3Expected = ast.MakePackage(
 	DefaultNameSpaceId,
 	ast.Program{
-		ast.Pattern{},
+		ast.Pattern{
+			Expression: ast.MakeBinaryOperation(
+				ast.ADD,
+				ast.MakeId(scan.MakeIdToken("a", 0, 0)),
+				ast.MakeId(scan.MakeIdToken("b", 0, 0)),
+			),
+			Matchers: []ast.Lambda{
+				ast.MakeLambda( // 0 -> 1
+					ast.MakeParameter(0,
+						ast.MakeTypeAnnotation(
+							ast.MakeValue(value.Int(0)),
+							types.Tau(".t?"),
+						),
+					),
+					ast.MakeValue(value.Int(1)),
+				),
+				ast.MakeLambda( // x y -> 0
+					ast.MakeParameter(0,
+						ast.MakeTypeAnnotation(
+							ast.MakeApplication(
+								ast.MakeId(scan.MakeIdToken("x", 0, 0)),
+								ast.MakeId(scan.MakeIdToken("y", 0, 0)),
+							),
+							types.Tau(".t?"),
+						),
+					),
+					ast.MakeValue(value.Int(0)),
+				),
+			},
+		},
 	},
 )
 
@@ -387,7 +519,7 @@ var asts = []struct {
 	{"./test/factorial.yw", factorialExpected},
 	{"./test/prefix.yw", prefixOperationExpected},
 	{"./test/fnDef.yw", fnDefExpected},
-	{"./test/fnDef2.yw", fnDef2Expected},//*/
+	{"./test/fnDef2.yw", fnDef2Expected}, //*/
 	{"./test/fnDef3.yw", fnDef3Expected},
 	{"./test/fnDef4.yw", fnDef4Expected},
 	{"./test/assignApp.yw", assignAppExpected},
@@ -399,6 +531,10 @@ var asts = []struct {
 	{"./test/compose2.yw", compose2Expected},
 	{"./test/compose3.yw", compose3Expected},
 	{"./test/pattern.yw", patternExpected},
+	{"./test/pattern2.yw", patternExpected},
+	{"./test/pattern3.yw", pattern3Expected},
+	{"./test/fnDef6.yw", fnDef6Expected},
+	{"./test/fnDef7.yw", fnDef7Expected},
 }
 
 func TestParse(t *testing.T) {
@@ -417,10 +553,10 @@ func TestParse(t *testing.T) {
 			t.FailNow()
 		}
 
-		/*if test.path == "./test/compose3.yw" {
+		/*if test.path == "./test/pattern3.yw" {
 			ast.PrintAst(prog)
 		}//*/
-		ast.PrintAst(prog)
+		//ast.PrintAst(prog)
 		if !ast.EqualTest(prog, test.ast_) {
 			fmt.Fprintf(os.Stderr, ">>> failed: %s <<<\n", test.path)
 			fmt.Printf("Expected: \n")

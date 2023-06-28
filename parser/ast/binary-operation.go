@@ -59,8 +59,8 @@ func (b BinaryOperation) Make(p *Parser) bool {
 }
 func (b BinaryOperation) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == OPERATION
-	b2 := a.(BinaryOperation)
-	return equal &&
+	b2, ok := a.(BinaryOperation)
+	return equal && ok &&
 		b.op == b2.op &&
 		b.left.Equal_test(b2.left) &&
 		b.right.Equal_test(b2.right)

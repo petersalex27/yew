@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	scan "yew/lex"
+	errorgen "yew/parser/error-gen"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
 	"yew/symbol"
@@ -223,13 +224,22 @@ func unrollApplication(p *Parser, action unrollAction, functionName Id, fnType t
 }
 
 // breaks apart function's type annotation
-func pushFunctionTypeAnnotation(stack *AstStack, tyAnnot types.Function) {
+func pushFunctionTypeAnnotation(stack *AstStack, tyAnnot types.Function) int {
 	if tyAnnot.Codomain.GetTypeType() == types.FUNCTION {
 		stack.Push(ExpressionTypeAnnotation{expressionType: tyAnnot.Domain})
-		pushFunctionTypeAnnotation(stack, tyAnnot.Codomain.(types.Function))
+		return 1 + pushFunctionTypeAnnotation(stack, tyAnnot.Codomain.(types.Function))
 	} else {
 		stack.Push(ExpressionTypeAnnotation{expressionType: tyAnnot.Domain})
 		stack.Push(ExpressionTypeAnnotation{expressionType: tyAnnot.Codomain})
+		return 2
+	}
+}
+
+func getApplicationLength(app Application) int {
+	if app.left.GetNodeType() == APPLICATION {
+		return 1 + getApplicationLength(app.left.(Application))
+	} else {
+		return 2
 	}
 }
 
@@ -245,8 +255,30 @@ func DeclareFunction(p *Parser, functionName Id, parseFunctionBody func(*Parser)
 			return false // TODO: error message
 		}
 		tyAnnot := annot.expressionType.(types.Function)
-		pushFunctionTypeAnnotation(p.Stack, tyAnnot)
+		fnLength := pushFunctionTypeAnnotation(p.Stack, tyAnnot)
 		app := annot.expression.(Application)
+		appLength := getApplicationLength(app)
+		leftover := fnLength - appLength
+		if leftover < 0 {
+			errorgen.GenerateSyntaxError(
+				"the number of parameters exceeds the applicable types in the function type",
+			)(functionName.token, p.Input).Print()
+			return false
+		}
+		// for example, "myFunction x :: a -> b -> c" has a return type of
+		// 	(b -> c)
+		for i := 0; i < leftover; i++ { // create function return type
+			rightType := p.Stack.Pop().(ExpressionTypeAnnotation)
+			leftType := p.Stack.Pop().(ExpressionTypeAnnotation)
+			inType := ExpressionTypeAnnotation{
+				expression: EmptyExpression{},
+				expressionType: types.Function{
+					Domain:   leftType.expressionType,
+					Codomain: rightType.expressionType,
+				},
+			}
+			p.Stack.Push(inType)
+		}
 		p.Stack.Push(app)
 		initialAnnotated := createInitial(
 			parseFunctionBody,

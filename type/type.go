@@ -5,6 +5,7 @@ import (
 	"sync"
 	"yew/demangler"
 	err "yew/error"
+	"yew/source"
 	util "yew/utils"
 )
 
@@ -1006,7 +1007,7 @@ type _errorGenFn (func () err.UserMessage)
 
 func typeErrorGen(message string) _errorGenFn {
 	return (func () err.UserMessage {
-		return err.CompileMessage(message, err.ERROR, err.TYPE, "", 0, 0, 0, "")
+		return err.CompileMessage(message, err.ERROR, err.TYPE, "", 0, 0, source.Source{""})
 	})
 }
 

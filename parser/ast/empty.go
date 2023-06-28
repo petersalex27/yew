@@ -65,7 +65,6 @@ func (e EmptyExpression) FindStartToken() scan.Token {
 
 	return scan.ValueToken{
 		Value: value.Tuple{}, 
-		Index: err.BuiltinErrorLocation.GetSourceIndex(),
 		Char: err.BuiltinErrorLocation.GetChar(),
 		Line: err.BuiltinErrorLocation.GetLine(),
 	}
