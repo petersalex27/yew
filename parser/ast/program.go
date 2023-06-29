@@ -67,11 +67,6 @@ func (p Program) Make(parser *Parser) bool {
 	return true
 }
 
-var programStatementRule = NodeRule{
-	Production: PROGRAM,
-	Expression: []NodeType{STATEMENT},
-}
-
 func MakeProgram(as ...Ast) Program { return Program(as) }
 
 func (p Program) Equal_test(a Ast) bool {

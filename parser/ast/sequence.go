@@ -22,9 +22,10 @@ func (s Sequence) ResolveNames(table *symbol.SymbolTable) bool {
 	return true
 }
 func (s Sequence) GetNodeType() NodeType { return SEQUENCE }
+
 func (s Sequence) Make(p *Parser) bool {
 	// convert any statements into empty expressions
-	valid, _ := p.Stack.TryValidate([]NodeType{STATEMENT})
+	valid, _ := p.Stack.TryValidate(sequenceRuleStatement.Expression)
 	if valid {
 		if !(Program{}.Make(p)) { // makes a statement with an empty expression
 			return false
@@ -32,7 +33,7 @@ func (s Sequence) Make(p *Parser) bool {
 		// programs are expressions
 	}
 
-	valid, _ = p.Stack.TryValidate([]NodeType{SEQUENCE, EXPRESSION})
+	valid, _ = p.Stack.TryValidate(sequenceRuleContinue.Expression)
 	if valid {
 		// continue a sequence
 		ex := p.Stack.Pop().(Expression)
@@ -42,10 +43,10 @@ func (s Sequence) Make(p *Parser) bool {
 		return true
 	}
 
-	var e err.Error
-	valid, e = p.Stack.Validate(NodeRule{SEQUENCE, []NodeType{EXPRESSION}})
+	var e func(scan.InputStream)err.Error
+	valid, e = p.Stack.Validate(sequenceRuleNew)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	// create new sequence
@@ -53,6 +54,7 @@ func (s Sequence) Make(p *Parser) bool {
 	p.Stack.Push(append(make(Sequence, 0, 1), ex))
 	return true
 }
+
 func (s Sequence) ExpressionType() types.Types {
 	e, found := util.Tail(s)
 	if !found {

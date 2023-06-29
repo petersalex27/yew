@@ -33,18 +33,6 @@ func (app Application) DoTypeInference(newTypeInformation types.Types) types.Typ
 
 func (app Application) GetNodeType() NodeType { return APPLICATION }
 
-// Application ::= Function Expression
-var appRule1 = NodeRule{
-	Production: APPLICATION,
-	Expression: []NodeType{FUNCTION, EXPRESSION},
-}
-
-// Application ::= Expression Expression
-var appRule2 = NodeRule{
-	Production: APPLICATION,
-	Expression: []NodeType{EXPRESSION, EXPRESSION},
-}
-
 func (app Application) FindStartToken() scan.Token {
 	return app.left.FindStartToken()
 }
@@ -55,10 +43,10 @@ func (app Application) Make(p *Parser) bool {
 		app.right = p.Stack.Pop().(Expression)
 		app.left = p.Stack.Pop().(Function).function
 	} else {
-		var e err.Error
+		var e func (scan.InputStream) err.Error
 		valid, e = p.Stack.Validate(appRule2)
 		if !valid {
-			e.Print()
+			e(p.Input).Print()
 			return false
 		}
 		app.right = p.Stack.Pop().(Expression)

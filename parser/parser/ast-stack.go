@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	err "yew/error"
+	scan "yew/lex"
 	nodetype "yew/parser/node-type"
 	symbol "yew/symbol"
 	//nodetype "yew/parser/nodetype"
@@ -20,9 +21,11 @@ type Ast interface {
 	Equal_test(Ast) bool
 	Print([]string)
 	ResolveNames(*symbol.SymbolTable) bool
+	FindStartToken() scan.Token
 }
 
 type stackMarker int
+
 func (stackMarker) Make(*Parser) bool {
 	err.PrintBug()
 	panic("")
@@ -35,7 +38,10 @@ func (stackMarker) Equal_test(Ast) bool {
 }
 func (stackMarker) Print([]string) {}
 func (stackMarker) ResolveNames(*symbol.SymbolTable) bool {
-	return false 
+	return false
+}
+func (stackMarker) FindStartToken() scan.Token {
+	return scan.MakeBlankToken()
 }
 
 type StackLoggable interface {
@@ -93,15 +99,15 @@ func (stack *AstStack) CutAtMark(p *Parser) (out []Ast, ok bool) {
 		return []Ast{}, false
 	}
 
-	if idx + 1 >= len(*stack) {
+	if idx+1 >= len(*stack) {
 		out = []Ast{}
 	} else {
-		tmp := (*stack)[idx + 1:]
+		tmp := (*stack)[idx+1:]
 		out = make([]Ast, 0, len(tmp))
 		out = append(out, tmp...)
 	}
 
-	(*stack) = (*stack)[:idx + 1]
+	(*stack) = (*stack)[:idx+1]
 	ok = true
 	return
 }
@@ -170,90 +176,108 @@ func match(expect nodetype.NodeType, actual nodetype.NodeType) bool {
 	}
 }
 
-//   - allows REPEAT__ NodeType to be used
-//   - returns true if matched expected
-//   - also returns number of tokens matched for each expected node type
-//     (number for each node type in range [1, ..))
-func (stack *AstStack) Validate2(expectedNodes []nodetype.NodeType) (bool, []int) {
-	out := make([]int, 0, 1)
-	j := len(expectedNodes) - 1
-	if j < 0 {
-		return false, out
+// assumes len(stack) >= n
+func (stack *AstStack) typeTopN(n int) ([]nodetype.NodeType, bool) {
+	ruleIndex := len(*stack) - n
+	if ruleIndex < 0 {
+		return []nodetype.NodeType{}, false
 	}
 
-	for i := len(*stack) - 1; i >= 0 && j >= 0; {
-		out = append([]int{0}, out...)
-		allow0 := nodetype.REPEAT_OR_NONE__ == expectedNodes[j]
-		doRep := nodetype.REPEAT__ == expectedNodes[j] || allow0
-		if doRep {
-			j-- // moves past repeat
-			if j < 0 {
-				// repeat is first thing in expectedNodes--this is a bug
-				err.PrintBug()
-				panic("")
-			}
-
-			// repeat until no match found
-			for ; i >= 0; i-- {
-				if match(expectedNodes[j], (*stack)[i].GetNodeType()) {
-					out[0]++
-				} else {
-					break
-				}
-			}
-			// when i is not decremented, out[0] == 0; thus,
-			// 	function will return at end of for loop
-		} else {
-			if match(expectedNodes[j], (*stack)[i].GetNodeType()) {
-				out[0]++
-			}
-			i--
-			// when not matched, out[0] == 0; thus, function will return at end of for loop
-		}
-
-		// check that match was found
-		if out[0] == 0 && !allow0 {
-			return false, out
-		}
-		j--
+	nts := make([]nodetype.NodeType, n)
+	for i, j := n-1, len(*stack)-1; i >= 0; i, j = i-1, j-1 {
+		nts[i] = (*stack)[j].GetNodeType()
 	}
-	if j >= 0 {
-		return false, out // ran out of input to match
+	return nts, true
+}
+
+func stringNodeTypes(nodetypes []nodetype.NodeType) string {
+	var builder strings.Builder
+	builder.WriteByte('(')
+	for _, nt := range nodetypes {
+		builder.WriteString(nt.ToString())
+		builder.WriteString(", ")
 	}
-	return true, out
+	builder.WriteByte(')')
+	return builder.String()
 }
 
 // (true, 0) on success, (false, -1) on stack does not contain enough things to replace,
 // (false, n) where n is a non-negative number and n is the index where the rule failed in
 // expectedNodes
 func (stack *AstStack) TryValidate(expectedNodes []nodetype.NodeType) (bool, int) {
-	ruleIndex := len(*stack) - len(expectedNodes)
-	if ruleIndex < 0 {
+	nts, ok := stack.typeTopN(len(expectedNodes))
+	if !ok {
 		return false, -1
 	}
 
-	j := 0
-	for i := ruleIndex; i < len(*stack); i++ {
-		if !match(expectedNodes[j], (*stack)[i].GetNodeType()) {
-			return false, j // failed at expected of j
-		}
-		j++
-	}
+	/*
+	fmt.Fprintf(os.Stderr, "expected: %s\n", stringNodeTypes(expectedNodes))
+	fmt.Fprintf(os.Stderr, "actual: %s\n", stringNodeTypes(nts))//*/
 
+	for i := 0; i < len(nts); i++ {
+		if !match(expectedNodes[i], nts[i]) {
+			return false, i 
+		}
+	}
 	return true, 0
 }
 
-var dummyLocation = err.MakeErrorLocation(0, 0, "", []string{""})
-
-func (stack *AstStack) Validate(rule nodetype.NodeRule) (bool, err.Error) {
-	valid, index := stack.TryValidate(rule.Expression)
-	if !valid {
-		// TODO: need location info!!
-		var builder strings.Builder
-		builder.WriteString("could not apply production rule:\n")
-		builder.WriteString(rule.RuleFailToString(index))
-		return false, err.SyntaxError(builder.String(), dummyLocation)
+func (stack *AstStack) failedValidation(rule nodetype.NodeRule, index int) func(in scan.InputStream) err.Error {
+	var line, char int
+	var builder strings.Builder
+	//fmt.Fprintf(os.Stderr, "index=%d\n", index)
+	if len(*stack) <= index {
+		line = 0
+		char = 0
+		builder.WriteString(rule.ExpectedFailure(index))
+	} else if index >= 0 {
+		ruleExpressionLen := len(rule.Expression)
+		ast := (*stack)[len(*stack)-ruleExpressionLen+index]
+		nt := ast.GetNodeType()
+		loc := ast.FindStartToken().GetLocation()
+		line = loc.GetLine()
+		char = loc.GetChar()
+		builder.WriteString(nodetype.FoundFailure(nt))
+		builder.WriteString(" but ")
+		builder.WriteString(rule.ExpectedFailure(index))
+	} else { // index is negative
+		builder.WriteString("tried to parse ")
+		article, s := nodetype.GetErrorName(rule.Production)
+		builder.WriteString(article)
+		builder.WriteByte(' ')
+		builder.WriteString(s)
+		builder.WriteString(", expecting the sequence ")
+		for i, expr := range rule.Expression {
+			_, s = nodetype.GetErrorName(expr)
+			builder.WriteString(s)
+			if i < len(rule.Expression)-1 {
+				builder.WriteString(", ")
+			}
+		}
+		builder.WriteString(". The following sequence was found instead: ")
+		ln := len(*stack)
+		for i := 0; i < ln; i++ {
+			_, s = nodetype.GetErrorName((*stack)[i].GetNodeType())
+			builder.WriteString(s)
+			if i < len(rule.Expression)-1 {
+				builder.WriteString(", ")
+			}
+		}
 	}
 
-	return true, err.Error{}
+	str := builder.String()
+
+	return func(in scan.InputStream) err.Error {
+		loc := err.MakeErrorLocation(line, char, in.GetPath(), in.GetSource())
+		return err.SyntaxError(str, loc)
+	}
+}
+
+func (stack *AstStack) Validate(rule nodetype.NodeRule) (bool, func(in scan.InputStream) err.Error) {
+	valid, index := stack.TryValidate(rule.Expression)
+	if !valid {
+		return false, stack.failedValidation(rule, index)
+	}
+
+	return true, nil
 }

@@ -19,20 +19,39 @@ func (e Error) GetLocation() info.Location {
 }
 
 func (e Error) ToString() string {
+	loc, title, message, snippet := e.ToSplitString()
 	var builder strings.Builder
 
-	builder.WriteString(writePrefix(e.path, e.line, e.char))
-	if NONE != e.subtype {
-		builder.WriteString(subtypeMap[e.subtype] + " ")
+	if loc != "" {
+		builder.WriteString(loc)
+		builder.WriteByte(' ')
 	}
-	builder.WriteString(ERROR + ": ")
-	builder.WriteString(e.message)
-	builder.WriteString(".")
-	//builder.WriteString(writeCodePointer(in, sourceIndex))
+	builder.WriteString(title)
+	builder.WriteString(": ")
+	builder.WriteString(message)
+	builder.WriteByte('.')
+	if snippet != "" {
+		builder.WriteByte('\n')
+		builder.WriteString(snippet)
+	}
 	return builder.String()
 }
 
+func (e Error) ToSplitString() (loc string, title string, message string, snippet string) {
+	loc = writePrefix(e.path, e.line, e.char)
+	
+	title = ""
+	if NONE != e.subtype {
+		title = subtypeMap[e.subtype] + " "
+	}
+	title = title + ERROR
+	message = e.message
+	snippet = e.snippet
+	return
+}
+
 func (e Error) Print() int {
-	out, _ := fmt.Fprintf(os.Stderr, "%s%s\n", errorSprint(e.ToString()), resetSprint(""))
+	out, _ := fmt.Fprintf(
+		os.Stderr, "%s%s\n", errorSprint(e.ToString()), resetSprint(""))
 	return out
 }

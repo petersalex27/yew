@@ -1,6 +1,7 @@
 package ast
 
 import (
+	scan "yew/lex"
 	"yew/symbol"
 	//err "yew/error"
 	"fmt"
@@ -56,16 +57,11 @@ func (dec Declaration) ResolveNames(table *symbol.SymbolTable) bool {
 	panic("TODO: implement linking")
 }
 
-// Declaration ::= Identifier Type-Annotation
-var declarationRule = NodeRule{
-	Production: DECLARATION /* ::= */, Expression: []NodeType{IDENTIFIER, TYPE_ANNOTATION},
-}
-
 // rule: pop, transform, push
 func (dec Declaration) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(declarationRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	annot := p.Stack.Pop().(ExpressionTypeAnnotation)
@@ -121,4 +117,7 @@ func (dec Declaration) Print(ls []string) {
 }
 func (dec Declaration) StackLogString() string {
 	return fmt.Sprintf("%s; %s", dec.GetNodeType().ToString(), dec.id.token.ToString())
+}
+func (dec Declaration) FindStartToken() scan.Token {
+	return dec.id.token
 }

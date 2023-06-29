@@ -3,9 +3,10 @@ package ast
 import (
 	"fmt"
 	//err "yew/error"
+	"yew/ir"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/ir"
 	"yew/symbol"
 )
 
@@ -21,15 +22,11 @@ func (def Definition) ResolveNames(table *symbol.SymbolTable) bool {
 	return def.assignment.ResolveNames(table)
 }
 
-// Definition ::= Declaration Expression
-var definitionRule = NodeRule{
-	DEFINITION, /* ::= */ []NodeType{DECLARATION, EXPRESSION},
-}
 // (Declaration, Expression) -> (Declaration, Definition)
 func (def Definition) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(definitionRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	expr := p.Stack.Pop().(Expression)
@@ -55,8 +52,8 @@ func (def Definition) Equal_test(a Ast) bool {
 		return false
 	}
 
-	def2 := a.(Definition)
-	equal = equal &&
+	def2, ok := a.(Definition)
+	equal = equal && ok &&
 		def2.assignment.Equal_test(def.assignment)
 	return equal
 }
@@ -74,4 +71,8 @@ func (def Definition) StackLogString() string {
 	return fmt.Sprintf("%s; %s", 
 			def.GetNodeType().ToString(), 
 			def.assignment.target.token.ToString())
+}
+
+func (def Definition) FindStartToken() scan.Token {
+	return def.assignment.target.FindStartToken()
 }

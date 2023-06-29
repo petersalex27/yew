@@ -3,9 +3,10 @@ package ast
 import (
 	"fmt"
 	"yew/ir"
-	"yew/symbol"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
+	"yew/symbol"
 )
 
 type Assignment struct {
@@ -26,15 +27,11 @@ func (a Assignment) ResolveNames(table *symbol.SymbolTable) bool {
 }
 
 func (a Assignment) GetNodeType() NodeType { return ASSIGNMENT }
-// Assignment ::= Identifier Expression
-var assignmentRule = NodeRule{
-	Production: ASSIGNMENT,
-	Expression: []NodeType{IDENTIFIER, EXPRESSION},
-}
+
 func (a Assignment) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(assignmentRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	a.expression = p.Stack.Pop().(Expression)
@@ -45,8 +42,8 @@ func (a Assignment) Make(p *Parser) bool {
 
 func (a Assignment) Equal_test(ast Ast) bool {
 	equal := ast.GetNodeType() == ASSIGNMENT
-	a2 := ast.(Assignment)
-	return equal &&
+	a2, ok := ast.(Assignment)
+	return equal && ok &&
 		a.target.Equal_test(a2.target) &&
 		a.expression.Equal_test(a2.expression)
 }
@@ -60,4 +57,8 @@ func (a Assignment) Print(lines []string) {
 	a.target.Print(next)
 	next[len(next)-1] = " └─"
 	a.expression.Print(next)
+}
+
+func (a Assignment) FindStartToken() scan.Token {
+	return a.target.token
 }

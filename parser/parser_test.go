@@ -218,10 +218,10 @@ var fnDef6Expected = ast.MakePackage(
 									),
 									ast.MakeTypeAnnotation(
 										ast.MakeBinaryOperation(
-											ast.ADD,
+											ast.OpType(scan.MakeOtherToken(scan.PLUS, 0, 0)),
 											ast.MakeId(scan.MakeIdToken("x", 0, 0)),
 											ast.MakeBinaryOperation(
-												ast.MULTIPLY,
+												ast.OpType(scan.MakeOtherToken(scan.STAR, 0, 0)),
 												ast.MakeId(scan.MakeIdToken("y", 0, 0)),
 												ast.MakeId(scan.MakeIdToken("z", 0, 0)),
 											),
@@ -231,9 +231,9 @@ var fnDef6Expected = ast.MakePackage(
 								),
 							),
 							ast.MakeBinaryOperation(
-								ast.ADD,
+								ast.OpType(scan.MakeOtherToken(scan.PLUS, 0, 0)),
 								ast.MakeBinaryOperation(
-									ast.SUBTRACT,
+									ast.OpType(scan.MakeOtherToken(scan.MINUS, 0, 0)),
 									ast.MakeId(scan.MakeIdToken("x", 0, 0)),
 									ast.MakeId(scan.MakeIdToken("y", 0, 0)),
 								),
@@ -293,7 +293,7 @@ var opExpected = ast.MakePackage(
 	DefaultNameSpaceId,
 	ast.Program{
 		ast.MakeBinaryOperation(
-			ast.ADD,
+			ast.OpType(scan.MakeOtherToken(scan.PLUS, 0, 0)),
 			ast.Value(scan.ValueToken{Value: value.Int(1)}),
 			ast.Value(scan.ValueToken{Value: value.Int(1)}),
 		),
@@ -304,7 +304,7 @@ var factorialExpected = ast.MakePackage(
 	DefaultNameSpaceId,
 	ast.Program{
 		ast.MakePostfixOperation(
-			ast.FACTORIAL,
+			ast.PostOpType(scan.MakeOtherToken(scan.BANG_POSTFIX__, 0, 0)),
 			ast.MakeValue(value.Int(1)),
 		),
 	},
@@ -356,7 +356,7 @@ var prefixOperationExpected = ast.MakePackage(
 	DefaultNameSpaceId,
 	ast.Program{
 		ast.MakeUnaryOperation(
-			ast.POSITIVE,
+			ast.UOpType(scan.MakeOtherToken(scan.PLUS_PREFIX__, 0, 0)),
 			ast.MakeValue(value.Int(1)),
 		),
 	},
@@ -474,7 +474,7 @@ var pattern3Expected = ast.MakePackage(
 	ast.Program{
 		ast.Pattern{
 			Expression: ast.MakeBinaryOperation(
-				ast.ADD,
+				ast.OpType(scan.MakeOtherToken(scan.PLUS, 0, 0)),
 				ast.MakeId(scan.MakeIdToken("a", 0, 0)),
 				ast.MakeId(scan.MakeIdToken("b", 0, 0)),
 			),

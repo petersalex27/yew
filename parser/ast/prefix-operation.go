@@ -39,14 +39,10 @@ func (u UnaryOperation) Compile(builder *ir.IrBuilder) {
 }
 func (u UnaryOperation) GetNodeType() NodeType { return UOPERATION }
 
-var unaryOperationRule = NodeRule{
-	Production: UOPERATION /* ::= */, Expression: []NodeType{UOP_, EXPRESSION},
-}
-
 func (u UnaryOperation) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(unaryOperationRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 
@@ -59,7 +55,7 @@ func (u UnaryOperation) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == UOPERATION
 	u2 := a.(UnaryOperation)
 	return equal &&
-		u.op == u2.op &&
+		u.op.Equal_test(u2.op) &&
 		u.operand.Equal_test(u2.operand)
 }
 func (u UnaryOperation) Print(ls []string) {

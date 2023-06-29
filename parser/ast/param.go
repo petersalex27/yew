@@ -3,6 +3,7 @@ package ast
 import (
 	"fmt"
 	err "yew/error"
+	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
 	"yew/symbol"
@@ -25,10 +26,11 @@ func (Parameter) Make(*Parser) bool {
 	err.PrintBug()
 	panic("")
 }
+
 func (par Parameter) MakePatternParam(p *Parser) bool {
-	valid, e := p.Stack.Validate(NodeRule{PARAM, []NodeType{EXPRESSION}})
+	valid, e := p.Stack.Validate(patternParamRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 
@@ -50,8 +52,8 @@ func (par Parameter) MakePatternParam(p *Parser) bool {
 func (p Parameter) GetNodeType() NodeType { return PARAM }
 func (p Parameter) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == PARAM
-	p2 := a.(Parameter)
-	return equal &&
+	p2, ok := a.(Parameter)
+	return equal && ok &&
 		p.paramIndex == p2.paramIndex &&
 		p.pattern.Equal_test(p2.pattern)
 }
@@ -66,4 +68,8 @@ func (p Parameter) Print(ls []string) {
 
 func (p Parameter) Accepts(e Expression) bool {
 	return p.pattern.ExpressionType().Equals(e.ExpressionType())
+}
+
+func (p Parameter) FindStartToken() scan.Token {
+	return p.pattern.FindStartToken()
 }

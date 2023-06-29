@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	err "yew/error"
+	scan "yew/lex"
+
 	//"yew/parser/ast"
 	nodetype "yew/parser/node-type"
 	"yew/parser/parser"
@@ -23,20 +25,10 @@ func (t Type) GetType() types.Types {
 	return t.ty
 }
 
-var binaryTypeRule = nodetype.NodeRule{
-	Production: nodetype.TYPE,
-	Expression: []nodetype.NodeType{nodetype.TYPE, nodetype.TYPE},
-}
-
-var justTypeRule = nodetype.NodeRule{
-	Production: nodetype.TYPE,
-	Expression: []nodetype.NodeType{nodetype.TYPE},
-}
-
 func makeBinaryType(p *parser.Parser, createType func (types.Types, types.Types) types.Types) bool {
 	valid, e := p.Stack.Validate(binaryTypeRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	right := p.Stack.Pop().(Type).ty
@@ -81,7 +73,7 @@ func applicationToTauApplication(p *parser.Parser) bool {
 		Expression: []nodetype.NodeType{nodetype.APPLICATION},
 	})
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	app := p.Stack.Pop().(Application)
@@ -119,7 +111,7 @@ func (t Type) MakeData(p *parser.Parser) bool {
 
 	valid, e := p.Stack.Validate(justTypeRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 
@@ -154,7 +146,7 @@ func (t Type) AddConstructor(p *parser.Parser) bool {
 func (t Type) MakeArray(p *parser.Parser) bool {
 	valid, e := p.Stack.Validate(justTypeRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	ty := p.Stack.Pop().(Type)
@@ -185,5 +177,9 @@ func (t Type) Print(lines []string) {
 }
 func (t Type) ResolveNames(table *symbol.SymbolTable) bool {
 	return true // TODO?
+}
+
+func (t Type) FindStartToken()scan.Token {
+	return scan.MakeBlankToken()
 }
 

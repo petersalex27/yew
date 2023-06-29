@@ -1,0 +1,4 @@
+a ? {
+    Just x -> f x
+    _ -> Nothing
+}

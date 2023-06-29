@@ -25,12 +25,10 @@ func (post PostfixOperation) GetNodeType() NodeType {
 	return POPERATION
 }
 
-var postOperationRule = NodeRule{Production: POPERATION, Expression: []NodeType{EXPRESSION, POP_}}
-
 func (post PostfixOperation) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(postOperationRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	post.op = p.Stack.Pop().(PostOpType)
@@ -43,8 +41,8 @@ func (post PostfixOperation) Equal_test(a Ast) bool {
 	if !equal {
 		return false
 	}
-	post2 := a.(PostfixOperation)
-	return equal &&
+	post2, ok := a.(PostfixOperation)
+	return equal && ok &&
 		post.op.Equal_test(post2.op) &&
 		post.operand.Equal_test(post2.operand)
 }

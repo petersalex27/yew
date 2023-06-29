@@ -415,50 +415,50 @@ func sequence(p *Parser, delimiter scan.TokenType, action func(*Parser, scan.Tok
 	return false
 }
 
-func pushOperation(p *Parser, tokenType scan.TokenType) {
-	switch tokenType {
+func pushOperation(p *Parser, token scan.OtherToken) {
+	switch token.GetType() {
 	case scan.PLUS:
-		p.Stack.Push(ast.ADD)
+		fallthrough
 	case scan.STAR:
-		p.Stack.Push(ast.MULTIPLY)
+		fallthrough
 	case scan.SLASH:
-		p.Stack.Push(ast.DIVIDE)
+		fallthrough
 	case scan.MINUS:
-		p.Stack.Push(ast.SUBTRACT)
+		fallthrough
 	case scan.MOD:
-		p.Stack.Push(ast.MOD)
+		fallthrough
 	case scan.HAT:
-		p.Stack.Push(ast.POWER)
+		fallthrough
 	case scan.PLUS_PLUS:
-		p.Stack.Push(ast.APPEND)
+		fallthrough
 	case scan.COLON:
-		p.Stack.Push(ast.CONSTRUCT)
+		fallthrough
 	case scan.ARROW:
-		p.Stack.Push(ast.MAPS_TO)
+		fallthrough
 	case scan.AMPER_AMPER:
-		p.Stack.Push(ast.AND)
+		fallthrough
 	case scan.BAR_BAR:
-		p.Stack.Push(ast.OR)
+		fallthrough
 	case scan.GREAT:
-		p.Stack.Push(ast.GREAT)
+		fallthrough
 	case scan.LESS:
-		p.Stack.Push(ast.LESS)
+		fallthrough
 	case scan.GREAT_EQUALS:
-		p.Stack.Push(ast.GREAT_EQUALS)
+		fallthrough
 	case scan.LESS_EQUALS:
-		p.Stack.Push(ast.LESS_EQUALS)
+		fallthrough
 	case scan.EQUALS_EQUALS:
-		p.Stack.Push(ast.EQUALS)
+		fallthrough
 	case scan.BANG_EQUALS:
-		p.Stack.Push(ast.NOT_EQUALS)
+		p.Stack.Push(ast.OpType(token))
 	case scan.BANG:
-		p.Stack.Push(ast.NOT)
-	case scan.BANG_POSTFIX__:
-		p.Stack.Push(ast.FACTORIAL)
+		fallthrough
 	case scan.PLUS_PREFIX__:
-		p.Stack.Push(ast.POSITIVE)
+		fallthrough
 	case scan.MINUS_PREFIX__:
-		p.Stack.Push(ast.NEGATIVE)
+		p.Stack.Push(ast.UOpType(token))
+	case scan.BANG_POSTFIX__:
+		p.Stack.Push(ast.PostOpType(token))
 	default:
 		err.PrintBug()
 		panic("")
@@ -488,10 +488,9 @@ func fixUnaryToken(token scan.Token) scan.Token {
 func prefix(p *Parser, token scan.Token) bool {
 	p.Advance() // move past operation
 
-	token = fixUnaryToken(token)
-	operationsBindingPower := getBindingPower(token)
-	tokenType := token.GetType()
-	pushOperation(p, tokenType)
+	tok := fixUnaryToken(token).(scan.OtherToken)
+	operationsBindingPower := getBindingPower(tok)
+	pushOperation(p, tok)
 
 	if !parseExpression(p, operationsBindingPower) {
 		return false
@@ -503,12 +502,11 @@ func prefix(p *Parser, token scan.Token) bool {
 func binary(p *Parser, token scan.Token) bool {
 	p.Advance() // move past operation
 
-	token = fixArithmeticToken(token)
-	operationsBindingPower := getBindingPower(token)
-	tokenType := token.GetType()
-	pushOperation(p, tokenType)
+	tok := fixArithmeticToken(token).(scan.OtherToken)
+	operationsBindingPower := getBindingPower(tok)
+	pushOperation(p, tok)
 
-	if tokenType == scan.BANG_POSTFIX__ { // factorial
+	if tok.GetType() == scan.BANG_POSTFIX__ { // factorial
 		return ast.PostfixOperation{}.Make(p)
 	}
 
@@ -616,7 +614,7 @@ func typeAnnotation(p *Parser, token scan.Token) bool {
 
 	valid, e := p.Stack.Validate(typeAnnotationRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 

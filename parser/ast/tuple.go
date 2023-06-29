@@ -12,14 +12,9 @@ import (
 
 type Tuple Sequence
 
-var tupleRule = nodetype.NodeRule{
-	Production: nodetype.TUPLE,
-	Expression: []nodetype.NodeType{nodetype.SEQUENCE},
-}
-
 func (t Tuple) Make(p *parser.Parser) bool {
 	if valid, e := p.Stack.Validate(tupleRule); !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	tmp := p.Stack.Pop().(Sequence)

@@ -41,14 +41,10 @@ func (b BinaryOperation) Compile(builder *ir.IrBuilder) {
 }
 func (b BinaryOperation) GetNodeType() NodeType { return OPERATION }
 
-var binaryOperationRule = NodeRule{
-	Production: OPERATION /* ::= */, Expression: []NodeType{EXPRESSION, BOP_, EXPRESSION},
-}
-
 func (b BinaryOperation) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(binaryOperationRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	b.right = p.Stack.Pop().(Expression)
@@ -61,7 +57,7 @@ func (b BinaryOperation) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == OPERATION
 	b2, ok := a.(BinaryOperation)
 	return equal && ok &&
-		b.op == b2.op &&
+		b.op.Equal_test(b2.op) &&
 		b.left.Equal_test(b2.left) &&
 		b.right.Equal_test(b2.right)
 }

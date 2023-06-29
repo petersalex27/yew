@@ -131,6 +131,19 @@ type OtherToken struct {
 	line      int
 	char      int
 }
+func (o1 OtherToken) Equal_test_weak(o2 OtherToken) bool {
+	return o1.tokenType == o2.tokenType
+}
+func (o1 OtherToken) Equal_test(o2 OtherToken) bool {
+	return o1.Equal_test_weak(o2) && o1.char == o2.char && o1.line == o2.line
+}
+func MakeOtherToken(t TokenType, line int, char int) OtherToken {
+	return OtherToken{
+		tokenType: t,
+		line: line,
+		char: char,
+	}
+}
 type ErrorToken struct {
 	err   err.UserMessage
 }
@@ -337,6 +350,10 @@ func (tt TokenType) ToString() string {
 }
 func (e ErrorToken) ToString() string {
 	return e.err.ToString()
+}
+
+func MakeBlankToken() OtherToken {
+	return OtherToken{tokenType: _ANY__, line: 0, char: 0}
 }
 
 func MakeIdToken(id string, line int, char int) IdToken {

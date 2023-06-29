@@ -3,14 +3,14 @@ package ast
 import (
 	"fmt"
 	err "yew/error"
-	"yew/lex"
+	scan "yew/lex"
 	nodetype "yew/parser/node-type"
 	"yew/parser/parser"
 	"yew/symbol"
 	types "yew/type"
 )
 
-type OpType scan.TokenType
+type OpType scan.OtherToken
 
 func (o OpType) AsFunction(p *parser.Parser) Function {
 	idToken := scan.MakeIdToken(o.ToString(), 0, 0)
@@ -33,14 +33,14 @@ func (o OpType) AsFunction(p *parser.Parser) Function {
 	param1 := Parameter{
 		paramIndex: 1,
 		pattern: ExpressionTypeAnnotation{
-			expression: id1,
+			expression:     id1,
 			expressionType: taus[0],
 		},
 	}
 	param2 := Parameter{
 		paramIndex: 0,
 		pattern: ExpressionTypeAnnotation{
-			expression: id2,
+			expression:     id2,
 			expressionType: taus[1],
 		},
 	}
@@ -49,7 +49,7 @@ func (o OpType) AsFunction(p *parser.Parser) Function {
 		binder: param1,
 		bound: Lambda{
 			binder: param2,
-			bound: expr,
+			bound:  expr,
 		},
 	}
 	return Function{MakeIdWithType(idToken, ty), lam}
@@ -57,31 +57,31 @@ func (o OpType) AsFunction(p *parser.Parser) Function {
 
 // operations
 const (
-	ADD = OpType(scan.PLUS)
+	ADD = scan.PLUS
 
-	APPEND   = OpType(scan.PLUS_PLUS)
-	SUBTRACT = OpType(scan.MINUS)
-	MULTIPLY = OpType(scan.STAR)
-	DIVIDE   = OpType(scan.SLASH)
-	POWER    = OpType(scan.HAT)
+	APPEND   = scan.PLUS_PLUS
+	SUBTRACT = scan.MINUS
+	MULTIPLY = scan.STAR
+	DIVIDE   = scan.SLASH
+	POWER    = scan.HAT
 
-	CONSTRUCT = OpType(scan.COLON)
+	CONSTRUCT = scan.COLON
 
-	NOT_EQUALS = OpType(scan.BANG_EQUALS)
-	EQUALS     = OpType(scan.EQUALS_EQUALS)
-	AND        = OpType(scan.AMPER_AMPER)
-	OR         = OpType(scan.BAR_BAR)
+	NOT_EQUALS = scan.BANG_EQUALS
+	EQUALS     = scan.EQUALS_EQUALS
+	AND        = scan.AMPER_AMPER
+	OR         = scan.BAR_BAR
 
-	DOT = OpType(scan.DOT)
+	DOT = scan.DOT
 
-	GREAT        = OpType(scan.GREAT)
-	LESS         = OpType(scan.LESS)
-	GREAT_EQUALS = OpType(scan.GREAT_EQUALS)
-	LESS_EQUALS  = OpType(scan.LESS_EQUALS)
+	GREAT        = scan.GREAT
+	LESS         = scan.LESS
+	GREAT_EQUALS = scan.GREAT_EQUALS
+	LESS_EQUALS  = scan.LESS_EQUALS
 
-	MAPS_TO = OpType(scan.ARROW)
+	MAPS_TO = scan.ARROW
 
-	MOD = OpType(scan.MOD)
+	MOD = scan.MOD
 )
 
 func (o OpType) StackLogString() string {
@@ -94,7 +94,7 @@ func (o OpType) Print(lines []string) {
 }
 
 func (ot OpType) ToString() string {
-	switch ot {
+	switch ot.FindStartToken().GetType() {
 	case ADD:
 		return "(+)"
 	case APPEND:
@@ -138,7 +138,9 @@ func (ot OpType) ToString() string {
 }
 
 func (o OpType) ResolveNames(*symbol.SymbolTable) bool { return true }
+
 func (o OpType) GetNodeType() nodetype.NodeType { return nodetype.BOP_ }
+
 func (o OpType) Make(p *parser.Parser) bool {
 	err.PrintBug()
 	panic("")
@@ -148,12 +150,18 @@ func (o OpType) Equal_test(a parser.Ast) bool {
 	if !equal {
 		return false
 	}
-	o2 := a.(OpType)
-	return equal && o2 == o
+	o2, ok := a.(OpType)
+	if !ok {
+		return false
+	}
+
+	tok := scan.OtherToken(o)
+	tok2 := scan.OtherToken(o2)
+	return equal && tok.Equal_test_weak(tok2)
 }
 
 func (b OpType) GetFunctionType(*symbol.SymbolTable) types.Types {
-	switch b {
+	switch b.FindStartToken().GetType() {
 	case ADD:
 		return arith(types.Tau("+"))
 	case SUBTRACT:
@@ -193,4 +201,8 @@ func (b OpType) GetFunctionType(*symbol.SymbolTable) types.Types {
 
 	err.PrintBug()
 	panic("")
+}
+
+func (o OpType) FindStartToken() scan.Token {
+	return scan.OtherToken(o)
 }

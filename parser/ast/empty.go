@@ -21,9 +21,9 @@ func MakeEmptyExpression(s Statement) EmptyExpression {
 
 func (e EmptyExpression) GetNodeType() NodeType { return EMPTY__ }
 func (e EmptyExpression) Make(p *Parser) bool {
-	valid, er := p.Stack.Validate(NodeRule{EMPTY__, []NodeType{STATEMENT}})
+	valid, er := p.Stack.Validate(emptyRule)
 	if !valid {
-		er.Print()
+		er(p.Input).Print()
 		return false
 	}
 	e.statement = p.Stack.Pop().(Statement)
@@ -44,7 +44,22 @@ func (e EmptyExpression) DoTypeInference(newTypeInformation types.Types) types.T
 	return e.ExpressionType().InferType(newTypeInformation)
 }
 func (e EmptyExpression) Equal_test(a Ast) bool {
-	return a.GetNodeType() == EMPTY__
+	equal := a.GetNodeType() == EMPTY__
+	if !equal {
+		return false
+	}
+	e2, ok := a.(EmptyExpression)
+	if !ok {
+		return false
+	}
+
+	if e.statement == nil {
+		return e2.statement == nil
+	} else if e2.statement == nil {
+		return false
+	}
+
+	return e.statement.Equal_test(e2.statement)
 }
 func (e EmptyExpression) Print(ls []string) {
 	name := "EmptyExpression"

@@ -10,7 +10,7 @@ import (
 	"yew/parser/parser"
 )
 
-type PostOpType scan.TokenType
+type PostOpType scan.OtherToken
 
 func (o PostOpType) AsFunction(p *parser.Parser) Function {
 	idToken := scan.MakeIdToken(o.ToString(), 0, 0)
@@ -45,7 +45,7 @@ func (o PostOpType) AsFunction(p *parser.Parser) Function {
 
 // postfix operations
 const (
-	FACTORIAL = PostOpType(scan.BANG_POSTFIX__)
+	FACTORIAL = scan.BANG_POSTFIX__
 )
 
 func (o PostOpType) Print(lines []string) {
@@ -58,7 +58,7 @@ func (o PostOpType) StackLogString() string {
 }
 
 func (pot PostOpType) ToString() string {
-	if pot != FACTORIAL {
+	if scan.OtherToken(pot).GetType() != FACTORIAL {
 		err.PrintBug()
 		panic("")
 	}
@@ -76,16 +76,19 @@ func (o PostOpType) Equal_test(a parser.Ast) bool {
 	if !equal {
 		return false
 	}
-	o2 := a.(PostOpType)
-	return equal && o2 == o
+	o2, ok := a.(PostOpType)
+	return equal && ok && scan.OtherToken(o2).Equal_test_weak(scan.OtherToken(o))
 }
 
 func (p PostOpType) GetFunctionType(*symbol.SymbolTable) types.Types {
-	switch p {
+	switch p.FindStartToken().GetType() {
 	case FACTORIAL:
 		return factorial
 	}
 
 	err.PrintBug()
 	panic("")
+}
+func (o PostOpType) FindStartToken() scan.Token {
+	return scan.OtherToken(o)
 }

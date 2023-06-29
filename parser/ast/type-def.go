@@ -39,8 +39,8 @@ func (t TypeDefinition) Equal_test(a parser.Ast) bool {
 	if !ok {
 		return false
 	}
-	t2 := a.(TypeDefinition)
-	return Id(t).Equal_test(Id(t2))
+	t2, ok := a.(TypeDefinition)
+	return ok && Id(t).Equal_test(Id(t2))
 }
 func (t TypeDefinition) Print(lines []string) {
 	printLines(lines)
@@ -57,4 +57,8 @@ func (t TypeDefinition) GetSymbol() symbol.Symbolic {
 
 func MakeTypeDefinition(id scan.IdToken, ty types.Types) TypeDefinition {
 	return TypeDefinition(MakeIdWithType(id, ty))
+}
+
+func (t TypeDefinition) FindStartToken() scan.Token {
+	return t.token
 }

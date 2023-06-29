@@ -12,6 +12,10 @@ type NodeRule struct {
 	Expression []NodeType
 }
 
+func (nt NodeType) Replaces(nts ...NodeType) NodeRule {
+	return NodeRule{Production: nt, Expression: nts}
+} 
+
 type nodeRuleString struct {
 	production string
 	expression []string
@@ -46,6 +50,97 @@ func (rule NodeRule) ToString() string {
 	// write final rule (here to avoid writing extra space)
 	builder.WriteString(sRule.expression[finalIndex])
 	return builder.String()
+}
+
+func GetErrorName(nt NodeType) (article string, name string) {
+	switch nt {
+	case PROGRAM:
+		return "a", "program"
+	case EXPRESSION:
+		return "an", "expression"
+	case DEFINITION:
+		return "a", "definition"
+	case DECLARATION:
+		return "a", "declaration"
+	case VALUE:
+		return "a", "literal value"
+	case ASSIGNMENT:
+		return "an", "assignment statement"
+	case APPLICATION:
+		return "an", "application"
+	case OPERATION:
+		return "an", "infix operation"
+	case POPERATION:
+		return "a", "postfix operation"
+	case BOP_:
+		return "an", "infix operator"
+	case UOP_:
+		return "a", "prefix operator"
+	case POP_:
+		return "a", "postfix operator"
+	case UOPERATION:
+		return "a", "unary operation"
+	case STATEMENT:
+		return "a", "statment"
+	case CLASS_DEFINITION:
+		return "a", "class definition"
+	case IDENTIFIER:
+		return "an", "identifier"
+	case LAMBDA:
+		return "an", "anonymous function"
+	case BINDER:
+		return "a", "binder"
+	case FUNCTION:
+		return "a", "function"
+	case TYPE_ANNOTATION:
+		return "a", "type annotation"
+	case RETURN:
+		return "a", "return statement"
+	case SEQUENCE:
+		return "a", "sequence"
+	case PARAM:
+		return "a", "parameter"
+	case PACKAGE:
+		return "a", "package declaration"
+	case MODULE:
+		return "a", "module declaration"
+	case PACKAGE_MEMBERSHIP:
+		return "a", "package membership declaration"
+	case MODULE_MEMBERSHIP:
+		return "a", "module membership declaration"
+	case LIST:
+		return "a", "list"
+	case TUPLE:
+		return "a", "tuple"
+	case TYPE_DEF:
+		return "a", "type definition"
+	case TYPE:
+		return "a", "type"
+	case PATTERN:
+		return "a", "pattern"
+	default:
+		return "", ""
+	}
+}
+
+func (rule NodeRule) ExpectedFailure(failedAt int) string {
+	article, name := GetErrorName(rule.Expression[failedAt])
+	if article == "" {
+		err.PrintBug()
+		panic("")
+	}
+
+	res := "expected " + article + " " + name
+	return res
+}
+
+func FoundFailure(nt NodeType) string {
+	article, name := GetErrorName(nt)
+	if article == "" {
+		return ""
+	}
+
+	return "found " + article + " " + name
 }
 
 /*

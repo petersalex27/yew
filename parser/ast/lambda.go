@@ -21,7 +21,7 @@ var binderRule = NodeRule{
 
 func (b Binder) Make(p *Parser) bool {
 	if valid, e := p.Stack.Validate(binderRule); !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	exp := p.Stack.Pop().(Expression)
@@ -45,8 +45,8 @@ func (b Binder) DoTypeInference(newTypeInformation types.Types) types.Types {
 }
 func (b Binder) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == BINDER
-	b2 := a.(Binder)
-	return equal && Parameter(b).Equal_test(Parameter(b2))
+	b2, ok := a.(Binder)
+	return equal && ok && Parameter(b).Equal_test(Parameter(b2))
 }
 func (b Binder) Print(ls []string) {
 	lines := make([]string, len(ls))
@@ -56,6 +56,9 @@ func (b Binder) Print(ls []string) {
 	lines = append(lines, " └─")
 	Parameter(b).Print(lines)
 }
+func (b Binder) FindStartToken() scan.Token {
+	return Parameter(b).FindStartToken()
+}
 
 type Lambda struct {
 	binder Parameter
@@ -64,18 +67,9 @@ type Lambda struct {
 
 func (lambda Lambda) GetNodeType() NodeType { return LAMBDA }
 
-// Anonymous-Function ::= Binder Expression
-var lambdaRule = NodeRule{
-	Production: LAMBDA /* ::= */, Expression: []NodeType{BINDER, EXPRESSION},
-}
-var lambdaRule2 = NodeRule{
-	Production: LAMBDA,
-	Expression: []NodeType{PARAM, EXPRESSION},
-}
-
 func (lambda Lambda) Make2(p *Parser) bool {
 	if valid, e := p.Stack.Validate(lambdaRule2); !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 
@@ -113,8 +107,8 @@ func (lambda Lambda) DoTypeInference(newTypeInformation types.Types) types.Types
 
 func (lambda Lambda) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == LAMBDA
-	l2 := a.(Lambda)
-	return equal &&
+	l2, ok := a.(Lambda)
+	return equal && ok && 
 		lambda.binder.Equal_test(l2.binder) &&
 		lambda.bound.Equal_test(l2.bound)
 }

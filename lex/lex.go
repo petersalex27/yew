@@ -35,6 +35,19 @@ type InputStream struct {
 	tokens []Token
 }
 
+func CreateInputStream(path string, streamIndex int64, source []string, tokens ...Token) InputStream {
+	cap := len(tokens)
+	length := len(tokens)
+	return InputStream{
+		path: path, 
+		streamIndex: streamIndex, 
+		source: source, 
+		streamLength: int64(length),
+		streamCapacity: int64(cap),
+		tokens: tokens,
+	}
+}
+
 /*
 GetTokenAtOffset returns token at current index + offset (offset can be negative).
 The parser holds the token at offset -1 in its `Next` field and the token at offset -2

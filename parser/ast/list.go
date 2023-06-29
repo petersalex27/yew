@@ -12,14 +12,9 @@ import (
 
 type List Sequence
 
-var listRule = nodetype.NodeRule{
-	Production: nodetype.LIST,
-	Expression: []nodetype.NodeType{nodetype.SEQUENCE},
-}
-
 func (ls List) Make(p *Parser) bool {
 	if valid, e := p.Stack.Validate(listRule); !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 	tmp := p.Stack.Pop().(Sequence)

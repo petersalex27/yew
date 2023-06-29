@@ -10,7 +10,7 @@ import (
 	"yew/parser/parser"
 )
 
-type UOpType scan.TokenType
+type UOpType scan.OtherToken
 
 func (o UOpType) AsFunction(p *parser.Parser) Function {
 	idToken := scan.MakeIdToken(o.ToString(), 0, 0)
@@ -45,13 +45,13 @@ func (o UOpType) AsFunction(p *parser.Parser) Function {
 
 // unary operations
 const (
-	NOT      = UOpType(scan.BANG)
-	POSITIVE = UOpType(scan.PLUS_PREFIX__)
-	NEGATIVE = UOpType(scan.MINUS_PREFIX__)
+	NOT      = scan.BANG
+	POSITIVE = scan.PLUS_PREFIX__
+	NEGATIVE = scan.MINUS_PREFIX__
 )
 
 func (uot UOpType) ToString() string {
-	switch uot {
+	switch uot.FindStartToken().GetType() {
 	case NOT:
 		return "!"
 	case POSITIVE:
@@ -85,12 +85,12 @@ func (u UOpType) Equal_test(a parser.Ast) bool {
 	if !equal {
 		return false
 	}
-	u2 := a.(UOpType)
-	return equal && u2 == u
+	u2, ok := a.(UOpType)
+	return equal && ok && scan.OtherToken(u2).Equal_test_weak(scan.OtherToken(u))
 }
 
 func (u UOpType) GetFunctionType(*symbol.SymbolTable) types.Types {
-	switch u {
+	switch u.FindStartToken().GetType() {
 	case POSITIVE:
 		return arith(types.Tau("positive"))
 	case NEGATIVE:
@@ -103,6 +103,6 @@ func (u UOpType) GetFunctionType(*symbol.SymbolTable) types.Types {
 	panic("")
 }
 
-func (u UOpType) FindStartLocation() err.ErrorLocation {
-	return err.BuiltinErrorLocation
+func (u UOpType) FindStartToken() scan.Token {
+	return scan.OtherToken(u)
 }

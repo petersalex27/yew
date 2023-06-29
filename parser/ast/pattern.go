@@ -16,18 +16,11 @@ type Pattern struct {
 	Matchers []Lambda
 }
 
-var patternRule = nodetype.NodeRule{
-	Production: nodetype.PATTERN,
-	Expression: []nodetype.NodeType{nodetype.EXPRESSION, nodetype.SEQUENCE},
-}
-var patternRule2 = nodetype.NodeRule{
-	Production: nodetype.PATTERN,
-	Expression: []nodetype.NodeType{nodetype.EXPRESSION, nodetype.PROGRAM},
-}
-
 var statementError = errorgen.GenerateSyntaxError("unexpected statement inside pattern")
 var expressionError = errorgen.GenerateSyntaxError("expected anonymous function")
 var emptyPatternError = errorgen.GenerateSyntaxError("cannot have an empty pattern")
+var expectedFunctionType = errorgen.GenerateTypeError("expected a function type")
+var failedTypeInference = errorgen.GenerateTypeError("could not inference type") // TODO: say why!!
 
 func printStatementErrors(p *parser.Parser, statements []Statement) {
 	for _, statement := range statements {
@@ -54,41 +47,142 @@ func makeFromSequence(p *parser.Parser, patStartToken scan.Token, seq Sequence) 
 	return mat, true
 }
 
+// two type classes are valid for an annotation: (1) function type, (2) tau type.
+func handlePatternTypeAnnot(p *parser.Parser, a ExpressionTypeAnnotation) (Lambda, bool) {
+	// In the case of (1), just split the function annotation and wrap the binder
+	// in an annotation of the domain type and wrap the bound in an annotation of the
+	// codomain type. In the case of (2), create two new taus (call them t1 and t2), 
+	// add a new rule for the tau from the original annotation for (t1 -> t2); then, 
+	// like case (1), wrap the lambda's parts in an annotation
+	if a.expression.GetNodeType() != nodetype.LAMBDA {
+		expressionError(a.FindStartToken(), p.Input).Print()
+		return Lambda{}, false
+	}
+
+	lambda := a.expression.(Lambda)
+
+	var functionType types.Function
+	if a.expressionType.GetTypeType() == types.FUNCTION {
+		// case (1)
+		functionType = a.expressionType.(types.Function)
+	} else if a.expressionType.GetTypeType() == types.TAU {
+		// case (2)
+		// type from annotation
+		tau := a.expressionType.(types.Tau)
+
+		// create new functionType
+		taus := types.GetNewTaus(2)
+		functionType.Domain = taus[0]
+		functionType.Codomain = taus[1]
+		
+		// add new rule: tau = functionType
+		typeType := types.DoTypeInference(tau, functionType).GetTypeType()
+		if typeType == types.ERROR { // this shouldn't happen
+			err.PrintBug()
+			return Lambda{}, false
+		}
+	} else {
+		expectedFunctionType(a.FindStartToken(), p.Input).Print()
+		return Lambda{}, false
+	}
+
+	ty := types.DoTypeInference(lambda.binder.pattern.expressionType, functionType.Domain)
+	lambda.binder.pattern.expressionType = ty
+	if ty.GetTypeType() == types.ERROR {
+		failedTypeInference(lambda.binder.FindStartToken(), p.Input).Print()
+		return Lambda{}, false
+	}
+
+	var annot ExpressionTypeAnnotation
+	if lambda.bound.GetNodeType() == nodetype.TYPE_ANNOTATION {
+		annot = lambda.bound.(ExpressionTypeAnnotation)
+		ty := types.DoTypeInference(annot.expressionType, functionType.Codomain)
+		annot.expressionType = ty
+		if ty.GetTypeType() == types.ERROR {
+			failedTypeInference(lambda.bound.FindStartToken(), p.Input).Print()
+			return Lambda{}, false
+		}
+	} else {
+		annot.expression = lambda.bound
+		annot.expressionType = functionType.Codomain
+	}
+
+	lambda.bound = annot
+	return lambda, true
+}
+
+func makePatternFromAstArray(p *parser.Parser, patStartToken scan.Token, as []parser.Ast) ([]Lambda, bool) {
+	if len(as) == 0 {
+		emptyPatternError(patStartToken, p.Input).Print()
+		return []Lambda{}, false
+	}
+
+	matches := make([]Lambda, len(as))
+	for i, a := range as {
+		var lam Lambda
+		nodeType := a.GetNodeType()
+		if nodeType != nodetype.LAMBDA {
+			if nodeType != nodetype.TYPE_ANNOTATION {
+				expressionError(a.FindStartToken(), p.Input).Print()
+				return []Lambda{}, false
+			}
+			annot := a.(ExpressionTypeAnnotation)
+			lamTmp, ok := handlePatternTypeAnnot(p, annot)
+			if !ok {
+				return matches, false
+			}
+			lam = lamTmp
+		} else {
+			lam = a.(Lambda)
+		}
+		matches[i] = lam
+	}
+	return matches, true
+}
+
+func toAstArr(seq Sequence) []parser.Ast {
+	as := make([]parser.Ast, len(seq))
+	for i := range seq {
+		as[i] = seq[i]
+	}
+	return as
+}
+
 func (pat Pattern) MakePattern(p *parser.Parser, patStartToken scan.Token) bool {
+	var arr []parser.Ast
+
+	// pattern ::= expression lambda | expression sequence | expression program
 	if valid, _ := p.Stack.TryValidate(patternRule.Expression); valid {
-		seq := p.Stack.Pop().(Sequence)
+		lam := p.Stack.Pop().(Lambda)
 		expr := p.Stack.Pop().(Expression)
-		mat, ok := makeFromSequence(p, patStartToken, seq)
+		pat.Expression = expr
+		pat.Matchers = []Lambda{lam}
+	} else { // pattern ::= expression sequence | expression program
+		if valid, _ := p.Stack.TryValidate(patternRule2.Expression); valid {
+			// patterm ::= expression sequence
+			seq := p.Stack.Pop().(Sequence)
+			arr = toAstArr(seq)
+		} else {
+			// pattern ::= expression program
+			valid, e := p.Stack.Validate(patternRule3)
+			if !valid {
+				e(p.Input).Print()
+				return false
+			}
+
+			arr = p.Stack.Pop().(Program)
+		}
+
+		expr := p.Stack.Pop().(Expression)
+
+		mat, ok := makePatternFromAstArray(p, patStartToken, arr)
 		if !ok {
 			return false
 		}
-		p.Stack.Push(Pattern{Expression: expr, Matchers: mat})
-		return true
+		pat = Pattern{Expression: expr, Matchers: mat}
 	}
 
-	valid, e := p.Stack.Validate(patternRule2)
-	if !valid {
-		e.Print()
-		return false
-	}
-
-	prog := p.Stack.Pop().(Program)
-	expr := p.Stack.Pop().(Expression)
-	mat := make([]Lambda, len(prog))
-	if prog == nil || len(prog) == 0 {
-		emptyPatternError(patStartToken, p.Input).Print()
-		return false
-	}
-
-	for i, q := range prog {
-		if q.GetNodeType() != nodetype.LAMBDA {
-			expressionError(prog.FindStartTokenOfPart(i), p.Input).Print()
-			return false
-		}
-		
-		mat[i] = q.(Lambda)
-	}
-	p.Stack.Push(Pattern{Expression: expr, Matchers: mat})
+	p.Stack.Push(pat)
 	return true
 }
 
@@ -103,7 +197,10 @@ func (pat Pattern) Equal_test(a parser.Ast) bool {
 	if a.GetNodeType() != nodetype.PATTERN {
 		return false
 	}
-	pat2 := a.(Pattern)
+	pat2, ok := a.(Pattern)
+	if !ok {
+		return false
+	}
 	for i := range pat.Matchers {
 		if !pat.Matchers[i].Equal_test(pat2.Matchers[i]) {
 			return false

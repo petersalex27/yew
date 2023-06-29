@@ -133,7 +133,7 @@ func createInitial(
 			Expression: validNodeTypes,
 		}
 		if valid, e := p.Stack.Validate(rule); !valid {
-			e.Print()
+			e(p.Input).Print()
 			return false
 		}
 		app, right := p.Stack.Pop().(Application).split()
@@ -173,11 +173,6 @@ func buildFunctionDeclaration(p *Parser, action unrollAction, start int) bool {
 	return true
 }
 
-var functionRule2 = NodeRule{
-	Production: IN_PROGRESS__ | FUNCTION, /* ::= */
-	Expression: []NodeType{LAMBDA, IDENTIFIER},
-}
-
 func unrollApplication(p *Parser, action unrollAction, functionName Id, fnType types.Types) bool {
 	// first, find function name and add it to the symbol table (might be used
 	// 	inside function definition, so it needs to be declared prior to
@@ -201,7 +196,7 @@ func unrollApplication(p *Parser, action unrollAction, functionName Id, fnType t
 		valid, e := p.Stack.Validate(functionRule2)
 		if !valid {
 			ok = valid
-			e.Print()
+			e(p.Input).Print()
 			break
 		}
 		dec := p.Stack.Pop().(Id) // this should match functionName
@@ -324,8 +319,8 @@ func (f Function) GetNodeType() NodeType { return FUNCTION }
 
 func (f Function) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == FUNCTION
-	f2 := a.(Function)
-	return equal &&
+	f2, ok := a.(Function)
+	return equal && ok &&
 		f.dec.Equal_test(f2.dec) &&
 		f.function.Equal_test(f2.function)
 }
@@ -341,15 +336,10 @@ func (f Function) Print(ls []string) {
 	f.function.Print(lines)
 }
 
-// Function ::= Declaration Anonymous-Function
-var functionRule = NodeRule{
-	Production: FUNCTION /* ::= */, Expression: []NodeType{DECLARATION, LAMBDA},
-}
-
 func (f Function) Make(p *Parser) bool {
 	valid, e := p.Stack.Validate(functionRule)
 	if !valid {
-		e.Print()
+		e(p.Input).Print()
 		return false
 	}
 

@@ -16,7 +16,7 @@ type message struct {
 	path string
 	line int
 	char int
-	index int
+	snippet string
 } 
 
 type primaryMessageStruct interface {
@@ -49,7 +49,7 @@ func writePrefix(path string, line int, char int) string {
 		builder.WriteString(strconv.Itoa(line) + ":" + strconv.Itoa(char))
 	}
 	
-	builder.WriteString("] ")
+	builder.WriteString("]")
 	return builder.String()
 }
 
@@ -179,17 +179,72 @@ var NoHeaderMessage = curryMessage("")(0)(0)(0)([]string{""})
 var SystemError = NoHeaderMessage(ERROR)(SYSTEM)
 var SyntaxError = SYNTAX.CompileError
 
+func generateSnippet(line int, char int, source []string) string {
+	// check for valid input 
+	if len(source) == 0 || line <= 0 || len(source) < line {
+		return ""
+	}
+
+	sourceLine := source[line-1]
+
+	// make char a legal value
+	if char < 0 {
+		char = 1
+	} else if char > len(sourceLine) {
+		char = len(sourceLine)
+	}
+
+	var builder strings.Builder
+
+	// line number
+	tab, _ := builder.WriteString("    ")
+	tot, _ := builder.WriteString(strconv.Itoa(line))
+	tmp, _ := builder.WriteString(" | ")
+	// calculate padding
+	tot = tab + tot + tmp + (char - 1)
+
+	// write source line
+	builder.WriteString(sourceLine)
+	builder.WriteByte('\n')
+
+	// padding
+	for i := 0; i < tot; i++ {
+		builder.WriteByte(' ')
+	}
+	// pointer
+	builder.WriteByte('^')
+	return builder.String()
+}
+
 // compileMessage creates an error or warning message from the params
 func CompileMessage(
 		m string, type_ ErrorType, subtype ErrorSubType, 
 		path string, line int, char int, source []string) UserMessage {
+
 	subtype = fixSubtype(subtype) // makes sure subtype is always valid
+	
+	// possibly empty string
+	snippet := generateSnippet(line, char, source)
 	if ERROR == type_ {
-		return Error{message: m, subtype: subtype, path: path, line: line, char: char,}
+		return Error{
+			message: m, 
+			subtype: subtype, 
+			path: path, 
+			line: line, 
+			char: char, 
+			snippet: snippet,
+		}
 	} else if WARNING == type_ {
-		return Warning{message: m, subtype: subtype, path: path, line: line, char: char,}
+		return Warning{
+			message: m, 
+			subtype: subtype, 
+			path: path, 
+			line: line, 
+			char: char,
+			snippet: snippet,
+		}
 	}
-	return Error{message: m, subtype: subtype}
+	return Error{message: m, subtype: subtype, snippet: snippet}
 }
 
 func (est ErrorSubType) CompileError(m string, e ErrorLocation) Error {
