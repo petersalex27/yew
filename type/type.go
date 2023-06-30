@@ -220,10 +220,14 @@ type Class struct {
 	TypeVariable Tau
 	Functions map[string]Function
 }
-type Qualifier struct {
-	Class Class
+type Context struct {
+	ClassName Tau
 	TypeVariable Tau
-	Qualified Types
+}
+type ConstraintContext []Context
+type Constraint struct {
+	Context ConstraintContext
+	Constrained Types
 }
 type Data struct {
 	Name string
@@ -238,6 +242,45 @@ type Error err.Error
 func (e Error) ToError() err.Error {
 	return err.Error(e)
 }
+
+func (c Constraint) Constrain(f Function) Function {
+	if f.Domain.GetTypeType() == FUNCTION {
+		f.Domain = c.Constrain(f.Domain.(Function))
+	} else if f.Domain.GetTypeType() == QUALIFIER {
+		c2 := f.Domain.(Constraint)
+		cxt := make(ConstraintContext, 0)
+		cxt = append(cxt, c.Context...)
+		cxt = append(cxt, c2.Context...)
+		f.Domain = Constraint{
+			Context: cxt,
+			Constrained: c2.Constrained,
+		}
+	} else {
+		f.Domain = Constraint{
+			Context: c.Context, 
+			Constrained: f.Domain,
+		}
+	}
+
+	if f.Codomain.GetTypeType() == FUNCTION {
+		f.Codomain = c.Constrain(f.Codomain.(Function))
+	} else if f.Codomain.GetTypeType() == QUALIFIER {
+		c2 := f.Codomain.(Constraint)
+		cxt := make(ConstraintContext, 0)
+		cxt = append(cxt, c.Context...)
+		cxt = append(cxt, c2.Context...)
+		f.Codomain = Constraint{
+			Context: cxt,
+			Constrained: c2.Constrained,
+		}
+	} else {
+		f.Codomain = Constraint{
+			Context: c.Context,
+			Constrained: f.Codomain,
+		}
+	}
+	return f
+} 
 
 // represents a type that has not yet been evaluated; by the end of the resolve type phase,
 // there should be no application types left
@@ -289,8 +332,22 @@ func (tup Tuple) ToString() string {
 func (e Error) ToString() string {
 	return err.Error(e).ToString()
 }
-func (q Qualifier) ToString() string {
-	return q.Class.Name + " " + string(q.TypeVariable)
+func (c ConstraintContext) ToString() string {
+	if len(c) == 1 {
+		return c[0].ClassName.ToString() + " " + c[0].TypeVariable.ToString()
+	}
+
+	ss := util.Fmap(c, func(t Context) string {
+		return t.ClassName.ToString() + " " + t.TypeVariable.ToString()
+	})
+	return "(" + strings.Join(ss, ", ") + ")"
+}
+func (c Constraint) ToString() string {
+	top := c.Context.ToString() + " => " 
+	if c.Constrained == nil {
+		return top + "_"
+	}
+	return top + c.Constrained.ToString()
 }
 func (c Class) ToString() string {
 	var tmp []string
@@ -391,8 +448,9 @@ func (c Class) Apply(t Types) Types {
 	}
 	return out
 }
-func (q Qualifier) Apply(t Types) Types {
-	return q.Qualified.ReplaceTau(q.TypeVariable, t)
+func (c Constraint) Apply(t Types) Types {
+	err.PrintBug()
+	panic("")
 }
 func (a Application) Apply(t Types) Types {
 	return Application([]Types{a, t})
@@ -437,7 +495,7 @@ func (tup Tuple) GetTypeType() TypeType {
 func (e Error) GetTypeType() TypeType {
 	return ERROR
 }
-func (q Qualifier) GetTypeType() TypeType {
+func (c Constraint) GetTypeType() TypeType {
 	return QUALIFIER
 }
 func (tup NamedTuple) GetTypeType() TypeType {
@@ -498,8 +556,29 @@ func (tup Tuple) Equals(t Types) bool {
 func (e Error) Equals(t Types) bool {
 	return false
 }
-func (q Qualifier) Equals(t Types) bool {
-	return false
+func (c1 ConstraintContext) Equals(c2 ConstraintContext) bool {
+	if len(c1) != len(c2) {
+		return false
+	}
+
+	for i, cxt := range c1 {
+		if cxt.ClassName != c2[i].ClassName || cxt.TypeVariable != c2[i].TypeVariable {
+			return false
+		}
+	}
+	return true
+}
+func (c Constraint) Equals(t Types) bool {
+	if t.GetTypeType() != QUALIFIER {
+		return false
+	}
+	c2, ok := t.(Constraint)
+	if !ok {
+		return false
+	}
+	
+	return c.Context.Equals(c2.Context) &&
+			c2.Constrained.Equals(c.Constrained)
 }
 func (c Class) Equals(t Types) bool {
 	if CLASS != t.GetTypeType() {
@@ -640,7 +719,7 @@ func (c Class) ReplaceTau(tau Tau, t Types) Types {
 	err.PrintBug() // this should never happen
 	panic("")
 }
-func (q Qualifier) ReplaceTau(_ Tau, _ Types) Types {
+func (c Constraint) ReplaceTau(_ Tau, _ Types) Types {
 	err.PrintBug()
 	panic("")
 }
@@ -762,8 +841,8 @@ func (tup Tuple) InferType(newType Types) Types {
 func (e Error) InferType(newType Types) Types {
 	return e
 }
-func (q Qualifier) InferType(newType Types) Types {
-	return q.Apply(newType)
+func (c Constraint) InferType(newType Types) Types {
+	return c.Apply(newType)
 }
 func (tups NamedTuple) InferType(newType Types) Types {
 	if TAU != newType.GetTypeType() {

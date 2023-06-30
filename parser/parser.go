@@ -79,16 +79,51 @@ func parseTypePrefix(p *Parser) (types.Types, bool) {
 		case scan.FLOAT:
 			p.Stack.Push(ast.MakeType(types.Float{}))
 		case scan.LPAREN:
-			ty, ok := parseTypeAnnotation(p, bp.None)
-			if scan.RPAREN != p.Next.GetType() {
-				if ok {
-					unmatchedPAREN(current, p.Input).Print()
-				}
-				return types.Error{}, false
-			}
 			p.Advance()
-			p.Stack.Push(ast.MakeType(ty))
+			isTuple := false
+			for {
+				ty, ok := parseTypeAnnotation(p, bp.None)
+				if scan.COMMA == p.Next.GetType() {
+					p.Advance()
+					if !isTuple {
+						p.Stack.Mark(p)
+					}
+					isTuple = true
+				} else if p.Next.GetType() != scan.RPAREN {
+					if ok {
+						unmatchedPAREN(current, p.Input).Print()
+					}
+					return types.Error{}, false
+				}
+
+				p.Stack.Push(ast.MakeType(ty))
+				p.Advance()
+				if p.Current.GetType() == scan.RPAREN {
+					break
+				}
+			}
+
+			if isTuple {
+				tupAst, ok := p.Stack.CutAtMark(p)
+				if !(ok && p.Stack.Demark(p)) {
+					err.PrintBug()
+					panic("")
+				}
+				
+				tup := make(types.Tuple, len(tupAst))
+				for i := range tupAst {
+					if tupAst[i].GetNodeType() != nodetype.TYPE {
+						generateSyntaxError("expected a type")(
+							tupAst[i].FindStartToken(), p.Input).Print()
+						return types.Error{}, false 
+					}
+					tup[i] = tupAst[i].(ast.Type).GetType()
+				}
+
+				p.Stack.Push(ast.MakeType(tup))
+			} // else type is already on stack
 		case scan.LBRACK:
+			p.Advance()
 			ty, ok := parseTypeAnnotation(p, bp.None)
 			if scan.RBRACK != p.Next.GetType() {
 				if ok {
@@ -111,7 +146,7 @@ func parseTypePrefix(p *Parser) (types.Types, bool) {
 			}//*/
 			//return sym.GetType(), true
 			str := current.(scan.IdToken).ToString()
-			p.Stack.Push(ast.MakeType(types.Tau(str)))
+ 			p.Stack.Push(ast.MakeType(types.Tau(str)))
 		default:
 			if i == 0 {
 				unexpectedToken(current, p.Input).Print()
@@ -150,16 +185,109 @@ func parseTypePrefix(p *Parser) (types.Types, bool) {
 	return ty, true
 }
 
-func parseTypeArrow(p *Parser, left types.Types) (types.Types, bool) {
+func parseRightToLeftType(p *Parser) (types.Types, bool) {
 	bp := getBindingPower(p.Current)
 	p.Advance()
 	// along with scan.ARROW being the only thing with its binding power,
 	// 	the "- 1" makes this type-operation right-to-left
 	right, ok := parseTypeAnnotation(p, bp-1)
+	return right, ok
+}
+
+func parseTypeArrow(p *Parser, left types.Types) (types.Types, bool) {
+	right, ok := parseRightToLeftType(p)
 	if !ok {
-		return right, ok
+		return right, false
 	}
+
 	return types.Function{Domain: left, Codomain: right}, true
+}
+
+func buildSingleContext(ty types.Types) (types.Context, bool) {
+	if ty.GetTypeType() != types.APPLICATION {
+		return types.Context{}, false // failed
+	}
+
+	app := ty.(types.Application)
+	if len(app) < 2 {
+		// TODO: error
+		return types.Context{}, false
+	} else if len(app) != 2 {
+		// TODO: error
+		return types.Context{}, false
+	}
+	
+	// left most side should always be a tau
+	if app[0].GetTypeType() != types.TAU {
+		// TODO: error
+		return types.Context{}, false
+	} else if app[1].GetTypeType() != types.TAU {
+		// TODO: error
+		return types.Context{}, false
+	}
+
+	class := app[0].(types.Tau)
+	typeVar := app[1].(types.Tau)
+	return types.Context{ClassName: class, TypeVariable: typeVar}, true
+}
+
+// takes (<class_1> <var_1>, <class_2> <var_2>, ..) => <type>
+// to (<class_1> <var_1> => <class_2> <var_2> => .. => <type>)
+func buildConstraint(p *Parser, left types.Types) (types.Constraint, bool) {
+	var contexts types.ConstraintContext
+
+	if left.GetTypeType() == types.TUPLE {
+		tup := left.(types.Tuple)
+		if len(tup) < 1 {
+			// TODO: error
+			return types.Constraint{}, false
+		}
+
+		contexts = make(types.ConstraintContext, len(tup))
+		for i, t := range tup {
+			context, ok := buildSingleContext(t)
+			if !ok {
+				return types.Constraint{}, false
+			}
+			contexts[i] = context
+			//println(context.ClassName.ToString(), context.TypeVariable.ToString())
+		}
+	} else {
+		context, ok := buildSingleContext(left)
+		if !ok {
+			return types.Constraint{}, false
+		}
+		contexts = make(types.ConstraintContext, 1)
+		contexts[0] = context
+	}
+
+	return types.Constraint{Context: contexts,}, true
+}
+
+func parseTypeConstraint(p *Parser, left types.Types) (types.Types, bool) {
+	right, ok := parseRightToLeftType(p)
+	if !ok {
+		return right, false
+	}
+	// left_2 == 
+	//		<class_name> <type_var>
+	//		| (<class_name> <type_var>, ..)
+	// right == <type>
+	constraint, allGood := buildConstraint(p, left)
+	if !allGood {
+		return constraint, false
+	}
+
+	// attatch constraint to each part of right
+	if right.GetTypeType() != types.FUNCTION {
+		// TODO
+		panic("TODO: Error: constraint applied to non-function type\n")
+	}
+	//println(right.ToString())
+	c := constraint.Constrain(right.(types.Function))
+	//println(constraint.ToString())
+	//println(c.ToString())
+	return c, true
 }
 
 func parseTypeList(p *Parser, left types.Types) (types.Types, bool) {
@@ -195,7 +323,7 @@ func parseTypeRight(p *Parser, left types.Types, bp bp.BindingPower) (types.Type
 	// need to use next token since the default option should not grab any tokens
 	next := p.Next.GetType()
 	nextBp := getBindingPower(p.Next)
-	parseNext := nextBp > bp && (next == scan.ARROW || next == scan.COMMA)
+	parseNext := nextBp > bp && (next == scan.ARROW || next == scan.COMMA || next == scan.FAT_ARROW)
 
 	if !parseNext {
 		return left, true
@@ -208,6 +336,8 @@ func parseTypeRight(p *Parser, left types.Types, bp bp.BindingPower) (types.Type
 		return parseTypeArrow(p, left)
 	case scan.COMMA:
 		return parseTypeList(p, left)
+	case scan.FAT_ARROW:
+		return parseTypeConstraint(p, left)
 	default:
 		return left, true
 	}
@@ -238,18 +368,33 @@ func parseDataType(p *Parser) bool {
 	}
 }
 
-func parseTypeAnnotation(p *Parser, bp bp.BindingPower) (types.Types, bool) {
+func parseTypeAnnotationControl(p *Parser, bp bp.BindingPower, allowComma bool) (types.Types, bool) {
 	var left types.Types
 	var ok bool
-	left, ok = parseTypePrefix(p)
-	if !ok {
-		return left, false
+
+	for {
+		left, ok = parseTypePrefix(p)
+		if !ok {
+			return left, false
+		}
+		if allowComma && p.Next.GetType() == scan.COMMA {
+			p.Advance()
+			p.Advance()
+			p.Stack.Push(ast.MakeType(left))
+			continue
+		}
+		break
 	}
+
 	left, ok = parseTypeRight(p, left, bp)
 	if !ok {
 		return left, false
 	}
 	return left, true
+}
+
+func parseTypeAnnotation(p *Parser, bp bp.BindingPower) (types.Types, bool) {
+	return parseTypeAnnotationControl(p, bp, false)
 }
 
 func isTypePrefixTokenType(t scan.TokenType) bool {
@@ -386,7 +531,7 @@ func paren(p *Parser, token scan.Token) bool {
 		p.Stack.Push(ast.Tuple{})
 		return true
 	}
-	
+
 	ok := parseExpression(p, 0)
 	if !ok {
 		return false
@@ -396,7 +541,7 @@ func paren(p *Parser, token scan.Token) bool {
 		parseError(p, p.Next)
 		return false
 	}
-	
+
 	p.Advance()
 	return true
 }
@@ -873,27 +1018,25 @@ func InitParseTable() {
 			scan.AMPER_AMPER:       {bp.Conjunctive, parseError, binary, operation},
 			scan.BAR_BAR:           {bp.Disjunctive, parseError, binary, operation},
 			scan.ARROW:             {bp.Mapping, parseError, patternFunction, nil},
-			scan.FAT_ARROW:         {bp.None, parseError, parseError, nil},
+			scan.FAT_ARROW:         {bp.Constraint, parseError, parseError, nil},
 			scan.DOT:               {bp.Compose, parseError, compose, compose},
 			scan.DOT_DOT:           {bp.None, parseError, parseError, nil},
 			scan.GREAT:             {bp.Ordered, parseError, binary, operation},
 			scan.LESS:              {bp.Ordered, parseError, binary, operation},
 			scan.GREAT_EQUALS:      {bp.Ordered, parseError, binary, operation},
 			scan.LESS_EQUALS:       {bp.Ordered, parseError, binary, operation},
-			//scan.TRUE:           {bp.None, parseError, parseError, nil}, // TODO: remove
-			//scan.FALSE:          {bp.None, parseError, parseError, nil}, // TODO: remove
-			scan.BACKSLASH:      {bp.None, parseError, createBinder, nil},
-			scan.AT:             {bp.None, annotation, parseError, nil},
-			scan.UNDERSCORE:     {bp.None, parseError, parseError, nil},
-			scan.PACKAGE:        {bp.None, parseError, parseError, nil},
-			scan.MODULE:         {bp.None, parseError, parseError, nil},
-			scan.NEW_LINE:       {bp.None, ignore, parseError, nil},
-			scan.ERROR:          {bp.None, parseError, parseError, nil},
-			scan.EOF:            {bp.None, ignore, ignore, nil},
-			scan.BANG_POSTFIX__: {bp.Postfix, parseBug, parseBug, parseBug},
-			scan.PLUS_PREFIX__:  {bp.Unary, parseBug, parseBug, parseBug},
-			scan.MINUS_PREFIX__: {bp.Unary, parseBug, parseBug, parseBug},
-			scan.END__:          {bp.None, parseError, parseError, nil},
+			scan.BACKSLASH:         {bp.None, parseError, createBinder, nil},
+			scan.AT:                {bp.None, annotation, parseError, nil},
+			scan.UNDERSCORE:        {bp.None, parseError, parseError, nil},
+			scan.PACKAGE:           {bp.None, parseError, parseError, nil},
+			scan.MODULE:            {bp.None, parseError, parseError, nil},
+			scan.NEW_LINE:          {bp.None, ignore, parseError, nil},
+			scan.ERROR:             {bp.None, parseError, parseError, nil},
+			scan.EOF:               {bp.None, ignore, ignore, nil},
+			scan.BANG_POSTFIX__:    {bp.Postfix, parseBug, parseBug, parseBug},
+			scan.PLUS_PREFIX__:     {bp.Unary, parseBug, parseBug, parseBug},
+			scan.MINUS_PREFIX__:    {bp.Unary, parseBug, parseBug, parseBug},
+			scan.END__:             {bp.None, parseError, parseError, nil},
 		}
 		parseTable = tmp
 		isParseTableInitialized = true

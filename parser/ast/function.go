@@ -245,9 +245,20 @@ func DeclareFunction(p *Parser, functionName Id, parseFunctionBody func(*Parser)
 			fmt.Fprintf(os.Stderr, "Error: TODO--expected APPLICATION\n")
 			return false // TODO: error message
 		}
-		if annot.expressionType.GetTypeType() != types.FUNCTION {
-			fmt.Fprintf(os.Stderr, "Error: TODO--expected FUNCTION\n")
-			return false // TODO: error message
+		if annot.expressionType.GetTypeType() == types.QUALIFIER {
+			// break appart constraint and apply it to the individual parts
+			constraint := annot.expressionType.(types.Constraint)
+			var inner types.Types = constraint.Constrained
+			for inner.GetTypeType() == types.QUALIFIER {
+				tmp := inner.(types.Constraint).Constrained
+				inner = tmp
+			}
+			
+		} else {
+			if annot.expressionType.GetTypeType() != types.FUNCTION {
+				fmt.Fprintf(os.Stderr, "Error: TODO--expected FUNCTION\n")
+				return false // TODO: error message
+			}
 		}
 		tyAnnot := annot.expressionType.(types.Function)
 		fnLength := pushFunctionTypeAnnotation(p.Stack, tyAnnot)

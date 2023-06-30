@@ -77,9 +77,6 @@ const (
 
 	MOD
 
-	TRUE
-	FALSE
-
 	BACKSLASH
 
 	AT
@@ -335,10 +332,6 @@ func (tt TokenType) ToString() string {
 		return "_EOF_"
 	case NEW_LINE:
 		return "_NEW_LINE_"
-	case TRUE:
-		return "True"
-	case FALSE:
-		return "False"
 	case ERROR:
 		return "_ERROR_"
 	case BACKSLASH:

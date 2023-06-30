@@ -89,14 +89,23 @@ func (u UOpType) Equal_test(a parser.Ast) bool {
 	return equal && ok && scan.OtherToken(u2).Equal_test_weak(scan.OtherToken(u))
 }
 
+var aToA = types.Function{
+	Domain: types.Tau("a"),
+	Codomain: types.Tau("a"),
+}
+var aToAToA = types.Function{
+	Domain: types.Tau("a"),
+	Codomain: aToA,
+}
+
 func (u UOpType) GetFunctionType(*symbol.SymbolTable) types.Types {
 	switch u.FindStartToken().GetType() {
 	case POSITIVE:
-		return arith(types.Tau("positive"))
+		return arith(aToA)
 	case NEGATIVE:
-		return arith(types.Tau("negative"))
+		return arith(aToA)
 	case NOT:
-		return arith(types.Function{Domain: types.Bool{}, Codomain: types.Bool{}})
+		return types.Function{Domain: types.Bool{}, Codomain: types.Bool{}}
 	}
 
 	err.PrintBug()

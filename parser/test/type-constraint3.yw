@@ -1,0 +1,1 @@
+whatever x :: Num a => Num b => a -> b = x

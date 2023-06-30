@@ -163,28 +163,29 @@ func (o OpType) Equal_test(a parser.Ast) bool {
 func (b OpType) GetFunctionType(*symbol.SymbolTable) types.Types {
 	switch b.FindStartToken().GetType() {
 	case ADD:
-		return arith(types.Tau("+"))
+		fallthrough
 	case SUBTRACT:
-		return arith(types.Tau("-"))
+		fallthrough
 	case MULTIPLY:
-		return arith(types.Tau("*"))
+		fallthrough
 	case DIVIDE:
-		return arith(types.Tau("/"))
+		fallthrough
 	case POWER:
-		return arith(types.Tau("^"))
+		return arith(aToAToA)
 	case EQUALS:
-		return relate(types.Tau("=="))
+		fallthrough
 	case NOT_EQUALS:
-		return relate(types.Tau("!="))
+		return relate(aToAToA)
 	case GREAT:
-		return order(types.Tau(">"))
+		fallthrough
 	case LESS:
-		return order(types.Tau("<"))
+		fallthrough
 	case GREAT_EQUALS:
-		return order(types.Tau(">="))
+		fallthrough
 	case LESS_EQUALS:
-		return order(types.Tau("<="))
+		return order(aToAToA)
 	case AND:
+		fallthrough
 	case OR:
 		return types.Function{
 			Domain: types.Bool{},
@@ -194,9 +195,9 @@ func (b OpType) GetFunctionType(*symbol.SymbolTable) types.Types {
 			},
 		}
 	case APPEND:
-		return list(types.Tau("++"))
+		fallthrough
 	case CONSTRUCT:
-		return list(types.Tau(":"))
+		return list(aToAToA)
 	}
 
 	err.PrintBug()

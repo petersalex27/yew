@@ -278,8 +278,16 @@ func (in *Input) skipWhitespace() (c byte, errorToken *ErrorToken) {
 	return
 }
 
+func (in *Input) tokenUnitN(tokenType TokenType, n int) Token {
+	return OtherToken{
+		tokenType: tokenType,
+		line: in.lineNumber,
+		char: in.charNumber - (n - 1),
+	}
+}
+
 func (in *Input) tokenUnit(tokenType TokenType) Token {
-	return OtherToken{tokenType: tokenType, line: in.lineNumber, char: in.charNumber}
+	return in.tokenUnitN(tokenType, 1)
 }
 
 // getEscape scans and returns result of escape sequence.
@@ -662,40 +670,40 @@ func (in *Input) Next() Token {
 	case '+':
 		if in.peek() == '+' {
 			in.nextChar()
-			return in.tokenUnit(PLUS_PLUS)
+			return in.tokenUnitN(PLUS_PLUS, 2)
 		} else if in.peek() == '=' {
 			in.nextChar()
-			return in.tokenUnit(PLUS_EQUALS)
+			return in.tokenUnitN(PLUS_EQUALS, 2)
 		}
 		return in.tokenUnit(PLUS)
 	case '-':
 		if in.peek() == '=' {
 			in.nextChar()
-			return in.tokenUnit(MINUS_EQUALS)
+			return in.tokenUnitN(MINUS_EQUALS, 2)
 		} else if in.peek() == '>' {
 			in.nextChar()
-			return in.tokenUnit(ARROW)
+			return in.tokenUnitN(ARROW, 2)
 		}
 		return in.tokenUnit(MINUS)
 	case '*':
 		if in.peek() == '=' {
 			in.nextChar()
-			return in.tokenUnit(STAR_EQUALS)
+			return in.tokenUnitN(STAR_EQUALS, 2)
 		}
 		return in.tokenUnit(STAR)
 	case '/':
 		if in.peek() == '=' {
 			in.nextChar()
-			return in.tokenUnit(SLASH_EQUALS)
+			return in.tokenUnitN(SLASH_EQUALS, 2)
 		}
 		return in.tokenUnit(SLASH)
 	case '=':
 		if in.peek() == '=' {
 			in.nextChar()
-			return in.tokenUnit(EQUALS_EQUALS)
+			return in.tokenUnitN(EQUALS_EQUALS, 2)
 		} else if in.peek() == '>' {
 			in.nextChar()
-			return in.tokenUnit(FAT_ARROW)
+			return in.tokenUnitN(FAT_ARROW, 2)
 		}
 		return in.tokenUnit(EQUALS)
 	case ':':
@@ -703,9 +711,9 @@ func (in *Input) Next() Token {
 			in.nextChar()
 			if in.peek() == '=' {
 				in.nextChar()
-				return in.tokenUnit(COLON_COLON_EQUAL)
+				return in.tokenUnitN(COLON_COLON_EQUAL, 3)
 			}
-			return in.tokenUnit(COLON_COLON)
+			return in.tokenUnitN(COLON_COLON, 2)
 		}
 		return in.tokenUnit(COLON)
 	case ';':
@@ -715,19 +723,19 @@ func (in *Input) Next() Token {
 	case '!':
 		if in.peek() == '=' {
 			in.nextChar()
-			return in.tokenUnit(BANG_EQUALS)
+			return in.tokenUnitN(BANG_EQUALS, 2)
 		}
 		return in.tokenUnit(BANG)
 	case '>':
 		if in.peek() == '=' {
 			in.nextChar()
-			return in.tokenUnit(GREAT_EQUALS)
+			return in.tokenUnitN(GREAT_EQUALS, 2)
 		}
 		return in.tokenUnit(GREAT)
 	case '<':
 		if in.peek() == '=' {
 			in.nextChar()
-			return in.tokenUnit(LESS_EQUALS)
+			return in.tokenUnitN(LESS_EQUALS, 2)
 		}
 		return in.tokenUnit(LESS)
 	case '?':
@@ -751,7 +759,7 @@ func (in *Input) Next() Token {
 	case '.':
 		if in.peek() == '.' {
 			in.nextChar()
-			return in.tokenUnit(DOT_DOT)
+			return in.tokenUnitN(DOT_DOT, 2)
 		}
 		return in.tokenUnit(DOT)
 	case '^':
@@ -761,11 +769,11 @@ func (in *Input) Next() Token {
 		if c != '&' {
 			return inputErrors[E_UNEXPECTED_TOKEN](in)
 		}
-		return in.tokenUnit(AMPER_AMPER)
+		return in.tokenUnitN(AMPER_AMPER, 2)
 	case '|':
 		if in.peek() == '|' {
 			in.nextChar()
-			return in.tokenUnit(BAR_BAR)
+			return in.tokenUnitN(BAR_BAR, 2)
 		}
 		return in.tokenUnit(BAR)
 	/*case '`':

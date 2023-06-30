@@ -7,6 +7,7 @@ const (
 	Sequencer
 	PatternMatch
 	ExpressionAnotation
+	Constraint
 	Mapping
 	Disjunctive
 	Conjunctive

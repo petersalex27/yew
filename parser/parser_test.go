@@ -289,6 +289,88 @@ var fnDef7Expected = ast.MakePackage(
 	},
 )
 
+var constraintExpected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("whatever", 1, 1)),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Constraint{
+							Context: types.ConstraintContext{
+								types.Context{
+									ClassName: types.Tau("Num"),
+									TypeVariable: types.Tau("a"),
+								},
+							},
+							Constrained: types.Tau("a"),
+						},
+					),
+				),
+				ast.MakeTypeAnnotation(
+					ast.MakeId(scan.MakeIdToken("x", 0, 0)),
+					types.Constraint{
+						Context: types.ConstraintContext{
+							types.Context{
+								ClassName: types.Tau("Num"),
+								TypeVariable: types.Tau("a"),
+							},
+						},
+						Constrained: types.Tau("a"),
+					},
+				),
+			),
+		),
+	},
+)
+
+var constraint2Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("whatever", 1, 1)),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Constraint{
+							Context: types.ConstraintContext{
+								types.Context{
+									ClassName: types.Tau("Num"),
+									TypeVariable: types.Tau("a"),
+								},
+								types.Context{
+									ClassName: types.Tau("Num"),
+									TypeVariable: types.Tau("b"),
+								},
+							},
+							Constrained: types.Tau("a"),
+						},
+					),
+				),
+				ast.MakeTypeAnnotation(
+					ast.MakeId(scan.MakeIdToken("x", 0, 0)),
+					types.Constraint{
+						Context: types.ConstraintContext{
+							types.Context{
+								ClassName: types.Tau("Num"),
+								TypeVariable: types.Tau("a"),
+							},
+							types.Context{
+								ClassName: types.Tau("Num"),
+								TypeVariable: types.Tau("b"),
+							},
+						},
+						Constrained: types.Tau("b"),
+					},
+				),
+			),
+		),
+	},
+)
+
 var opExpected = ast.MakePackage(
 	DefaultNameSpaceId,
 	ast.Program{
@@ -535,6 +617,9 @@ var asts = []struct {
 	{"./test/pattern3.yw", pattern3Expected},
 	{"./test/fnDef6.yw", fnDef6Expected},
 	{"./test/fnDef7.yw", fnDef7Expected},
+	{"./test/type-constraint.yw", constraintExpected},
+	{"./test/type-constraint2.yw", constraint2Expected},
+	{"./test/type-constraint3.yw", constraint2Expected},
 }
 
 func TestParse(t *testing.T) {
@@ -553,7 +638,8 @@ func TestParse(t *testing.T) {
 			t.FailNow()
 		}
 
-		/*if test.path == "./test/pattern3.yw" {
+		/*
+		if test.path == "./test/type-constraint3.yw" {
 			ast.PrintAst(prog)
 		}//*/
 		//ast.PrintAst(prog)
