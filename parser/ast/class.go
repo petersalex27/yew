@@ -15,6 +15,13 @@ type Class struct {
 	functions map[string]types.Function
 }
 
+func MakeClass(name Id, fns map[string]types.Function) Class {
+	return Class{
+		name: name,
+		functions: fns,
+	}
+}
+
 func InitClass(name Id) Class {
 	return Class{name: name, functions: make(map[string]types.Function)}
 }

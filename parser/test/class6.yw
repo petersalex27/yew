@@ -1,0 +1,4 @@
+class (Ord a) => MyClass a where {
+    f :: Int -> Int
+    g :: a -> Int
+}

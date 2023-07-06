@@ -588,6 +588,129 @@ var pattern3Expected = ast.MakePackage(
 	},
 )
 
+var classExpected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeClass(
+			ast.MakeId(scan.MakeIdToken("MyClass", 1, 6)),
+			map[string]types.Function{
+				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
+			},
+		),
+	},
+)
+
+var class2Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeClass(
+			ast.MakeId(scan.MakeIdToken("MyClass", 1, 6)),
+			map[string]types.Function{
+				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
+				"g": { Domain: types.MakeTau("a", info.Loc{}), Codomain: types.Int{}, },
+			},
+		),
+	},
+)
+
+var class3Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeClass(
+			ast.MakeId(scan.MakeIdToken("MyClass", 1, 6)),
+			map[string]types.Function{
+				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
+				"g": { Domain: types.MakeTau("a", info.Loc{}), Codomain: types.Int{}, },
+				"h": { 
+					Domain: types.Constraint{
+						Context: types.ConstraintContext{
+							types.Context{
+								ClassName: types.Var("Num"),
+								TypeVariable: types.Var("x"),
+							},
+						},
+						Constrained: types.MakeTau("a", info.Loc{}),
+					}, 
+					Codomain: types.Constraint{
+						Context: types.ConstraintContext{
+							types.Context{
+								ClassName: types.Var("Num"),
+								TypeVariable: types.Var("x"),
+							},
+						},
+						Constrained: types.MakeTau("x", info.Loc{}), 
+					},
+				},
+			},
+		),
+	},
+)
+
+var class4Expected = class2Expected
+
+var class5Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeClass(
+			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
+			map[string]types.Function{
+				"f": { 
+					Domain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+				},
+			},
+		),
+	},
+)
+
+var class6Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeClass(
+			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
+			map[string]types.Function{
+				"f": { 
+					Domain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+				},
+				"g": { 
+					Domain: types.ConstrainType(types.Var("a"), types.MakeContext("Ord", "a")), 
+					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+				},
+			},
+		),
+	},
+)
+
+var class7Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeClass(
+			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
+			map[string]types.Function{
+				"f": { 
+					Domain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+				},
+				"g": { 
+					Domain: types.ConstrainType(types.Var("a"), types.MakeContext("Ord", "a")), 
+					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+				},
+				"h": { // (Num x, Ord a) => a -> x
+					Domain: types.ConstrainType(
+						types.Var("a"), 
+						types.MakeContext("Num", "x"), types.MakeContext("Ord", "a"),
+					), 
+					Codomain: types.ConstrainType(
+						types.Var("x"), 
+						types.MakeContext("Num", "x"), types.MakeContext("Ord", "a"),
+					),
+				},
+			},
+		),
+	},
+)
+
 var asts = []struct {
 	path string
 	ast_ parser.Ast
@@ -622,6 +745,13 @@ var asts = []struct {
 	{"./test/type-constraint.yw", constraintExpected},
 	{"./test/type-constraint2.yw", constraint2Expected},
 	{"./test/type-constraint3.yw", constraint2Expected},
+	{"./test/class.yw", classExpected},
+	{"./test/class2.yw", class2Expected},
+	{"./test/class3.yw", class3Expected},
+	{"./test/class4.yw", class4Expected},
+	{"./test/class5.yw", class5Expected},
+	{"./test/class6.yw", class6Expected},
+	{"./test/class7.yw", class7Expected},
 }
 
 func TestParse(t *testing.T) {

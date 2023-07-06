@@ -1163,28 +1163,28 @@ func parseClassBody(p *Parser, className ast.Id, block bool) bool {
 		if !parseId(p) {
 			return false
 		}
-		if p.Next.GetType() != scan.COLON_COLON {
+
+		if p.Current.GetType() != scan.COLON_COLON {
 			error(p, p.Next)
 			return false
 		}
-		p.Advance()
-		p.Advance()
 		if !beginTypeAnnotationParse(p, true) {
 			return false
 		}
+		ok := ast.Class{}.Make(p)
+		if !ok {
+			return false
+		}
 
-		if p.Next.GetType() == scan.SEMI_COLON {
-			p.Advance()
-			p.Advance()
+		if p.Current.GetType() == scan.SEMI_COLON {
+			; // ignore 
 		} else if !block {
 			break
 		}
 
 		ignoreLeadingIgnorables(p)
 		if block {
-			if p.Next.GetType() == scan.RCURL {
-				p.Advance()
-				p.Advance()
+			if p.Current.GetType() == scan.RCURL {
 				break
 			}
 		}

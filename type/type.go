@@ -265,6 +265,16 @@ func (e Error) ToError() err.Error {
 	return err.Error(e)
 }
 
+func MakeContext(name string, variable string) Context {
+	return Context{ClassName: Var(name), TypeVariable: Var(variable)}
+}
+func ConstrainType(constrained Types, cxts ...Context) Constraint {
+	return Constraint{
+		Context: cxts,
+		Constrained: constrained,
+	}
+}
+
 func (a Application) ValidClass() (bool, string, info.Locatable) {
 	if len(a) != 2 {
 		if len(a) < 2 {
@@ -296,7 +306,7 @@ func (c Constraint) ConstrainApplication(a Application) (Class, bool, string, in
 
 	for _, cxt := range c.Context {
 		if !cxt.ClassName.Equals(out.TypeVariable) {
-			return out, false, "illegal parameter in type constraint's context", cxt.ClassName
+			return out, false, "illegal parameter in type constraint's context", cxt.TypeVariable
 		}
 	}
 
