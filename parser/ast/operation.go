@@ -26,10 +26,10 @@ func buildQualified(class types.Tau) func(types.Tau) func(types.Function) types.
 	}
 }
 
-var arith = buildQualified("Number")("a")
-var relate = buildQualified("Equitable")("a")
-var order = buildQualified("Orderable")("a")
-var list = buildQualified("Listable")("a")
+var arith = buildQualified(types.Var("Number"))(types.Var("a"))
+var relate = buildQualified(types.Var("Equitable"))(types.Var("a"))
+var order = buildQualified(types.Var("Orderable"))(types.Var("a"))
+var list = buildQualified(types.Var("Listable"))(types.Var("a"))
 var factorial = types.Function{Domain: types.Int{}, Codomain: types.Int{}}
 
 func (u UOpType) Compile(builder *ir.IrBuilder) {

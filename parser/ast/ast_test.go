@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 	err "yew/error"
+	"yew/info"
 	scan "yew/lex"
 	"yew/parser/parser"
 	types "yew/type"
@@ -16,7 +17,7 @@ var in = scan.CreateInputStream(
 	"test/ast", 0, inSource,
 	idTok1, idTok2, scan.MakeOtherToken(scan.INT, 1, 13),
 	scan.MakeOtherToken(scan.NEW_LINE, 1, 16),
-	idTok3, plusTok, valTok1, 
+	idTok3, plusTok, valTok1,
 )
 var idTok1 = scan.MakeIdToken("test1", 1, 1)
 var idTok2 = scan.MakeIdToken("test2", 1, 7)
@@ -143,6 +144,94 @@ func TestBinaryOp(t *testing.T) {
 		if es != expected {
 			fmt.Fprintf(os.Stderr, "Expected (len=%d):\n%s\n", len(expected), expected)
 			fmt.Fprintf(os.Stderr, "Actual (len=%d):\n%s\n", len(es), es)
+			t.FailNow()
+		}
+	}
+}
+
+func TestClass(t *testing.T) {
+	var inSource = []string {
+		"class MyClass a where\n",
+		"  fn :: a -> Int;\n",
+		"  gn :: a",
+	}
+	var inSource2 = []string{
+		"class MyClass a where\n",
+		"  fn :: a -> Int;\n",
+		"  fn :: a -> Int",
+	}
+	var in = scan.CreateInputStream(
+		"test/ast-1", 0, inSource,
+	)
+	var in2 = scan.CreateInputStream(
+		"test/ast-2", 0, inSource2,
+	)
+	var expectMsg = 
+		"[test/ast-1:3:9] Type Error: unexpected type, expected a function type.\n" +
+		"    3 |   gn :: a\n" +
+		"                ^"
+	var expectMsg2 = 
+		"[test/ast-2:3:3] Name Error: illegal redefinition of fn in the MyClass class.\n" +
+		"    3 |   fn :: a -> Int\n" +
+		"          ^"
+	
+	var myClassToken = scan.MakeIdToken("MyClass", 1, 6)
+	var fnIdToken1 = scan.MakeIdToken("fn", 2, 3)
+	var fnIdToken2 = scan.MakeIdToken("fn", 3, 3)
+	var gnIdToken = scan.MakeIdToken("gn", 3, 3)
+	var classParamType1 = types.MakeTau("a", info.MakeLocation(2, 9))
+	var intType1 = types.Int(info.MakeLocation(2, 14))
+	var classParamType2 = types.MakeTau("a", info.MakeLocation(3, 9))
+	var intType2 = types.Int(info.MakeLocation(3, 14))
+
+	class := Class{
+		name: MakeId(myClassToken),
+		functions: make(map[string]types.Function),
+	}
+	ty1 := types.Function{
+		Domain: classParamType1,
+		Codomain: intType1,
+	}
+	ty2 := types.Function{
+		Domain: classParamType2,
+		Codomain: intType2,
+	}
+	annotBad := ExpressionTypeAnnotation{
+		expression: MakeId(gnIdToken),
+		expressionType: classParamType2,
+	}
+	annotGood := ExpressionTypeAnnotation{
+		expression: MakeId(fnIdToken2),
+		expressionType: ty2,
+	}
+	class.functions[fnIdToken1.ToString()] = ty1
+	
+	{
+		stack := parser.AstStack{class, annotBad}
+		p := parser.Parser{Input: in, Stack: &stack}
+		ok, e := constructClass(&p)
+		if ok {
+			fmt.Fprintf(os.Stderr, "expected validation to fail.\n")
+			t.FailNow()
+		}
+		actual := e.ToString()
+		if actual != expectMsg {
+			fmt.Fprintf(os.Stderr, "Expected:\n%s\nActual:\n%s\n", expectMsg, actual)
+			t.FailNow()
+		}
+	}
+
+	{
+		stack := parser.AstStack{class, annotGood}
+		p := parser.Parser{Input: in2, Stack: &stack}
+		ok, e := constructClass(&p)
+		if ok {
+			fmt.Fprintf(os.Stderr, "expected validation to fail.\n")
+			t.FailNow()
+		}
+		actual := e.ToString()
+		if actual != expectMsg2 {
+			fmt.Fprintf(os.Stderr, "Expected:\n%s\nActual:\n%s\n", expectMsg2, actual)
 			t.FailNow()
 		}
 	}

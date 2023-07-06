@@ -3,6 +3,7 @@ package value
 import (
 	"strconv"
 	strings "strings"
+	"yew/info"
 	"yew/type"
 	util "yew/utils"
 )
@@ -78,6 +79,9 @@ func (v ValuedType) ReplaceTau(tau types.Tau, t types.Types) types.Types {
 func (v ValuedType) InferType(from types.Types) types.Types {
 	// TODO: this is problem wrong
 	return v.value.GetType().InferType(from)
+}
+func (v ValuedType) GetLocation() info.Location {
+	return info.DefaultLoc() // TODO
 }
 
 func (a Array) ToString() string {

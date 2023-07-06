@@ -85,3 +85,9 @@ var binaryTypeRule = TYPE.Replaces(TYPE, TYPE)
 
 // Type ::= Type
 var justTypeRule = TYPE.Replaces(TYPE)
+
+// Class ::= Identifier Type 
+var classRule = CLASS_DEFINITION.Replaces(CLASS_DEFINITION, TYPE_ANNOTATION)
+
+// Type-Annotation ::= Expression Type
+var typeAnnotRule = TYPE_ANNOTATION.Replaces(EXPRESSION, TYPE)

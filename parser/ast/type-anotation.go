@@ -2,7 +2,6 @@ package ast
 
 import (
 	"fmt"
-	err "yew/error"
 	"yew/ir"
 	scan "yew/lex"
 	. "yew/parser/node-type"
@@ -29,9 +28,16 @@ func (e ExpressionTypeAnnotation) Compile(builder *ir.IrBuilder) {
 
 }
 func (ExpressionTypeAnnotation) GetNodeType() NodeType { return TYPE_ANNOTATION }
-func (ExpressionTypeAnnotation) Make(*Parser) bool {
-	err.PrintBug()
-	panic("")
+func (ex ExpressionTypeAnnotation) Make(p *Parser) bool {
+	if valid, e := p.Stack.Validate(typeAnnotRule); !valid {
+		e(p.Input).Print()
+		return false
+	}
+	
+	ex.expressionType = p.Stack.Pop().(Type).ty
+	ex.expression = p.Stack.Pop().(Expression)
+	p.Stack.Push(ex)
+	return true
 }
 func (e ExpressionTypeAnnotation) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == TYPE_ANNOTATION

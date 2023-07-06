@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"yew/info"
 	scan "yew/lex"
 	"yew/parser/ast"
 	"yew/parser/parser"
@@ -179,7 +180,7 @@ var fnDef5Expected = ast.MakePackage(
 						ast.MakeId(scan.MakeIdToken("Just", 1, 0)),
 						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
 					),
-					types.Application{types.Tau("Maybe"), types.Int{}},
+					types.Application{types.Var("Maybe"), types.Int{}},
 				),
 			),
 		),
@@ -301,11 +302,11 @@ var constraintExpected = ast.MakePackage(
 						types.Constraint{
 							Context: types.ConstraintContext{
 								types.Context{
-									ClassName: types.Tau("Num"),
-									TypeVariable: types.Tau("a"),
+									ClassName: types.Var("Num"),
+									TypeVariable: types.Var("a"),
 								},
 							},
-							Constrained: types.Tau("a"),
+							Constrained: types.Var("a"),
 						},
 					),
 				),
@@ -314,11 +315,11 @@ var constraintExpected = ast.MakePackage(
 					types.Constraint{
 						Context: types.ConstraintContext{
 							types.Context{
-								ClassName: types.Tau("Num"),
-								TypeVariable: types.Tau("a"),
+								ClassName: types.Var("Num"),
+								TypeVariable: types.Var("a"),
 							},
 						},
-						Constrained: types.Tau("a"),
+						Constrained: types.Var("a"),
 					},
 				),
 			),
@@ -338,15 +339,15 @@ var constraint2Expected = ast.MakePackage(
 						types.Constraint{
 							Context: types.ConstraintContext{
 								types.Context{
-									ClassName: types.Tau("Num"),
-									TypeVariable: types.Tau("a"),
+									ClassName: types.Var("Num"),
+									TypeVariable: types.Var("a"),
 								},
 								types.Context{
-									ClassName: types.Tau("Num"),
-									TypeVariable: types.Tau("b"),
+									ClassName: types.Var("Num"),
+									TypeVariable: types.Var("b"),
 								},
 							},
-							Constrained: types.Tau("a"),
+							Constrained: types.Var("a"),
 						},
 					),
 				),
@@ -355,15 +356,15 @@ var constraint2Expected = ast.MakePackage(
 					types.Constraint{
 						Context: types.ConstraintContext{
 							types.Context{
-								ClassName: types.Tau("Num"),
-								TypeVariable: types.Tau("a"),
+								ClassName: types.Var("Num"),
+								TypeVariable: types.Var("a"),
 							},
 							types.Context{
-								ClassName: types.Tau("Num"),
-								TypeVariable: types.Tau("b"),
+								ClassName: types.Var("Num"),
+								TypeVariable: types.Var("b"),
 							},
 						},
-						Constrained: types.Tau("b"),
+						Constrained: types.Var("b"),
 					},
 				),
 			),
@@ -498,7 +499,7 @@ var type2Expected = ast.MakePackage(
 			types.MakeData2(
 				"Maybe", []string{"a"},
 				[]types.Constructor{
-					types.MakeConstructor("Just", types.Application{types.Tau("a")}),
+					types.MakeConstructor("Just", types.Application{types.Var("a")}),
 					types.MakeConstructor("Nothing", types.Application{}),
 				},
 			),
@@ -514,8 +515,8 @@ var type3Expected = ast.MakePackage(
 			types.MakeData2(
 				"Either", []string{"a", "b"},
 				[]types.Constructor{
-					types.MakeConstructor("Left", types.Application{types.Tau("a")}),
-					types.MakeConstructor("Right", types.Application{types.Tau("b")}),
+					types.MakeConstructor("Left", types.Application{types.Var("a")}),
+					types.MakeConstructor("Right", types.Application{types.Var("b")}),
 				},
 			),
 		),
@@ -532,7 +533,7 @@ var patternExpected = ast.MakePackage(
 					ast.MakeParameter(0,
 						ast.MakeTypeAnnotation(
 							ast.MakeValue(value.Int(1)),
-							types.Tau(".t?"),
+							types.Var(".t?"),
 						),
 					),
 					ast.MakeValue(value.Int(0)),
@@ -541,7 +542,7 @@ var patternExpected = ast.MakePackage(
 					ast.MakeParameter(0,
 						ast.MakeTypeAnnotation(
 							ast.MakeId(scan.MakeIdToken("x", 0, 0)),
-							types.Tau(".t?"),
+							types.Var(".t?"),
 						),
 					),
 					ast.MakeId(scan.MakeIdToken("x", 0, 0)),
@@ -565,7 +566,7 @@ var pattern3Expected = ast.MakePackage(
 					ast.MakeParameter(0,
 						ast.MakeTypeAnnotation(
 							ast.MakeValue(value.Int(0)),
-							types.Tau(".t?"),
+							types.Var(".t?"),
 						),
 					),
 					ast.MakeValue(value.Int(1)),
@@ -577,7 +578,7 @@ var pattern3Expected = ast.MakePackage(
 								ast.MakeId(scan.MakeIdToken("x", 0, 0)),
 								ast.MakeId(scan.MakeIdToken("y", 0, 0)),
 							),
-							types.Tau(".t?"),
+							types.Var(".t?"),
 						),
 					),
 					ast.MakeValue(value.Int(0)),
@@ -591,6 +592,7 @@ var asts = []struct {
 	path string
 	ast_ parser.Ast
 }{
+	//*
 	{"./test/def.yw", defExpected},
 	{"./test/def2.yw", def2Expected},
 	{"./test/app.yw", appExpected},
@@ -601,7 +603,7 @@ var asts = []struct {
 	{"./test/factorial.yw", factorialExpected},
 	{"./test/prefix.yw", prefixOperationExpected},
 	{"./test/fnDef.yw", fnDefExpected},
-	{"./test/fnDef2.yw", fnDef2Expected}, //*/
+	{"./test/fnDef2.yw", fnDef2Expected}, 
 	{"./test/fnDef3.yw", fnDef3Expected},
 	{"./test/fnDef4.yw", fnDef4Expected},
 	{"./test/assignApp.yw", assignAppExpected},
@@ -616,7 +618,7 @@ var asts = []struct {
 	{"./test/pattern2.yw", patternExpected},
 	{"./test/pattern3.yw", pattern3Expected},
 	{"./test/fnDef6.yw", fnDef6Expected},
-	{"./test/fnDef7.yw", fnDef7Expected},
+	{"./test/fnDef7.yw", fnDef7Expected},//*/
 	{"./test/type-constraint.yw", constraintExpected},
 	{"./test/type-constraint2.yw", constraint2Expected},
 	{"./test/type-constraint3.yw", constraint2Expected},
@@ -653,4 +655,38 @@ func TestParse(t *testing.T) {
 			t.FailNow()
 		}
 	}
+}
+
+func TestConstraintBad(t *testing.T) {
+	var inSource3 = []string{
+		"class (C a) => MyClass a where\n",
+		"  fn :: (W a) => a -> Int",
+	}
+	var in3 = scan.CreateInputStream(
+		"test/ast-3", 0, inSource3,
+	)
+	var expectMsg3 =
+		"[test/ast-3:2:12] Type Error: class type parameter cannot be constrained in a class function.\n" +
+		"    2 |   fn :: (W a) => a -> Int\n" +
+		"                   ^"
+	var constraint = types.Constraint{
+		Context: types.ConstraintContext{
+			types.Context{
+				ClassName: types.MakeTau("W", info.MakeLocation(2, 10)),
+				TypeVariable: types.MakeTau("a", info.MakeLocation(2, 12)),
+			},
+		},
+	}
+
+	ok, e := validateConstraint(constraint, types.MakeTau("a", info.MakeLocation(1, 24)), in3)
+	if ok {
+		fmt.Fprintf(os.Stderr, "expected error but validating contraint succeded.\n")
+		t.FailNow()
+	}
+
+	if expectMsg3 != e.ToString() {
+		fmt.Fprintf(os.Stderr, "Expected:\n%s\nActual:\n%s\n", expectMsg3, e.ToString())
+		t.FailNow()
+	}
+	
 }

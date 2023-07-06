@@ -62,7 +62,8 @@ func (t Type) MakeTuple(p *parser.Parser) bool {
 func applicationToTauApplication(p *parser.Parser) bool {
 	ok, _ := p.Stack.TryValidate([]nodetype.NodeType{nodetype.IDENTIFIER})
 	if ok {
-		tau := types.Tau(p.Stack.Pop().(Id).GetName())
+		id := p.Stack.Pop().(Id)
+		tau := types.MakeTau(id.GetName(), scan.ToLoc(id.token))
 		p.Stack.Push(MakeType(tau))
 		//println("here", string(tau))
 		return true
@@ -89,14 +90,18 @@ func applicationToTauApplication(p *parser.Parser) bool {
 		if right.GetNodeType() != nodetype.IDENTIFIER {
 			out = append(types.Application{types.Error{}}, out...) // should be caught later
 		} else {
-			out = append(types.Application{types.Tau(right.(Id).GetName())}, out...)
+			id := right.(Id)
+			tau := types.MakeTau(id.GetName(), scan.ToLoc(id.token))
+			out = append(types.Application{tau}, out...)
 		}
 	}
 
 	if left.GetNodeType() != nodetype.IDENTIFIER {
 		out = append(types.Application{types.Error{}}, out...) // should be caught later
 	} else {
-		out = append(types.Application{types.Tau(left.(Id).GetName())}, out...)
+		id := left.(Id)
+		tau := types.MakeTau(id.GetName(), scan.ToLoc(id.token))
+		out = append(types.Application{tau}, out...)
 	}
 	ty := MakeType(out)
 	p.Stack.Push(ty)

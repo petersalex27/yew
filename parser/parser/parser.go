@@ -55,7 +55,10 @@ type Parser struct {
 	Table     *symbol.SymbolTable
 	Stack     *AstStack
 	markIndex int
-	TypeStack *TypeStack
+	ParsingClass bool
+	ClassVariable types.Tau
+	HasConstraint bool
+	ClassConstraint types.Constraint
 	//functions []ast.Function
 }
 
@@ -73,7 +76,8 @@ func InitParser(in scan.InputStream) *Parser {
 		Input:     in,
 		Table:     symbol.InitSymbolTable(in.GetPath()),
 		Stack:     NewAstStack(),
-		TypeStack: NewTypeStack(),
+		ParsingClass: false,
+		markIndex: 0,
 	}
 	return p
 }

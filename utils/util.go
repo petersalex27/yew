@@ -106,3 +106,22 @@ func Max(a int, b int) int {
 	}
 	return b
 }
+
+type Maybe [T any] struct {
+	Nothing bool
+	Just T
+}
+
+func (m Maybe[any]) Bind(f func(Maybe[any])Maybe[any]) Maybe[any] {
+	if m.Nothing {
+		return m
+	} 
+	return f(m)
+} 
+
+func Nothing[T any]() Maybe[T] {
+	return Maybe[T]{Nothing: true}
+}
+func Just[T any](x T) Maybe[T] {
+	return Maybe[T]{Nothing: false, Just: x}
+}

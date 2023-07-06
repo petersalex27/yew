@@ -113,21 +113,30 @@ type Token interface {
 	GetType() TokenType
 	GetSourceIndex() (lineIndex int, charIndex int)
 }
+
+func ToLoc(t Token) info.Loc {
+	loc := t.GetLocation()
+	return info.MakeLocation(loc.GetLine(), loc.GetChar())
+}
+
 type ValueToken struct {
 	Value value.Value
 	Line  int
 	Char  int
 }
+
 type IdToken struct {
 	id    string
 	line  int
 	char  int
 }
+
 type OtherToken struct {
 	tokenType TokenType
 	line      int
 	char      int
 }
+
 func (o1 OtherToken) Equal_test_weak(o2 OtherToken) bool {
 	return o1.tokenType == o2.tokenType
 }
@@ -146,8 +155,8 @@ type ErrorToken struct {
 }
 type AnotationToken IdToken
 
-func (in InputStream) MakeErrorLocation(token Token) err.ErrorLocation {
-	loc := token.GetLocation()
+func (in InputStream) MakeErrorLocation(loca info.Locatable) err.ErrorLocation {
+	loc := loca.GetLocation()
 	return err.MakeErrorLocation(
 		loc.GetLine(),
 		loc.GetChar(),

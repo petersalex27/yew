@@ -90,11 +90,11 @@ func (u UOpType) Equal_test(a parser.Ast) bool {
 }
 
 var aToA = types.Function{
-	Domain: types.Tau("a"),
-	Codomain: types.Tau("a"),
+	Domain: types.Var("a"),
+	Codomain: types.Var("a"),
 }
 var aToAToA = types.Function{
-	Domain: types.Tau("a"),
+	Domain: types.Var("a"),
 	Codomain: aToA,
 }
 

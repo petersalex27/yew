@@ -5,6 +5,7 @@ import (
 	"sync"
 	"yew/demangler"
 	err "yew/error"
+	"yew/info"
 	"yew/source"
 	util "yew/utils"
 )
@@ -15,10 +16,10 @@ type Superable interface {
 
 type inferenceRules struct {
 	inferenceLock sync.Mutex
-	rules map[string]*[]Types
+	rules         map[string]*[]Types
 }
 
-var inferences = &inferenceRules{ 
+var inferences = &inferenceRules{
 	rules: make(map[string]*[]Types),
 }
 
@@ -35,14 +36,15 @@ func (inf *inferenceRules) recursiveCheckForCycles(tau string, marked *map[strin
 	(*visited)[tau] = true
 	for _, ty := range *inf.rules[tau] {
 		if ty.GetTypeType() == TAU {
-			if inf.recursiveCheckForCycles(string(ty.(Tau)), marked, visited) {
+			name := ty.(Tau).name
+			if inf.recursiveCheckForCycles(name, marked, visited) {
 				return true
 			}
 		}
-	} 
+	}
 
 	(*marked)[tau] = false
-	
+
 	return false
 }
 
@@ -51,7 +53,7 @@ func (inf *inferenceRules) checkForCycles() string {
 	// stack := make([]string, 0, len(inf.rules) / 2) // `len / 2` is somewhat arbitrary
 	marked := make(map[string]bool, len(inf.rules))
 	visited := make(map[string]bool, len(inf.rules))
-	
+
 	for tau := range inf.rules {
 		if inf.recursiveCheckForCycles(tau, &marked, &visited) {
 			return tau
@@ -63,29 +65,29 @@ func (inf *inferenceRules) checkForCycles() string {
 
 // DO NOT CALL UNLESS LOCK IS HELD!!
 func (inf *inferenceRules) tryToStrengthen(tau Tau) (ty Types, stronger bool) {
-	if _, found := inf.rules[string(tau)]; !found {
+	if _, found := inf.rules[tau.name]; !found {
 		return tau, false
 	}
 
-	var prev string = string(tau)
+	var prev string = tau.name
 	var next *[]Types
 	var found bool
-	stack := make([]string, 0, len(inf.rules) / 2)
-	searched := make(map[string]bool, len(inf.rules) / 2)
-	stack = append(stack, string(tau))
-	for ; len(stack) > 0; {
-		prev = stack[len(stack) - 1]
+	stack := make([]string, 0, len(inf.rules)/2)
+	searched := make(map[string]bool, len(inf.rules)/2)
+	stack = append(stack, tau.name)
+	for len(stack) > 0 {
+		prev = stack[len(stack)-1]
 		searched[prev] = true
-		stack = stack[:len(stack) - 1]
+		stack = stack[:len(stack)-1]
 		next, found = inf.rules[prev]
 		if !found {
 			continue
 		}
 		for _, t := range *next {
 			if t.GetTypeType() == TAU {
-				x := string(t.(Tau))
+				x := t.(Tau).name
 				if !searched[x] {
-					stack = append(stack, string(t.(Tau)))
+					stack = append(stack, t.(Tau).name)
 				}
 			} else {
 				return t, true
@@ -94,13 +96,13 @@ func (inf *inferenceRules) tryToStrengthen(tau Tau) (ty Types, stronger bool) {
 	}
 
 	return tau, false
-} 
+}
 
 // false on error
 func (inf *inferenceRules) addRule(tau Tau, to Types) (res Types, ok bool) {
 	inf.inferenceLock.Lock()
 	// check if already has stronger rule
-	var stronger bool 
+	var stronger bool
 	res, stronger = inf.tryToStrengthen(tau)
 	if stronger {
 		if to.GetTypeType() == TAU {
@@ -112,23 +114,23 @@ func (inf *inferenceRules) addRule(tau Tau, to Types) (res Types, ok bool) {
 		}
 	} else {
 		// rule must be added
-		if nil == inf.rules[string(tau)] {
-			inf.rules[string(tau)] = new([]Types)
-			*inf.rules[string(tau)] = make([]Types, 1)
-			(*inf.rules[string(tau)])[0] = to
+		if nil == inf.rules[tau.name] {
+			inf.rules[tau.name] = new([]Types)
+			*inf.rules[tau.name] = make([]Types, 1)
+			(*inf.rules[tau.name])[0] = to
 			res, ok = to, true
 		} else {
 			// check if contained in rule already
 			var exit bool = false
-			for _, t := range (*inf.rules[string(tau)]) {
+			for _, t := range *inf.rules[tau.name] {
 				if t.Equals(to) {
-					exit = true 
+					exit = true
 					break
 				}
 			}
 			if !exit {
 				// is not already in rules, so append
-				(*inf.rules[string(tau)]) = append((*inf.rules[string(tau)]), to)
+				(*inf.rules[tau.name]) = append((*inf.rules[tau.name]), to)
 				res, ok = to, ok
 			}
 		}
@@ -146,15 +148,19 @@ func Strengthen(dest *Types, src Types) Types {
 
 type TypeType int
 
+func genVarTau(name string) Tau {
+	return Tau{name: name, Loc: info.DefaultLoc()}
+}
+
 func GetNewTau() Tau {
-	return Tau(demangler.TYPE.GetDemanglerPrefix())
-} 
+	return genVarTau(demangler.TYPE.GetDemanglerPrefix())
+}
 
 func GetNewTaus(n int) (taus []Tau) {
 	taus = make([]Tau, n)
 	demangles := demangler.TYPE.GetDemanglerPrefixes(n)
 	for i, d := range demangles {
-		taus[i] = Tau(d)
+		taus[i] = genVarTau(d)
 	}
 	return
 }
@@ -169,7 +175,7 @@ const (
 	TUPLE
 	TAU
 	QUALIFIER
-	CLASS 
+	CLASS
 	DICTIONARY
 	APPLICATION
 	DATA
@@ -190,6 +196,7 @@ type Types interface {
 	ReplaceTau(tau Tau, t Types) Types
 	// receiver ::= from
 	InferType(from Types) Types
+	GetLocation() info.Location
 }
 
 func CanBeReplaced(t Types, replacement Types) bool {
@@ -203,44 +210,98 @@ func CanBeReplaced(t Types, replacement Types) bool {
 	return t.Equals(replacement)
 }
 
-type Int struct {}
-type Float struct {}
-type Char struct {}
-type Bool struct {}
-type Tau string
+func Var(s string) Tau { return genVarTau(s) }
+
+func MakeTau(s string, l info.Loc) Tau { return Tau{name: s, Loc: l} }
+
+type Int info.Loc
+type Float info.Loc
+type Char info.Loc
+type Bool info.Loc
+type Tau struct {
+	name string
+	Loc  info.Loc
+}
 type Function struct {
-	Domain Types
+	Domain   Types
 	Codomain Types
 }
-type Array struct {ElemType Types}
+type Array struct {
+	ElemType Types
+	Loc      info.Loc
+}
 type Tuple []Types
 type NamedTuple map[string]Types
 type Class struct {
-	Name string
+	Loc          info.Loc
+	Name         string
 	TypeVariable Tau
-	Functions map[string]Function
+	Functions    map[string]Function
 }
 type Context struct {
-	ClassName Tau
+	ClassName    Tau
 	TypeVariable Tau
 }
 type ConstraintContext []Context
 type Constraint struct {
-	Context ConstraintContext
+	Context     ConstraintContext
 	Constrained Types
+	Loc         info.Loc
 }
 type Data struct {
-	Name string
+	Name          string
 	TypeVariables []Tau
-	Constructors map[string]Constructor
+	Constructors  map[string]Constructor
+	Loc           info.Loc
 }
 type Constructor struct {
-	Name string
+	Name    string
 	Members Application
+	Loc     info.Loc
 }
 type Error err.Error
+
 func (e Error) ToError() err.Error {
 	return err.Error(e)
+}
+
+func (a Application) ValidClass() (bool, string, info.Locatable) {
+	if len(a) != 2 {
+		if len(a) < 2 {
+			return false, "too few type parameters, expected one", a
+		}
+		// get 3rd type in application
+		return false, "too many type parameters, expected one", a[2]
+	}
+
+	if a[0].GetTypeType() != TAU {
+		return false, "expected class declaration", a[0]
+	}
+
+	if a[1].GetTypeType() != TAU {
+		return false, "expected type parameter", a[1]
+	}
+	return true, "", a
+}
+
+func (c Constraint) ConstrainApplication(a Application) (Class, bool, string, info.Locatable) {
+	valid, msg, loc := a.ValidClass()
+	if !valid {
+		return Class{}, false, msg, loc
+	}
+
+	var out Class
+	out.Name = a[0].(Tau).name
+	out.TypeVariable = a[1].(Tau)
+
+	for _, cxt := range c.Context {
+		if !cxt.ClassName.Equals(out.TypeVariable) {
+			return out, false, "illegal parameter in type constraint's context", cxt.ClassName
+		}
+	}
+
+	out.Loc = c.GetLocation().(info.Loc)
+	return out, true, "", out
 }
 
 func (c Constraint) Constrain(f Function) Function {
@@ -252,12 +313,12 @@ func (c Constraint) Constrain(f Function) Function {
 		cxt = append(cxt, c.Context...)
 		cxt = append(cxt, c2.Context...)
 		f.Domain = Constraint{
-			Context: cxt,
+			Context:     cxt,
 			Constrained: c2.Constrained,
 		}
 	} else {
 		f.Domain = Constraint{
-			Context: c.Context, 
+			Context:     c.Context,
 			Constrained: f.Domain,
 		}
 	}
@@ -270,21 +331,79 @@ func (c Constraint) Constrain(f Function) Function {
 		cxt = append(cxt, c.Context...)
 		cxt = append(cxt, c2.Context...)
 		f.Codomain = Constraint{
-			Context: cxt,
+			Context:     cxt,
 			Constrained: c2.Constrained,
 		}
 	} else {
 		f.Codomain = Constraint{
-			Context: c.Context,
+			Context:     c.Context,
 			Constrained: f.Codomain,
 		}
 	}
 	return f
-} 
+}
 
 // represents a type that has not yet been evaluated; by the end of the resolve type phase,
 // there should be no application types left
 type Application []Types
+
+func (i Int) GetLocation() info.Location {
+	return info.Loc(i)
+}
+func (b Bool) GetLocation() info.Location {
+	return info.Loc(b)
+}
+func (c Char) GetLocation() info.Location {
+	return info.Loc(c)
+}
+func (f Float) GetLocation() info.Location {
+	return info.Loc(f)
+}
+func (tau Tau) GetLocation() info.Location {
+	return tau.Loc
+}
+func (f Function) GetLocation() info.Location {
+	return f.Domain.GetLocation()
+}
+func (a Array) GetLocation() info.Location {
+	return a.Loc
+}
+func (tup Tuple) GetLocation() info.Location {
+	if len(tup) == 0 {
+		return info.DefaultLoc()
+	}
+	return tup[0].GetLocation()
+}
+func (e Error) GetLocation() info.Location {
+	return e.ToError().GetLocation()
+}
+func (c ConstraintContext) GetLocation() info.Location {
+	if len(c) == 0 {
+		return info.DefaultLoc()
+	}
+	return c[0].ClassName.Loc
+}
+func (c Constraint) GetLocation() info.Location {
+	return c.Loc
+}
+func (c Class) GetLocation() info.Location {
+	return c.Loc
+}
+func (tup NamedTuple) GetLocation() info.Location {
+	return info.DefaultLoc() // TODO
+}
+func (a Application) GetLocation() info.Location {
+	if len(a) == 0 {
+		return info.DefaultLoc()
+	}
+	return a[0].GetLocation()
+}
+func (d Data) GetLocation() info.Location {
+	return d.Loc
+}
+func (c Constructor) GetLocation() info.Location {
+	return c.Loc
+}
 
 func (i Int) ToString() string {
 	return "Int"
@@ -299,11 +418,11 @@ func (f Float) ToString() string {
 	return "Float"
 }
 func (tau Tau) ToString() string {
-	return string(tau)
+	return string(tau.name)
 }
 func (f Function) ToString() string {
 	var left string
-	var right string 
+	var right string
 
 	if FUNCTION == f.Domain.GetTypeType() {
 		left = "(" + f.Domain.ToString() + ")"
@@ -317,7 +436,7 @@ func (f Function) ToString() string {
 		right = f.Codomain.ToString()
 	}
 
-	return  left + " -> " + right 
+	return left + " -> " + right
 }
 func (a Array) ToString() string {
 	return "[" + a.ElemType.ToString() + "]"
@@ -343,7 +462,7 @@ func (c ConstraintContext) ToString() string {
 	return "(" + strings.Join(ss, ", ") + ")"
 }
 func (c Constraint) ToString() string {
-	top := c.Context.ToString() + " => " 
+	top := c.Context.ToString() + " => "
 	if c.Constrained == nil {
 		return top + "_"
 	}
@@ -352,14 +471,14 @@ func (c Constraint) ToString() string {
 func (c Class) ToString() string {
 	var tmp []string
 	for k, f := range c.Functions {
-		tmp = append(tmp, k + " " + f.ToString())
+		tmp = append(tmp, k+" "+f.ToString())
 	}
 	return c.Name + " " + c.TypeVariable.ToString() + "{" + strings.Join(tmp, "; ") + "}"
 }
 func (tup NamedTuple) ToString() string {
 	var tmp []string
 	for k, v := range tup {
-		tmp = append(tmp, k + " " + v.ToString())
+		tmp = append(tmp, k+" "+v.ToString())
 	}
 	return "(" + strings.Join(tmp, ", ") + ")"
 }
@@ -374,7 +493,7 @@ func (a Application) ToString() string {
 	}
 	res := builder.String()
 
-	return res[:len(res) - 1]
+	return res[:len(res)-1]
 }
 func (d Data) ToString() string {
 	var builder strings.Builder
@@ -527,10 +646,10 @@ func (f Float) Equals(t Types) bool {
 	return FLOAT == t.GetTypeType()
 }
 func (tau Tau) Equals(t Types) bool {
-	return TAU == t.GetTypeType() && string(tau) == string(t.(Tau))
+	return TAU == t.GetTypeType() && tau.name == t.(Tau).name
 }
 func (f Function) Equals(t Types) bool {
-	return FUNCTION == t.GetTypeType() && 
+	return FUNCTION == t.GetTypeType() &&
 		f.Domain.Equals(t.(Function).Domain) &&
 		f.Codomain.Equals(t.(Function).Codomain)
 }
@@ -556,13 +675,17 @@ func (tup Tuple) Equals(t Types) bool {
 func (e Error) Equals(t Types) bool {
 	return false
 }
+func (cxt Context) EqualsContext(cxt2 Context) bool {
+	return cxt.ClassName.name == cxt2.ClassName.name &&
+		cxt.TypeVariable.name == cxt2.TypeVariable.name
+}
 func (c1 ConstraintContext) Equals(c2 ConstraintContext) bool {
 	if len(c1) != len(c2) {
 		return false
 	}
 
 	for i, cxt := range c1 {
-		if cxt.ClassName != c2[i].ClassName || cxt.TypeVariable != c2[i].TypeVariable {
+		if !cxt.EqualsContext(c2[i]) {
 			return false
 		}
 	}
@@ -576,9 +699,9 @@ func (c Constraint) Equals(t Types) bool {
 	if !ok {
 		return false
 	}
-	
+
 	return c.Context.Equals(c2.Context) &&
-			c2.Constrained.Equals(c.Constrained)
+		c2.Constrained.Equals(c.Constrained)
 }
 func (c Class) Equals(t Types) bool {
 	if CLASS != t.GetTypeType() {
@@ -606,7 +729,7 @@ func (tup NamedTuple) Equals(t Types) bool {
 	tup2 := t.(NamedTuple)
 	if len(tup) != len(tup2) {
 		return false
-	} 
+	}
 	for k, v := range tup {
 		v2, found := tup2[k]
 		if !found || !v2.Equals(v) {
@@ -633,7 +756,7 @@ func (a Application) Equals(t Types) bool {
 }
 func (d Data) Equals(t Types) bool {
 	if DATA != t.GetTypeType() {
-		return false 
+		return false
 	}
 
 	d2 := t.(Data)
@@ -688,7 +811,7 @@ func (f Float) ReplaceTau(tau Tau, t Types) Types {
 	return f
 }
 func (tau Tau) ReplaceTau(tau2 Tau, t Types) Types {
-	if string(tau) == string(tau2) {
+	if tau.name == tau2.name {
 		return t
 	}
 	return tau
@@ -703,7 +826,7 @@ func (f Function) ReplaceTau(tau Tau, t Types) Types {
 	return f.ReplaceTauInFunction(tau, t)
 }
 func (a Array) ReplaceTau(tau Tau, t Types) Types {
-	return Array{a.ElemType.ReplaceTau(tau, t)}
+	return Array{ElemType: a.ElemType.ReplaceTau(tau, t), Loc: a.Loc}
 }
 func (tup Tuple) ReplaceTau(tau Tau, t Types) Types {
 	out := make([]Types, len(tup))
@@ -727,40 +850,43 @@ func (q NamedTuple) ReplaceTau(_ Tau, _ Types) Types {
 	err.PrintBug()
 	panic("")
 }
-/*func (a Application) ReplaceTau(tau Tau, t Types) Types {
-	// replace tau, then try application if applicable
-	tryApplication := 
-			FUNCTION == t.GetTypeType() &&
-			len(a) >= 2 &&
-			a[0].Equals(tau)
-	newApplication := Application(make([]Types, len(a)))
-	for i, ty := range a {
-		newApplication[i] = ty.ReplaceTau(tau, t)
-	}
 
-	if tryApplication {
-		// loop only loops when application is successful and there is at least one element that
-		// hasn't been the left-hand side of an application
-		for i := 0; i < len(newApplication) - 1; i++ {
-			if FUNCTION != newApplication[i].GetTypeType() {
-				// cannot do another application
-				return newApplication[i:]
-			}
-
-			res := newApplication[i].Apply(newApplication[i + 1])
-			if APPLICATION == res.GetTypeType() {
-				// application did nothing
-				return newApplication[i:]
-			}
-			// application was successful
-			newApplication[i + 1] = res
+/*
+	func (a Application) ReplaceTau(tau Tau, t Types) Types {
+		// replace tau, then try application if applicable
+		tryApplication :=
+				FUNCTION == t.GetTypeType() &&
+				len(a) >= 2 &&
+				a[0].Equals(tau)
+		newApplication := Application(make([]Types, len(a)))
+		for i, ty := range a {
+			newApplication[i] = ty.ReplaceTau(tau, t)
 		}
 
-		// there must be only one element left; this follows from the loop's restrictions above
-		return newApplication[len(newApplication) - 1]
+		if tryApplication {
+			// loop only loops when application is successful and there is at least one element that
+			// hasn't been the left-hand side of an application
+			for i := 0; i < len(newApplication) - 1; i++ {
+				if FUNCTION != newApplication[i].GetTypeType() {
+					// cannot do another application
+					return newApplication[i:]
+				}
+
+				res := newApplication[i].Apply(newApplication[i + 1])
+				if APPLICATION == res.GetTypeType() {
+					// application did nothing
+					return newApplication[i:]
+				}
+				// application was successful
+				newApplication[i + 1] = res
+			}
+
+			// there must be only one element left; this follows from the loop's restrictions above
+			return newApplication[len(newApplication) - 1]
+		}
+		return newApplication
 	}
-	return newApplication
-}*/
+*/
 func (a Application) ReplaceTau(tau Tau, ty Types) Types {
 	out := make(Application, len(a))
 	for i, v := range a {
@@ -770,7 +896,7 @@ func (a Application) ReplaceTau(tau Tau, ty Types) Types {
 }
 func (d Data) ReplaceTau(tau Tau, ty Types) Types {
 	for _, v := range d.TypeVariables {
-		if string(v) == string(tau) {
+		if v.name == tau.name {
 			for key, con := range d.Constructors {
 				d.Constructors[key] = con.ReplaceTau(tau, ty).(Constructor)
 			}
@@ -848,8 +974,8 @@ func (tups NamedTuple) InferType(newType Types) Types {
 	if TAU != newType.GetTypeType() {
 		return Error{}
 	}
-	
-	key := string(newType.(Tau))
+
+	key := newType.(Tau).name
 	for dom, tup := range tups {
 		if dom == key {
 			return tup
@@ -877,7 +1003,7 @@ func (as Application) InferType(newType Types) Types {
 
 	as2 := newType.(Application)
 	if len(as2) != len(as) {
-		return Error{} 
+		return Error{}
 	}
 
 	for i, a := range as {
@@ -916,7 +1042,7 @@ func GrabConstructorName(from Types) (Constructor, bool, err.Error) {
 		return Constructor{}, false, TypeErrors[E_UNEXPECTED]().(err.Error)
 	}
 	name := from.(Tau)
-	return Constructor{Name: string(name), Members: make(Application, 0)}, true, err.Error{}
+	return Constructor{Name: name.name, Members: make(Application, 0)}, true, err.Error{}
 }
 
 func ToConstructor(from Types) (Constructor, bool) {
@@ -954,8 +1080,8 @@ func GrabDataName(from Types) (Data, bool, err.Error) {
 	name := from.(Tau)
 	//println("name =", string(name), "len(", len(string(name)), ")")
 	return Data{
-		Name: string(name), 
-		Constructors: make(map[string]Constructor, 0),
+		Name:          name.name,
+		Constructors:  make(map[string]Constructor, 0),
 		TypeVariables: make([]Tau, 0),
 	}, true, err.Error{}
 }
@@ -980,7 +1106,7 @@ func redeclareTypeVarError(name string, vars Application, i int) err.Error {
 		builder.WriteByte(' ')
 	}
 	builder.WriteString("^-- here")
- 	return typeErrorGen(builder.String())().(err.Error)
+	return typeErrorGen(builder.String())().(err.Error)
 }
 
 func addTypeVariables(d Data, vars Types) (Data, bool) {
@@ -995,7 +1121,7 @@ func addTypeVariables(d Data, vars Types) (Data, bool) {
 				return d, false
 			}
 			tau := m.(Tau)
-			tauString := string(tau)
+			tauString := tau.name
 			_, redeclared := tVarMap[tauString]
 			if redeclared {
 				// type variable redeclared
@@ -1021,7 +1147,7 @@ func MakeConstructor(name string, members Application) Constructor {
 	return Constructor{Name: name, Members: members}
 }
 
-// should only be used after verifying all constructors in `cs` have unique names 
+// should only be used after verifying all constructors in `cs` have unique names
 func mapConstructors(cs []Constructor) map[string]Constructor {
 	out := make(map[string]Constructor, len(cs))
 	for _, c := range cs {
@@ -1038,24 +1164,24 @@ func mapConstructors(cs []Constructor) map[string]Constructor {
 func MakeTaus(s ...string) []Tau {
 	out := make([]Tau, len(s))
 	for i := range s {
-		out[i] = Tau(s[i])
+		out[i] = genVarTau(s[i])
 	}
 	return out
 }
 
 func MakeData2(name string, vars []string, cons []Constructor) Data {
 	return Data{
-		Name: name,
+		Name:          name,
 		TypeVariables: MakeTaus(vars...),
-		Constructors: mapConstructors(cons),
+		Constructors:  mapConstructors(cons),
 	}
 }
 
 func MakeData(name string, vars []Tau, cons []Constructor) Data {
 	return Data{
-		Name: name,
-		TypeVariables: vars, 
-		Constructors: mapConstructors(cons),
+		Name:          name,
+		TypeVariables: vars,
+		Constructors:  mapConstructors(cons),
 	}
 }
 
@@ -1082,26 +1208,28 @@ func ToData(from Types) (Data, bool) {
 	return Data{}, false
 }
 
-type _errorGenFn (func () err.UserMessage)
+type _errorGenFn (func() err.UserMessage)
 
 func typeErrorGen(message string) _errorGenFn {
-	return (func () err.UserMessage {
+	return (func() err.UserMessage {
 		return err.CompileMessage(message, err.ERROR, err.TYPE, "", 0, 0, source.Source{""})
 	})
 }
 
 type typeErrorType int
+
 const (
 	E_UNEXPECTED typeErrorType = iota
 	E_EXPECTED_ARRAY
 	E_EXPECTED_TUPLE
 )
-var TypeErrors = map[typeErrorType] _errorGenFn {
-	E_UNEXPECTED: typeErrorGen("unexpected type"),
+
+var TypeErrors = map[typeErrorType]_errorGenFn{
+	E_UNEXPECTED:     typeErrorGen("unexpected type"),
 	E_EXPECTED_ARRAY: typeErrorGen("expected array type"),
 	E_EXPECTED_TUPLE: typeErrorGen("expected tuple type"),
 }
 
 // a 1 1; a <- (+)
 // => (+) 1 1
-// => 2 
+// => 2

@@ -64,6 +64,7 @@ func (id Id) Equal_test(a Ast) bool {
 	}
 	equal = equal &&
 		id2.token.ToString() == id.token.ToString()
+	//println(id.token.ToString(), id2.token.ToString())
 	if equal {
 		return checkTypeEqual(id.ty, id2.ty)
 	}

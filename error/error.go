@@ -178,6 +178,8 @@ func (e ErrorLocation) GetSource() []string { return e.source }
 var NoHeaderMessage = curryMessage("")(0)(0)(0)([]string{""})
 var SystemError = NoHeaderMessage(ERROR)(SYSTEM)
 var SyntaxError = SYNTAX.CompileError
+var TypeError = TYPE.CompileError
+var NameError = NAME.CompileError
 
 func generateSnippet(line int, char int, source []string) string {
 	// check for valid input 

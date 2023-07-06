@@ -11,6 +11,7 @@ import (
 	. "yew/parser/parser"
 	symbol "yew/symbol"
 	types "yew/type"
+	util "yew/utils"
 )
 
 var DefaultNameSpaceId ast.Id = ast.MakeId(scan.UnderscoreIdToken)
@@ -145,8 +146,9 @@ func parseTypePrefix(p *Parser) (types.Types, bool) {
 				sym = p.Table.Update(sym)
 			}//*/
 			//return sym.GetType(), true
-			str := current.(scan.IdToken).ToString()
- 			p.Stack.Push(ast.MakeType(types.Tau(str)))
+			id := current.(scan.IdToken)
+			tau := types.MakeTau(id.ToString(), scan.ToLoc(id))
+ 			p.Stack.Push(ast.MakeType(tau))
 		default:
 			if i == 0 {
 				unexpectedToken(current, p.Input).Print()
@@ -264,6 +266,54 @@ func buildConstraint(p *Parser, left types.Types) (types.Constraint, bool) {
 	return types.Constraint{Context: contexts,}, true
 }
 
+func getTypeName(ty types.Types) string {
+	t := ty.GetTypeType()
+	switch t {
+	case types.INT:
+		return "the Int type"
+	case types.CHAR:
+		return "the Char type"
+	case types.FLOAT:
+		return "the Float type"
+	case types.ARRAY:
+		return "array types"
+	case types.BOOL:
+		return "the Bool type"
+	case types.CONSTRUCTOR:
+		return "kinds"
+	case types.DICTIONARY:
+		fallthrough
+	case types.DATA:
+		return "data types"
+	case types.TAU:
+		return ty.ToString()
+	case types.APPLICATION:
+		return "type applications outside of class definitions"
+	case types.CLASS: 
+		// should be impossible
+		fallthrough
+	case types.FUNCTION:
+		fallthrough
+	default:
+		err.PrintBug()
+		panic("")
+	}
+}
+
+func validateConstraint(constraint types.Constraint, cVar types.Tau, in scan.InputStream) (bool, err.Error) {
+	for _, cxt := range constraint.Context {
+		// check if class constraints match function constraints
+		if cxt.TypeVariable.ToString() == cVar.ToString() {
+			loc := in.MakeErrorLocation(cxt.TypeVariable)
+			return false, err.TypeError(
+				"class type parameter cannot be constrained in a class function", 
+				loc,
+			)
+		}
+	}
+	return true, err.Error{}
+}
+
 func parseTypeConstraint(p *Parser, left types.Types) (types.Types, bool) {
 	right, ok := parseRightToLeftType(p)
 	if !ok {
@@ -279,15 +329,33 @@ func parseTypeConstraint(p *Parser, left types.Types) (types.Types, bool) {
 	}
 
 	// attatch constraint to each part of right
-	if right.GetTypeType() != types.FUNCTION {
-		// TODO
-		panic("TODO: Error: constraint applied to non-function type\n")
+	if right.GetTypeType() == types.FUNCTION {
+		//println(right.ToString())
+		if p.ParsingClass {
+			if valid, e := validateConstraint(constraint, p.ClassVariable, p.Input); !valid {
+				e.Print()
+				return constraint, false
+			}
+		}
+		c := constraint.Constrain(right.(types.Function))
+		//println(constraint.ToString())
+		//println(c.ToString())
+		return c, true
+	} else if right.GetTypeType() == types.APPLICATION && p.ParsingClass {
+		app := right.(types.Application)
+		class, ok, eMsg, loc := constraint.ConstrainApplication(app)
+		if !ok {
+			err.TypeError(eMsg, p.Input.MakeErrorLocation(loc)).Print()
+			return class, false
+		}
+		constraint.Constrained = class
+		return constraint, true // to get class, unwrap from constraint
 	}
-	//println(right.ToString())
-	c := constraint.Constrain(right.(types.Function))
-	//println(constraint.ToString())
-	//println(c.ToString())
-	return c, true
+	err.TypeError(
+		"cannot apply a type constraint to " + getTypeName(right), 
+		p.Input.MakeErrorLocation(right),
+	).Print()
+	return constraint, false
 }
 
 func parseTypeList(p *Parser, left types.Types) (types.Types, bool) {
@@ -419,14 +487,21 @@ func isTypePrefixTokenType(t scan.TokenType) bool {
 	return false
 }
 
+func beginTypeAnnotationParse(p *Parser, expectTopExpression bool) bool {
+	if !expectTopExpression {
+		p.Stack.Push(ast.EmptyExpression{})
+	}
+
+	res := typeAnnotation(p, p.Current)
+	if res {
+		p.Advance()
+	}
+	return res
+}
+
 func initialParseTypeAnnotation(p *Parser) bool {
 	if p.Current.GetType() == scan.COLON_COLON {
-		p.Stack.Push(ast.EmptyExpression{})
-		res := typeAnnotation(p, p.Current)
-		if res {
-			p.Advance()
-		}
-		return res
+		return beginTypeAnnotationParse(p, false)
 	}
 
 	annot := ast.MakeTypeAnnotation(ast.EmptyExpression{}, types.GetNewTau())
@@ -1058,20 +1133,118 @@ func operation(p *Parser, token scan.Token) bool {
 	return false
 }
 
-func mutParse(p *Parser) bool {
-	panic("TODO: implement")
-}
-
 func annotationParse(p *Parser) bool {
 	panic("TODO: implement")
 }
 
-func constParse(p *Parser) bool {
-	panic("TODO: implement")
+type maybeConstraint util.Maybe[types.Constraint]
+
+func parseClassBody(p *Parser, className ast.Id, block bool) bool {
+	
+	ignoreLeadingIgnorables(p)
+	
+	if block && p.Next.GetType() == scan.RCURL {
+		err.SyntaxError(
+			"cannot have an empty class definition",
+			p.Input.MakeErrorLocation(p.Next),
+		).Print()
+		return false
+	}
+
+	class := ast.InitClass(className)
+	p.Stack.Push(class)
+
+	// loop until no more function defs
+	for {
+		if p.Current.GetType() != scan.ID {
+			error(p, p.Current)
+			return false
+		}
+		if !parseId(p) {
+			return false
+		}
+		if p.Next.GetType() != scan.COLON_COLON {
+			error(p, p.Next)
+			return false
+		}
+		p.Advance()
+		p.Advance()
+		if !beginTypeAnnotationParse(p, true) {
+			return false
+		}
+
+		if p.Next.GetType() == scan.SEMI_COLON {
+			p.Advance()
+			p.Advance()
+		} else if !block {
+			break
+		}
+
+		ignoreLeadingIgnorables(p)
+		if block {
+			if p.Next.GetType() == scan.RCURL {
+				p.Advance()
+				p.Advance()
+				break
+			}
+		}
+	}
+	return true
 }
 
 func classParse(p *Parser) bool {
-	panic("TODO: implement")
+	p.ParsingClass = true
+	ty, ok := parseTypeAnnotation(p, 0)
+	p.ParsingClass = false
+
+	if !ok {
+		return false
+	}
+
+	if p.Next.GetType() != scan.WHERE {
+		err.SyntaxError(
+			"unexpected token, expected `where`", 
+			p.Input.MakeErrorLocation(p.Next),
+		).Print()
+		return false
+	}
+	p.Advance()
+	p.Advance()
+	block := p.Current.GetType() == scan.LCURL
+	if block {
+		p.Advance()
+	}
+
+	var className ast.Id
+
+	if ty.GetTypeType() == types.QUALIFIER {
+		// unwrap
+		clsType := ty.(types.Constraint).Constrained.(types.Class)
+		loc := clsType.Loc
+		className = ast.MakeId(scan.MakeIdToken(clsType.Name, loc.GetLine(), loc.GetChar()))
+		p.ClassVariable = clsType.TypeVariable
+		p.HasConstraint = true
+		p.ClassConstraint = ty.(types.Constraint)
+	} else if ty.GetTypeType() == types.APPLICATION {
+		app := ty.(types.Application)
+		if valid, msg, loc := app.ValidClass(); !valid {
+			err.TypeError(msg, p.Input.MakeErrorLocation(loc)).Print()
+			return false
+		}
+		loc := app[0].GetLocation()
+		className = ast.MakeId(scan.MakeIdToken(app[0].(types.Tau).ToString(), loc.GetLine(), loc.GetChar()))
+		p.ClassVariable = app[1].(types.Tau)
+	} else {
+		err.SyntaxError(
+			"expected something of the form `class ClassName a where ...`",
+			p.Input.MakeErrorLocation(ty),
+		).Print()
+		return false
+	}
+
+	ok = parseClassBody(p, className, block)
+	p.HasConstraint = false
+	return ok
 }
 
 func moduleParse(p *Parser) bool {
