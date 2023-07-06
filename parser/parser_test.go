@@ -699,11 +699,11 @@ var class7Expected = ast.MakePackage(
 				"h": { // (Num x, Ord a) => a -> x
 					Domain: types.ConstrainType(
 						types.Var("a"), 
-						types.MakeContext("Num", "x"), types.MakeContext("Ord", "a"),
+						types.MakeContext("Ord", "a"), types.MakeContext("Num", "x"), 
 					), 
 					Codomain: types.ConstrainType(
 						types.Var("x"), 
-						types.MakeContext("Num", "x"), types.MakeContext("Ord", "a"),
+						types.MakeContext("Ord", "a"), types.MakeContext("Num", "x"), 
 					),
 				},
 			},

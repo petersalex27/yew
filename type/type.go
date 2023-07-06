@@ -278,10 +278,10 @@ func ConstrainType(constrained Types, cxts ...Context) Constraint {
 func (a Application) ValidClass() (bool, string, info.Locatable) {
 	if len(a) != 2 {
 		if len(a) < 2 {
-			return false, "too few type parameters, expected one", a
+			return false, "too few type variables, expected one", a
 		}
 		// get 3rd type in application
-		return false, "too many type parameters, expected one", a[2]
+		return false, "too many type variables, expected one", a[2]
 	}
 
 	if a[0].GetTypeType() != TAU {
@@ -289,7 +289,7 @@ func (a Application) ValidClass() (bool, string, info.Locatable) {
 	}
 
 	if a[1].GetTypeType() != TAU {
-		return false, "expected type parameter", a[1]
+		return false, "expected type variable", a[1]
 	}
 	return true, "", a
 }
@@ -305,8 +305,8 @@ func (c Constraint) ConstrainApplication(a Application) (Class, bool, string, in
 	out.TypeVariable = a[1].(Tau)
 
 	for _, cxt := range c.Context {
-		if !cxt.ClassName.Equals(out.TypeVariable) {
-			return out, false, "illegal parameter in type constraint's context", cxt.TypeVariable
+		if !cxt.TypeVariable.Equals(out.TypeVariable) {
+			return out, false, "illegal type parameter in type constraint's context", cxt.TypeVariable
 		}
 	}
 
@@ -476,7 +476,7 @@ func (c Constraint) ToString() string {
 	if c.Constrained == nil {
 		return top + "_"
 	}
-	return top + c.Constrained.ToString()
+	return "(" + top + c.Constrained.ToString() + ")"
 }
 func (c Class) ToString() string {
 	var tmp []string
