@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 	"yew/demangler"
+	//errorgen "yew/parser/error-gen"
 	err "yew/error"
 	"yew/info"
 	"yew/source"
@@ -1045,42 +1046,6 @@ func (a Application) Tail() Types {
 
 func (a Application) Split() (left Types, right Types) {
 	return a.Head(), a.Tail()
-}
-
-func GrabConstructorName(from Types) (Constructor, bool, err.Error) {
-	if from.GetTypeType() != TAU {
-		return Constructor{}, false, TypeErrors[E_UNEXPECTED]().(err.Error)
-	}
-	name := from.(Tau)
-	return Constructor{Name: name.name, Members: make(Application, 0)}, true, err.Error{}
-}
-
-func ToConstructor(from Types) (Constructor, bool) {
-	tt := from.GetTypeType()
-	if tt == TAU {
-		c, ok, e := GrabConstructorName(from)
-		if !ok {
-			e.Print()
-		}
-		return c, ok
-	} else if tt == APPLICATION {
-		head, tail := from.(Application).Split()
-		c, ok, e := GrabConstructorName(head)
-		if !ok {
-			e.Print()
-			return c, ok
-		}
-
-		if tail.GetTypeType() == APPLICATION {
-			c.Members = tail.(Application)
-		} else {
-			c.Members = Application{tail}
-		}
-		return c, ok
-	}
-
-	TypeErrors[E_UNEXPECTED]().Print()
-	return Constructor{}, false
 }
 
 func GrabDataName(from Types) (Data, bool, err.Error) {

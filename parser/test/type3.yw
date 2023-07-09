@@ -1,1 +1,1 @@
-Either a b ::= Left a | Right b
+Either a b = Left a | Right b

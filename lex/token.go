@@ -2,6 +2,7 @@ package scan
 
 import (
 	"yew/info"
+	types "yew/type"
 	util "yew/utils"
 	"yew/value"
 
@@ -13,6 +14,7 @@ type TokenType int
 const (
 	// variable
 	ID TokenType = iota
+	TYPE_ID
 	VALUE
 
 	// groupings
@@ -111,7 +113,6 @@ type Token interface {
 	util.Stringable
 	info.Locatable
 	GetType() TokenType
-	GetSourceIndex() (lineIndex int, charIndex int)
 }
 
 func ToLoc(t Token) info.Loc {
@@ -126,15 +127,21 @@ type ValueToken struct {
 }
 
 type IdToken struct {
-	id    string
-	line  int
-	char  int
+	id   string
+	line int
+	char int
 }
+
+type TypeIdToken IdToken
 
 type OtherToken struct {
 	tokenType TokenType
 	line      int
 	char      int
+}
+
+func (id TypeIdToken) AsType() types.Tau {
+	return types.MakeTau(id.id, ToLoc(id))
 }
 
 func (o1 OtherToken) Equal_test_weak(o2 OtherToken) bool {
@@ -146,12 +153,13 @@ func (o1 OtherToken) Equal_test(o2 OtherToken) bool {
 func MakeOtherToken(t TokenType, line int, char int) OtherToken {
 	return OtherToken{
 		tokenType: t,
-		line: line,
-		char: char,
+		line:      line,
+		char:      char,
 	}
 }
+
 type ErrorToken struct {
-	err   err.UserMessage
+	err err.UserMessage
 }
 type AnotationToken IdToken
 
@@ -173,6 +181,9 @@ func (v ValueToken) GetValue() value.Value {
 	return v.Value
 }
 
+func (id TypeIdToken) GetLocation() info.Location {
+	return IdToken(id).GetLocation()
+}
 func (a AnotationToken) GetLocation() info.Location {
 	return info.MakeLocation(a.line, a.char)
 }
@@ -189,22 +200,6 @@ func (e ErrorToken) GetLocation() info.Location {
 	return e.err.GetLocation()
 }
 
-func (a AnotationToken) GetSourceIndex() (lineIndex int, charIndex int) {
-	return a.line, a.char 
-}
-func (v ValueToken) GetSourceIndex() (lineIndex int, charIndex int) {
-	return v.Line, v.Char
-}
-func (id IdToken) GetSourceIndex() (lineIndex int, charIndex int) {
-	return id.line, id.char
-}
-func (o OtherToken) GetSourceIndex() (lineIndex int, charIndex int) {
-	return o.line, o.char
-}
-func (e ErrorToken) GetSourceIndex() (lineIndex int, charIndex int) {
-	return 0, 0
-}
-
 func (a AnotationToken) GetType() TokenType {
 	return AT
 }
@@ -213,6 +208,9 @@ func (v ValueToken) GetType() TokenType {
 }
 func (id IdToken) GetType() TokenType {
 	return ID
+}
+func (id TypeIdToken) GetType() TokenType {
+	return TYPE_ID
 }
 func (t OtherToken) GetType() TokenType {
 	return t.tokenType
@@ -229,6 +227,9 @@ func (v ValueToken) ToString() string {
 }
 func (id IdToken) ToString() string {
 	return id.id
+}
+func (id TypeIdToken) ToString() string {
+	return IdToken(id).ToString()
 }
 func (t OtherToken) ToString() string {
 	return t.tokenType.ToString()

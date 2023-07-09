@@ -1,0 +1,20 @@
+package all
+
+-- from class.yw
+class MyClass a where {
+    f :: Int -> Int
+}
+
+-- from instance.yw
+MyClass => Int where {
+    f a = a
+}
+
+-- from fnDef.yw
+id x :: Int -> Int = x
+
+-- from fnDef6.yw
+myFunction x y :: Int -> Int -> Int = {
+    myFunction' z :: Int -> Int = x + y * z
+    x - y + (myFunction' x)
+}

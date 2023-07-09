@@ -3,10 +3,12 @@ package ast
 import (
 	"fmt"
 	"os"
+	"unicode"
 	err "yew/error"
 	scan "yew/lex"
 
 	//"yew/parser/ast"
+	errorgen "yew/parser/error-gen"
 	nodetype "yew/parser/node-type"
 	"yew/parser/parser"
 	"yew/symbol"
@@ -15,6 +17,45 @@ import (
 
 type Type struct {
 	ty types.Types
+}
+
+type Constructor struct {
+	parent types.Data
+	self types.Constructor
+	idToken scan.IdToken
+}
+
+func RegisterConstructors(p *parser.Parser, dat types.Data) bool {
+	for name, constructor := range dat.Constructors {
+		cons := Constructor{
+			self: constructor, 
+			idToken: scan.MakeIdToken(name, constructor.Loc.GetLine(), constructor.Loc.GetChar()),
+		}
+		e, ok := p.Table.DeclareLocal(cons, dat)
+		if !ok {
+			e.ToError().Print()
+			return false
+		}
+	}
+	return true
+}
+
+func (c Constructor) GetIdToken() scan.IdToken {
+	return c.idToken
+}
+func (c Constructor) GetType() types.Types {
+	return c.self
+}
+func (c Constructor) SetType(dat types.Types) symbol.Symbolic {
+	if dat.GetTypeType() != types.DATA {
+		err.PrintBug()
+		panic("")
+	}
+	c.parent = dat.(types.Data)
+	return c
+}
+func (c Constructor) IsDefined() bool {
+	return true 
 }
 
 func MakeType(ty types.Types) Type {
@@ -108,11 +149,33 @@ func applicationToTauApplication(p *parser.Parser) bool {
 	return true
 }
 
-func (t Type) MakeData(p *parser.Parser) bool {
-	ok := applicationToTauApplication(p)
-	if !ok {
+func (t Type) MakeApplication(p *parser.Parser) bool {
+	valid, e := p.Stack.Validate(typeAppRule)
+	if !valid {
+		e(p.Input).Print()
 		return false
 	}
+
+	tyTail := p.Stack.Pop().(Type)
+	tyHead := p.Stack.Pop().(Type)
+	if tyHead.ty.GetTypeType() == types.APPLICATION {
+		head := tyHead.ty.(types.Application)
+		app := make(types.Application, 0, len(head) + 1)
+		app = append(app, head...)
+		app = append(app, tyTail.ty)
+		p.Stack.Push(Type{app})
+	} else {
+		app := types.Application{tyHead.ty, tyTail.ty}
+		p.Stack.Push(Type{app})
+	}
+	return true
+}
+
+func (t Type) MakeData(p *parser.Parser) bool {
+	/*ok := applicationToTauApplication(p)
+	if !ok {
+		return false
+	}*/
 
 	valid, e := p.Stack.Validate(justTypeRule)
 	if !valid {
@@ -128,20 +191,55 @@ func (t Type) MakeData(p *parser.Parser) bool {
 	return true
 }
 
+func GrabConstructorName(from types.Types) (types.Constructor, errorgen.GenerateErrorFunction) {
+	if from.GetTypeType() != types.TAU {
+		return types.Constructor{}, errorgen.UnexpectedType.Generate()
+	}
+	name := from.(types.Tau)
+	if !unicode.IsUpper(rune(name.ToString()[0])) {
+		return types.Constructor{}, errorgen.ExpectedTypeIdentifierNotVar.Generate()
+	}
+	return types.Constructor{Name: name.ToString(), Members: make(types.Application, 0)}, nil
+}
+
+func ToConstructor(from types.Types) (types.Constructor, errorgen.GenerateErrorFunction) {
+	tt := from.GetTypeType()
+	if tt == types.TAU {
+		return GrabConstructorName(from)
+	} else if tt == types.APPLICATION {
+		head, tail := from.(types.Application).Split()
+		c, e := GrabConstructorName(head)
+		if e != nil {
+			return c, e
+		}
+
+		if tail.GetTypeType() == types.APPLICATION {
+			c.Members = tail.(types.Application)
+		} else {
+			c.Members = types.Application{tail}
+		}
+		return c, nil
+	}
+
+	return types.Constructor{}, errorgen.UnexpectedType.Generate()
+}
+
 func (t Type) AddConstructor(p *parser.Parser) bool {
 	return makeBinaryType(p, func(left types.Types, right types.Types) types.Types {
 		if left.GetTypeType() != types.DATA {
 			return types.Error(types.TypeErrors[types.E_UNEXPECTED]().(err.Error))
 		}
 		dat := left.(types.Data)
-		cons, ok := types.ToConstructor(right)
-		if !ok {
-			return types.Error{}
+		cons, e := ToConstructor(right)
+		if nil != e {
+			tok := scan.MakeIdToken("", right.GetLocation().GetLine(), right.GetLocation().GetChar())
+			return types.Error(e(tok, p.Input))
 		}
 		consName := cons.Name
 		_, found := dat.Constructors[consName]
 		if found {
-			panic("TODO: print better error--redeclared constructor\n")
+			tok := scan.MakeIdToken("", right.GetLocation().GetLine(), right.GetLocation().GetChar())
+			return types.Error(errorgen.RedeclaredConstructor.Generate()(tok, p.Input))
 		}
 		dat.Constructors[consName] = cons
 		return dat

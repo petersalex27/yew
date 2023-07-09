@@ -8,6 +8,12 @@ var appRule1 = APPLICATION.Replaces(FUNCTION, EXPRESSION)
 // Application ::= Expression Expression
 var appRule2 = APPLICATION.Replaces(EXPRESSION, EXPRESSION)
 
+// Application ::= Type Type
+var appRule3 = APPLICATION.Replaces(TYPE, TYPE)
+
+// Application ::= Type Identifier
+var appRule4 = APPLICATION.Replaces(TYPE, IDENTIFIER)
+
 // Assignment ::= Identifier Expression
 var assignmentRule = ASSIGNMENT.Replaces(IDENTIFIER, EXPRESSION)
 
@@ -85,6 +91,9 @@ var binaryTypeRule = TYPE.Replaces(TYPE, TYPE)
 
 // Type ::= Type
 var justTypeRule = TYPE.Replaces(TYPE)
+
+// Type ::= Type Type
+var typeAppRule = TYPE.Replaces(TYPE, TYPE)
 
 // Class ::= Identifier Type 
 var classRule = CLASS_DEFINITION.Replaces(CLASS_DEFINITION, TYPE_ANNOTATION)

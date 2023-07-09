@@ -1,0 +1,3 @@
+MyClass => Int where {
+    f a = a
+}

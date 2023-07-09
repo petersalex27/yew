@@ -11,7 +11,6 @@ import (
 	. "yew/parser/parser"
 	symbol "yew/symbol"
 	types "yew/type"
-	util "yew/utils"
 )
 
 var DefaultNameSpaceId ast.Id = ast.MakeId(scan.UnderscoreIdToken)
@@ -110,13 +109,13 @@ func parseTypePrefix(p *Parser) (types.Types, bool) {
 					err.PrintBug()
 					panic("")
 				}
-				
+
 				tup := make(types.Tuple, len(tupAst))
 				for i := range tupAst {
 					if tupAst[i].GetNodeType() != nodetype.TYPE {
 						generateSyntaxError("expected a type")(
 							tupAst[i].FindStartToken(), p.Input).Print()
-						return types.Error{}, false 
+						return types.Error{}, false
 					}
 					tup[i] = tupAst[i].(ast.Type).GetType()
 				}
@@ -134,21 +133,14 @@ func parseTypePrefix(p *Parser) (types.Types, bool) {
 			}
 			p.Advance()
 			p.Stack.Push(ast.MakeType(types.Array{ElemType: ty}))
+		case scan.TYPE_ID:
+			id := current.(scan.TypeIdToken)
+			tau := types.MakeTau(id.ToString(), scan.ToLoc(id))
+			p.Stack.Push(ast.MakeType(tau))
 		case scan.ID:
-			//s := symbol.MakeSymbol(current.(scan.IdToken))
-			//sym, added := p.Table.GetElseAdd(s)
-			/*if !added {
-				return types.Error{}, false
-			}//*/
-			/*if added {
-				newType := types.GetNewTau()
-				sym = sym.SetType(newType)
-				sym = p.Table.Update(sym)
-			}//*/
-			//return sym.GetType(), true
 			id := current.(scan.IdToken)
 			tau := types.MakeTau(id.ToString(), scan.ToLoc(id))
- 			p.Stack.Push(ast.MakeType(tau))
+			p.Stack.Push(ast.MakeType(tau))
 		default:
 			if i == 0 {
 				unexpectedToken(current, p.Input).Print()
@@ -218,7 +210,7 @@ func buildSingleContext(ty types.Types) (types.Context, bool) {
 		// TODO: error
 		return types.Context{}, false
 	}
-	
+
 	// left most side should always be a tau
 	if app[0].GetTypeType() != types.TAU {
 		// TODO: error
@@ -263,7 +255,7 @@ func buildConstraint(p *Parser, left types.Types) (types.Constraint, bool) {
 		contexts[0] = context
 	}
 
-	return types.Constraint{Context: contexts,}, true
+	return types.Constraint{Context: contexts}, true
 }
 
 func getTypeName(ty types.Types) string {
@@ -289,7 +281,7 @@ func getTypeName(ty types.Types) string {
 		return ty.ToString()
 	case types.APPLICATION:
 		return "type applications outside of class definitions"
-	case types.CLASS: 
+	case types.CLASS:
 		// should be impossible
 		fallthrough
 	case types.FUNCTION:
@@ -306,7 +298,7 @@ func validateConstraint(constraint types.Constraint, cVar types.Tau, in scan.Inp
 		if cxt.TypeVariable.ToString() == cVar.ToString() {
 			loc := in.MakeErrorLocation(cxt.TypeVariable)
 			return false, err.TypeError(
-				"class type parameter cannot be constrained in a class function", 
+				"class type parameter cannot be constrained in a class function",
 				loc,
 			)
 		}
@@ -319,7 +311,7 @@ func parseTypeConstraint(p *Parser, left types.Types) (types.Types, bool) {
 	if !ok {
 		return right, false
 	}
-	// left_2 == 
+	// left_2 ==
 	//		<class_name> <type_var>
 	//		| (<class_name> <type_var>, ..)
 	// right == <type>
@@ -352,7 +344,7 @@ func parseTypeConstraint(p *Parser, left types.Types) (types.Types, bool) {
 		return constraint, true // to get class, unwrap from constraint
 	}
 	err.TypeError(
-		"cannot apply a type constraint to " + getTypeName(right), 
+		"cannot apply a type constraint to "+getTypeName(right),
 		p.Input.MakeErrorLocation(right),
 	).Print()
 	return constraint, false
@@ -574,6 +566,18 @@ func parseQualifiedDeclaration(p *Parser, qualifier ast.DeclarationQualifier) bo
 	return parseDeclaration(p, qualifier) &&
 		parseInit(p) &&
 		ast.Definition{}.Make(p)
+}
+
+func typeIdentifier(p *Parser, token scan.Token) bool {
+	tyIdToken := token.(scan.TypeIdToken)
+	// add symbol to table if not already added (this does not define the
+	// symbol, simply declares it if it has not yet been declared)
+	var sym symbol.Symbolic = symbol.MakeSymbol(scan.IdToken(tyIdToken))
+	sym, _ = p.Table.GetElseAdd(sym)
+	// make type
+	tau := tyIdToken.AsType()
+	p.Stack.Push(ast.MakeType(tau))
+	return true
 }
 
 // for expressions
@@ -926,13 +930,8 @@ func parseApplicationParen(p *Parser, parenToken scan.Token) bool {
 	return ok
 }
 
-func parseApplication(p *Parser, _ scan.Token) bool {
-	if p.Stack.Peek().GetNodeType() != nodetype.IDENTIFIER {
-		// check that top of the stack is an id
-		unexpectedToken(p.Input.GetTokenAtOffset(-3), p.Input).Print()
-		return false
-	}
-	if !isApplicable(p.Current) {
+func _parseApplicationBodyShared(p *Parser, applicableCheck func(scan.Token) bool) bool {
+	if !applicableCheck(p.Current) {
 		unexpectedToken(p.Current, p.Input).Print()
 		return false
 	}
@@ -941,23 +940,72 @@ func parseApplication(p *Parser, _ scan.Token) bool {
 	for ok {
 		currentType := p.Current.GetType()
 		rule := parseTable[currentType]
+
 		if currentType == scan.COLON_COLON {
+			// never entered when applicableCheck does not allow scan.COLON_COLON
 			ok = rule.callRule(p, p.Current) // first, parse type, then ...
 			break                            // ... end application parse
 		}
 
 		ok = rule.callRule(p, p.Current)
 		if currentType != scan.DOT { // if dot, then has already been applied
+			// always entered when applicableCheck does not allow scan.DOT
 			ok = ok && ast.Application{}.Make(p)
 		}
 
-		if !isApplicable(p.Next) {
+		if !applicableCheck(p.Next) {
 			break
 		}
 		// else advance and continue
 		p.Advance()
 	}
 	return ok
+}
+
+func parseTypeApplication(p *Parser, _ scan.Token) bool {
+	if p.Stack.Peek().GetNodeType() != nodetype.TYPE {
+		unexpectedToken(p.Input.GetTokenAtOffset(-3), p.Input).Print()
+		return false
+	}
+	// push back onto stack as an id
+	ty := p.Stack.Pop().(ast.Type)
+	id, errFn := ast.MakeIdFromType(ty)
+	if errFn != nil {
+		errFn(p.Input.GetTokenAtOffset(-3), p.Input).Print()
+		return false
+	}
+	p.Stack.Push(id)
+
+	return _parseApplicationBodyShared(p, func(t scan.Token) bool {
+		tokenType := t.GetType()
+		return tokenType == scan.ID || tokenType == scan.TYPE_ID
+	})
+}
+
+func parseApplication(p *Parser, _ scan.Token) bool {
+	if p.Stack.Peek().GetNodeType() != nodetype.IDENTIFIER {
+		var transformToConstructor bool = false
+
+		// check that top of the stack is a type id
+		if p.Stack.Peek().GetNodeType() == nodetype.TYPE {
+			ty := p.Stack.Pop().(ast.Type)
+			if ty.GetType().GetTypeType() == types.TAU {
+				transformToConstructor = true
+			}
+			id, e := ast.MakeIdFromType(ty)
+			if e != nil {
+				e(p.Input.GetTokenAtOffset(-2), p.Input).Print()
+				return false
+			}
+			p.Stack.Push(id)
+		}
+		
+		if !transformToConstructor {
+			unexpectedToken(p.Input.GetTokenAtOffset(-2), p.Input).Print()
+			return false
+		}
+	}
+	return _parseApplicationBodyShared(p, isApplicable)
 }
 
 func newSequenceFromExpression(p *Parser) ast.Sequence {
@@ -1049,6 +1097,7 @@ func InitParseTable() {
 		// (prefix and postfix is fine though)
 		tmp := map[scan.TokenType]parseTableElement{
 			scan.ID:        {bp.Applicative, identifier, parseApplication, identifier},
+			scan.TYPE_ID:   {bp.Applicative, typeIdentifier, parseApplication, typeIdentifier},
 			scan.VALUE:     {bp.Applicative, value_, parseApplication, value_},
 			scan.LBRACK:    {bp.Applicative, bracket, parseApplication, bracket},
 			scan.RBRACK:    {bp.None, parseError, parseError, bracket},
@@ -1137,12 +1186,10 @@ func annotationParse(p *Parser) bool {
 	panic("TODO: implement")
 }
 
-type maybeConstraint util.Maybe[types.Constraint]
-
 func parseClassBody(p *Parser, className ast.Id, block bool) bool {
-	
+
 	ignoreLeadingIgnorables(p)
-	
+
 	if block && p.Next.GetType() == scan.RCURL {
 		err.SyntaxError(
 			"cannot have an empty class definition",
@@ -1177,7 +1224,7 @@ func parseClassBody(p *Parser, className ast.Id, block bool) bool {
 		}
 
 		if p.Current.GetType() == scan.SEMI_COLON {
-			; // ignore 
+			// ignore
 		} else if !block {
 			break
 		}
@@ -1203,7 +1250,7 @@ func classParse(p *Parser) bool {
 
 	if p.Next.GetType() != scan.WHERE {
 		err.SyntaxError(
-			"unexpected token, expected `where`", 
+			"unexpected token, expected `where`",
 			p.Input.MakeErrorLocation(p.Next),
 		).Print()
 		return false
@@ -1274,6 +1321,20 @@ func parseFunctionDeclaration(p *Parser, functionName ast.Id) bool {
 	})
 }
 
+func parseInitialTypeId(p *Parser) (ast.Type, bool) {
+	if p.Current.GetType() != scan.TYPE_ID {
+		expectedID(p.Current, p.Input).Print()
+		return ast.Type{}, false
+	}
+
+	ok := typeIdentifier(p, p.Current)
+	if !ok {
+		return ast.Type{}, false
+	}
+	ty := p.Stack.Peek().(ast.Type)
+	return ty, true
+}
+
 func parseInitialId(p *Parser) (ast.Id, bool) {
 	if p.Current.GetType() != scan.ID {
 		expectedID(p.Current, p.Input).Print()
@@ -1288,15 +1349,18 @@ func parseInitialId(p *Parser) (ast.Id, bool) {
 	return id, true
 }
 
-func parseTypeDef(p *Parser, id ast.Id) bool {
+func parseTypeDef(p *Parser) bool {
 	ok := ast.Type{}.MakeData(p) && parseDataType(p)
 	if !ok {
 		return false
 	}
 	ty := p.Stack.Pop().(ast.Type).GetType().(types.Data)
-	id = id.SetType(ty)
 	//println("TypeDef Name:", id.GetName())
 
+	loc := ty.Loc
+	name := ty.Name
+	id := ast.MakeId(scan.MakeIdToken(name, loc.GetLine(), loc.GetChar()))
+	id = id.SetType(ty)
 	def := ast.TypeDefinition(id)
 
 	e, ok := p.Table.DeclareLocal(def, ty)
@@ -1304,23 +1368,39 @@ func parseTypeDef(p *Parser, id ast.Id) bool {
 		e.ToError().Print()
 	}
 	p.Stack.Push(def)
-	// TODO: declare/define constructors in p.Table
-	return ok
+	return ast.RegisterConstructors(p, ty)
+}
+
+func declareType(p *Parser) bool {
+	_, ok := parseInitialTypeId(p)
+	if !ok {
+		return false
+	}
+
+	for p.Next.GetType() == scan.ID {
+		p.Advance()
+		id := p.Current.(scan.IdToken)
+		typeParam := ast.MakeType(types.MakeTau(id.ToString(), scan.ToLoc(id)))
+		p.Stack.Push(typeParam)
+		ast.Type{}.MakeApplication(p)
+	}
+
+	if p.Next.GetType() != scan.EQUALS {
+		errFn := errorgen.TypeDecExpectsEqual.Generate()
+		errFn(p.Next, p.Input).Print()
+		return false
+	}
+
+	p.Advance()
+	p.Advance()
+	return parseTypeDef(p)
 }
 
 // parses either a function definition or function application
 func functionParse(p *Parser) bool {
 	id, ok := parseExpressionExpectingInitial(p, 0, parseInitialId)
-	//println("Name:", id.GetName())
-	//ok := identifier(p, p.Current) // function name
 	if !ok {
 		return false
-	}
-
-	if p.Next.GetType() == scan.COLON_COLON_EQUAL {
-		p.Advance()
-		p.Advance()
-		return parseTypeDef(p, id)
 	}
 
 	nodeType := p.Stack.GetTopNodeType()
@@ -1387,6 +1467,8 @@ func parseStatementNoIgnore(p *Parser) bool {
 	case scan.MODULE:
 		p.Advance()
 		return parseFromKey(tokenType, p)
+	case scan.TYPE_ID:
+		return declareType(p)
 	case scan.ID:
 		return functionParse(p)
 	}

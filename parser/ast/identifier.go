@@ -3,6 +3,7 @@ package ast
 import (
 	"fmt"
 	err "yew/error"
+	errorgen "yew/parser/error-gen"
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
@@ -13,6 +14,16 @@ import (
 type Id struct {
 	token scan.IdToken
 	ty    types.Types
+}
+
+func MakeIdFromType(ty Type) (Id, errorgen.GenerateErrorFunction) {
+	if ty.GetType().GetTypeType() != types.TAU {
+		return Id{}, errorgen.ExpectedTypeIdentifier.Generate()
+	}
+	tau := ty.ty.(types.Tau)
+	loc := tau.Loc
+	idToken := scan.MakeIdToken(tau.ToString(), loc.GetLine(), loc.GetChar())
+	return MakeId(idToken), nil
 }
 
 func (id Id) SetType(ty types.Types) Id {

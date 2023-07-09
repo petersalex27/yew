@@ -1,0 +1,4 @@
+MyClass => Int where {
+    f a = a
+    g a b = a; b . a 1
+}

@@ -527,9 +527,13 @@ func (in *Input) getIdOrKeyword2(forceId bool) Token {
 	}
 	start := in.charNumber
 	in.charNumber += (loc[1] - 1)
-	if !found {
+	if !found { // found is false when token should be id
+		idToken := IdToken{id: str, line: in.lineNumber, char: start}
+		if unicode.IsUpper(rune(str[0])) {
+			return TypeIdToken(idToken) // return type id token
+		}
 		// always returns here when id is forced
-		return IdToken{id: str, line: in.lineNumber, char: start}
+		return idToken
 	}
 	if VALUE == key.GetType() {
 		out := key.(ValueToken)
@@ -709,10 +713,6 @@ func (in *Input) Next() Token {
 	case ':':
 		if in.peek() == ':' {
 			in.nextChar()
-			if in.peek() == '=' {
-				in.nextChar()
-				return in.tokenUnitN(COLON_COLON_EQUAL, 3)
-			}
 			return in.tokenUnitN(COLON_COLON, 2)
 		}
 		return in.tokenUnit(COLON)
