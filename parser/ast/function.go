@@ -14,9 +14,22 @@ import (
 
 // gives a name to an anonymous function
 type Function struct {
+	class    string
+	instance types.Types
+
 	dec      Id     // identifies function
 	function Lambda // actual function
 	//res Expression
+}
+
+func (f Function) AsInstance(class string, instance types.Types) Function {
+	f.class = class
+	f.instance = instance
+	return f
+}
+
+func (f Function) IsInstanceFunction() bool {
+	return f.class != ""
 }
 
 func (f Function) GetSymbol() symbol.Symbolic {
@@ -253,7 +266,7 @@ func DeclareFunction(p *Parser, functionName Id, parseFunctionBody func(*Parser)
 				tmp := inner.(types.Constraint).Constrained
 				inner = tmp
 			}
-			
+
 		} else {
 			if annot.expressionType.GetTypeType() != types.FUNCTION {
 				fmt.Fprintf(os.Stderr, "Error: TODO--expected FUNCTION\n")
@@ -323,7 +336,11 @@ func (f Function) ResolveNames(table *symbol.SymbolTable) bool {
 }
 
 func MakeFunction(dec Id, function Lambda) Function {
-	return Function{dec: dec, function: function}
+	return Function{class: "", dec: dec, function: function}
+}
+
+func MakeInstanceFunction(class string, instance types.Types, dec Id, function Lambda) Function {
+	return Function{class: class, instance: instance, dec: dec, function: function}
 }
 
 func (f Function) GetNodeType() NodeType { return FUNCTION }
@@ -331,6 +348,16 @@ func (f Function) GetNodeType() NodeType { return FUNCTION }
 func (f Function) Equal_test(a Ast) bool {
 	equal := a.GetNodeType() == FUNCTION
 	f2, ok := a.(Function)
+	if !ok {
+		return false
+	}
+	if f.IsInstanceFunction() != f2.IsInstanceFunction() {
+		return false 
+	} else if f.IsInstanceFunction() {
+		ok = 
+			f.class == f2.class && 
+			checkTypeEqual(f.instance, f2.instance)
+	}
 	return equal && ok &&
 		f.dec.Equal_test(f2.dec) &&
 		f.function.Equal_test(f2.function)
@@ -340,7 +367,13 @@ func (f Function) Print(ls []string) {
 	lines := make([]string, len(ls))
 	lines = append(lines, ls...)
 	lines = printLines(lines)
-	fmt.Printf("Function\n")
+	fmt.Printf("Function")
+	
+	if f.IsInstanceFunction() {
+		fmt.Printf(" (%s %s)", f.class, f.instance.ToString())
+	}
+	fmt.Printf("\n")
+	
 	lines = append(lines, " ├─")
 	f.dec.Print(lines)
 	lines[len(lines)-1] = " └─"

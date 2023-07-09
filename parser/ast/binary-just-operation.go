@@ -52,7 +52,7 @@ func (o OpType) AsFunction(p *parser.Parser) Function {
 			bound:  expr,
 		},
 	}
-	return Function{MakeIdWithType(idToken, ty), lam}
+	return MakeFunction(MakeIdWithType(idToken, ty), lam)
 }
 
 // operations

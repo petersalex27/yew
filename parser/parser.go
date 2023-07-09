@@ -2,6 +2,7 @@ package parsing
 
 import (
 	sync "sync"
+	"unicode"
 	err "yew/error"
 	scan "yew/lex"
 	ast "yew/parser/ast"
@@ -962,26 +963,6 @@ func _parseApplicationBodyShared(p *Parser, applicableCheck func(scan.Token) boo
 	return ok
 }
 
-func parseTypeApplication(p *Parser, _ scan.Token) bool {
-	if p.Stack.Peek().GetNodeType() != nodetype.TYPE {
-		unexpectedToken(p.Input.GetTokenAtOffset(-3), p.Input).Print()
-		return false
-	}
-	// push back onto stack as an id
-	ty := p.Stack.Pop().(ast.Type)
-	id, errFn := ast.MakeIdFromType(ty)
-	if errFn != nil {
-		errFn(p.Input.GetTokenAtOffset(-3), p.Input).Print()
-		return false
-	}
-	p.Stack.Push(id)
-
-	return _parseApplicationBodyShared(p, func(t scan.Token) bool {
-		tokenType := t.GetType()
-		return tokenType == scan.ID || tokenType == scan.TYPE_ID
-	})
-}
-
 func parseApplication(p *Parser, _ scan.Token) bool {
 	if p.Stack.Peek().GetNodeType() != nodetype.IDENTIFIER {
 		var transformToConstructor bool = false
@@ -1186,6 +1167,37 @@ func annotationParse(p *Parser) bool {
 	panic("TODO: implement")
 }
 
+func parseInstance(p *Parser, class string, instance types.Types) bool {
+	if p.Next.GetType() != scan.WHERE {
+		errorgen.ExpectedWhere.Generate()(p.Next, p.Input).Print()
+		return false
+	}
+
+	p.Advance()
+	if p.Next.GetType() != scan.LCURL {
+		errorgen.ExpectedLCurl.Generate()(p.Next, p.Input).Print()
+		return false
+	}
+	p.Advance()
+	p.Advance()
+
+	ok := true
+	ignoreLeadingIgnorables(p)
+	for ok {
+		ok = instanceFunctionParse(p, class, instance)
+		if !ok {
+			break
+		}
+		p.Advance()
+
+		ignoreLeadingIgnorables(p)
+		if p.Current.GetType() == scan.RCURL {
+			break
+		} 
+	}
+	return ok
+} 
+
 func parseClassBody(p *Parser, className ast.Id, block bool) bool {
 
 	ignoreLeadingIgnorables(p)
@@ -1286,6 +1298,12 @@ func classParse(p *Parser) bool {
 			"expected something of the form `class ClassName a where ...`",
 			p.Input.MakeErrorLocation(ty),
 		).Print()
+		return false
+	}
+
+	if !unicode.IsUpper(rune(className.GetName()[0])) {
+		errorgen.ExpectedTypeIdentifierNotVar.
+			Generate()(className.FindStartToken(), p.Input).Print()
 		return false
 	}
 
@@ -1468,11 +1486,41 @@ func parseStatementNoIgnore(p *Parser) bool {
 		p.Advance()
 		return parseFromKey(tokenType, p)
 	case scan.TYPE_ID:
+		if p.Next.GetType() == scan.FAT_ARROW {
+			class := p.Current.ToString()
+			p.Advance()
+			p.Advance()
+			instance, ok := parseTypeAnnotation(p, 0)
+			if !ok {
+				return false
+			}
+			return parseInstance(p, class, instance)
+		}
 		return declareType(p)
 	case scan.ID:
 		return functionParse(p)
 	}
 	return parseExpression(p, 0)
+}
+
+func instanceFunctionParse(p *Parser, class string, instance types.Types) bool {
+	if p.Current.GetType() != scan.ID {
+		errorgen.ExpectedInstanceFunctionDeclaration.Generate()(p.Current, p.Input).Print()
+		return false 
+	}
+	ok := functionParse(p)
+	if !ok {
+		return false 
+	}
+	if p.Stack.Peek().GetNodeType() != nodetype.FUNCTION {
+		errorgen.ExpectedInstanceFunctionDefinition.
+			Generate()(p.Stack.Peek().FindStartToken(), p.Input).Print()
+		return false
+	}
+	fn := p.Stack.Pop().(ast.Function)
+	fn = fn.AsInstance(class, instance)
+	p.Stack.Push(fn)
+	return true
 }
 
 func parseStatement(p *Parser) bool {

@@ -711,6 +711,80 @@ var class7Expected = ast.MakePackage(
 	},
 )
 
+var instanceExpected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeInstanceFunction("MyClass", types.Int(info.DefaultLoc()),
+			ast.MakeId(scan.MakeIdToken("f", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("a", 1, 0)),
+						types.Var(".?"),
+					),
+				),
+				ast.MakeTypeAnnotation(
+					ast.MakeId(scan.MakeIdToken("a", 1, 0)),
+					types.Var(".?"),
+				),
+			),
+		),
+	},
+)
+
+var instance2Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeInstanceFunction("MyClass", types.Int(info.DefaultLoc()),
+			ast.MakeId(scan.MakeIdToken("f", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("a", 1, 0)),
+						types.Var(".?"),
+					),
+				),
+				ast.MakeTypeAnnotation(
+					ast.MakeId(scan.MakeIdToken("a", 1, 0)),
+					types.Var(".?"),
+				),
+			),
+		),
+		ast.MakeInstanceFunction("MyClass", types.Int(info.DefaultLoc()),
+			ast.MakeId(scan.MakeIdToken("g", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(1,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("a", 1, 0)),
+						types.Var(".?"),
+					),
+				),
+				ast.MakeLambda(
+					ast.MakeParameter(0,
+						ast.MakeTypeAnnotation(
+							ast.MakeId(scan.MakeIdToken("b", 1, 0)),
+							types.Var(".?"),
+						),
+					),
+					ast.MakeTypeAnnotation(
+						ast.Sequence{
+							ast.MakeId(scan.MakeIdToken("a", 1, 0)),
+							ast.MakeApplication(
+								ast.MakeId(scan.MakeIdToken("b", 1, 0)),
+								ast.MakeApplication(
+									ast.MakeId(scan.MakeIdToken("a", 1, 0)),
+									ast.MakeValue(value.Int(1)),
+								),
+							),
+						},
+						types.Var(".?"),
+					),
+				),
+			),
+		),
+	},
+)
+
 var asts = []struct {
 	path string
 	ast_ parser.Ast
@@ -752,6 +826,8 @@ var asts = []struct {
 	{"./test/class5.yw", class5Expected},
 	{"./test/class6.yw", class6Expected},
 	{"./test/class7.yw", class7Expected},
+	{"./test/instance.yw", instanceExpected},
+	{"./test/instance2.yw", instance2Expected},
 }
 
 func TestParse(t *testing.T) {

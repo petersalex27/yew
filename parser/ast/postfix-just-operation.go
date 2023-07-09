@@ -40,7 +40,7 @@ func (o PostOpType) AsFunction(p *parser.Parser) Function {
 		binder: param1,
 		bound: expr,
 	}
-	return Function{MakeIdWithType(idToken, ty), lam}
+	return MakeFunction(MakeIdWithType(idToken, ty), lam)
 }
 
 // postfix operations

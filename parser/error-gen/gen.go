@@ -18,6 +18,11 @@ type SyntaxMessage string
 
 const (
 	TypeDecExpectsEqual SyntaxMessage = "unexpected token, expected equal token after type declaration"
+	ExpectedLCurl SyntaxMessage = "unexpected token, expected an open curly brace"
+	ExpectedWhere SyntaxMessage = "unexpected token, expected `where`"
+	ExpectedFunctionDeclaration SyntaxMessage = "expected function declaration"
+	ExpectedInstanceFunctionDeclaration SyntaxMessage = "expected instance function declaration"
+	ExpectedInstanceFunctionDefinition SyntaxMessage = "expected instance function definition"
 )
 
 type TypeMessage string
