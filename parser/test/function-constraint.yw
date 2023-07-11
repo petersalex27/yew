@@ -1,0 +1,1 @@
+myFunction x y :: (MyClass a) => a -> a -> Int = 1 

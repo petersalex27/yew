@@ -122,8 +122,8 @@ func buildUnannotated(p *Parser, i int) bool {
 }
 
 var progressLambdas = []NodeRule{
-	{NodeType(IN_PROGRESS__ | LAMBDA) /* ::= */, []NodeType{LAMBDA, APPLICATION}},
-	{NodeType(IN_PROGRESS__ | LAMBDA) /* ::= */, []NodeType{TYPE_ANNOTATION, LAMBDA, APPLICATION}},
+	{Production: NodeType(IN_PROGRESS__ | LAMBDA) /* ::= */, Expression: []NodeType{LAMBDA, APPLICATION}},
+	{Production: NodeType(IN_PROGRESS__ | LAMBDA) /* ::= */, Expression: []NodeType{TYPE_ANNOTATION, LAMBDA, APPLICATION}},
 }
 
 func validateUnannotated(stack *AstStack) bool {

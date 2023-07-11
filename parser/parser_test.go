@@ -785,6 +785,35 @@ var instance2Expected = ast.MakePackage(
 	},
 )
 
+var functionConstraintExpected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("myFunction", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(1,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.ConstrainType(types.Var("a"), types.MakeContext("MyClass", "a")),
+					),
+				),
+				ast.MakeLambda(
+					ast.MakeParameter(0,
+						ast.MakeTypeAnnotation(
+							ast.MakeId(scan.MakeIdToken("y", 1, 0)),
+							types.ConstrainType(types.Var("a"), types.MakeContext("MyClass", "a")),
+						),
+					),
+					ast.MakeTypeAnnotation(
+						ast.MakeValue(value.Int(1)),
+						types.Int(info.DefaultLoc()),
+					),
+				),
+			),
+		),
+	},
+)
+
 var asts = []struct {
 	path string
 	ast_ parser.Ast
@@ -828,6 +857,7 @@ var asts = []struct {
 	{"./test/class7.yw", class7Expected},
 	{"./test/instance.yw", instanceExpected},
 	{"./test/instance2.yw", instance2Expected},
+	{"./test/function-constraint.yw", functionConstraintExpected},
 }
 
 func TestParse(t *testing.T) {
