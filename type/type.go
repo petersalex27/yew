@@ -195,6 +195,7 @@ type Types interface {
 	// receiver == tau -> receiver ::= t
 	//  - inferences also get updated
 	ReplaceTau(tau Tau, t Types) Types
+	AttachConstraint(Constraint) Types
 	// receiver ::= from
 	InferType(from Types) Types
 	GetLocation() info.Location
@@ -260,6 +261,9 @@ type Constructor struct {
 	Members Application
 	Loc     info.Loc
 }
+// represents a type that has not yet been evaluated; by the end of the resolve type phase,
+// there should be no application types left
+type Application []Types
 type Error err.Error
 
 func (e Error) ToError() err.Error {
@@ -316,47 +320,94 @@ func (c Constraint) ConstrainApplication(a Application) (Class, bool, string, in
 }
 
 func (c Constraint) Constrain(f Function) Function {
-	if f.Domain.GetTypeType() == FUNCTION {
-		f.Domain = c.Constrain(f.Domain.(Function))
-	} else if f.Domain.GetTypeType() == QUALIFIER {
-		c2 := f.Domain.(Constraint)
-		cxt := make(ConstraintContext, 0)
-		cxt = append(cxt, c.Context...)
-		cxt = append(cxt, c2.Context...)
-		f.Domain = Constraint{
-			Context:     cxt,
-			Constrained: c2.Constrained,
-		}
-	} else {
-		f.Domain = Constraint{
-			Context:     c.Context,
-			Constrained: f.Domain,
-		}
+	fn, ok := f.AttachConstraint(c).(Function)
+	if !ok {
+		err.PrintBug()
+		panic("")
 	}
-
-	if f.Codomain.GetTypeType() == FUNCTION {
-		f.Codomain = c.Constrain(f.Codomain.(Function))
-	} else if f.Codomain.GetTypeType() == QUALIFIER {
-		c2 := f.Codomain.(Constraint)
-		cxt := make(ConstraintContext, 0)
-		cxt = append(cxt, c.Context...)
-		cxt = append(cxt, c2.Context...)
-		f.Codomain = Constraint{
-			Context:     cxt,
-			Constrained: c2.Constrained,
-		}
-	} else {
-		f.Codomain = Constraint{
-			Context:     c.Context,
-			Constrained: f.Codomain,
-		}
-	}
-	return f
+	return fn
 }
 
-// represents a type that has not yet been evaluated; by the end of the resolve type phase,
-// there should be no application types left
-type Application []Types
+func (c Constraint) AttachConstraint(attach Constraint) Types {
+	res := c.Constrained.AttachConstraint(attach)
+	if res.GetTypeType() == QUALIFIER {
+		// Prepend original context to constraint. Then, append new context to constraint
+		con := res.(Constraint)
+		tmp := make(ConstraintContext, 0, len(con.Context)+len(c.Context))
+		tmp = append(tmp, c.Context...)
+		tmp = append(tmp, con.Context...)
+		con.Context = tmp
+		return con
+	}
+	return c // attachment did not share type variable with c, just return original
+} 
+func (i Int) AttachConstraint(attach Constraint) Types {
+	return i
+}
+func (b Bool) AttachConstraint(attach Constraint) Types {
+	return b
+}
+func (c Char) AttachConstraint(attach Constraint) Types {
+	return c
+}
+func (f Float) AttachConstraint(attach Constraint) Types {
+	return f
+}
+func (tau Tau) AttachConstraint(attach Constraint) Types {
+	contexts := ConstraintContext{}
+	for _, cxt := range attach.Context {
+		if cxt.TypeVariable.name == tau.name {
+			contexts = append(contexts, cxt)
+		}
+	}
+	if len(contexts) == 0 {
+		return tau
+	}
+	return Constraint{
+		Context: contexts,
+		Constrained: tau,
+		Loc: contexts[0].ClassName.Loc,
+	}
+}
+func (f Function) AttachConstraint(attach Constraint) Types {
+	return Function{
+		Domain: f.Domain.AttachConstraint(attach),
+		Codomain: f.Codomain.AttachConstraint(attach),
+	}
+}
+func (a Array) AttachConstraint(attach Constraint) Types {
+	return Array{
+		ElemType: a.ElemType.AttachConstraint(attach),
+		Loc: a.Loc,
+	}
+}
+func (tup Tuple) AttachConstraint(attach Constraint) Types {
+	return Tuple(util.Fmap(tup, func(ty Types) Types {
+		return ty.AttachConstraint(attach)
+	}))
+}
+func (e Error) AttachConstraint(attach Constraint) Types { return e }
+func (c Class) AttachConstraint(attach Constraint) Types {
+	return c
+}
+func (tup NamedTuple) AttachConstraint(attach Constraint) Types {
+	newTup := make(map[string]Types, len(tup))
+	for name, ty := range tup {
+		newTup[name] = ty.AttachConstraint(attach)
+	}
+	return NamedTuple(newTup)
+}
+func (a Application) AttachConstraint(attach Constraint) Types {
+	return Application(util.Fmap(a, func(ty Types) Types {
+		return ty.AttachConstraint(attach)
+	}))
+}
+func (d Data) AttachConstraint(attach Constraint) Types {
+	return d
+}
+func (c Constructor) AttachConstraint(attach Constraint) Types {
+	return c
+}
 
 func (i Int) GetLocation() info.Location {
 	return info.Loc(i)

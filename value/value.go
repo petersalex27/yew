@@ -56,6 +56,9 @@ type ValuedType struct {
 func (v ValuedType) GetSuperType() types.Types {
 	return v.value.GetType()
 }
+func (v ValuedType) AttachConstraint(types.Constraint) types.Types {
+	return v
+}  
 func (v ValuedType) ToString() string { return v.value.ToString() }
 func (v ValuedType) GetTypeType() types.TypeType { return types.VALUE }
 func (v ValuedType) Equals(t types.Types) bool {

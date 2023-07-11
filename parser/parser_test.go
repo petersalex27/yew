@@ -342,10 +342,6 @@ var constraint2Expected = ast.MakePackage(
 									ClassName: types.Var("Num"),
 									TypeVariable: types.Var("a"),
 								},
-								types.Context{
-									ClassName: types.Var("Num"),
-									TypeVariable: types.Var("b"),
-								},
 							},
 							Constrained: types.Var("a"),
 						},
@@ -355,10 +351,6 @@ var constraint2Expected = ast.MakePackage(
 					ast.MakeId(scan.MakeIdToken("x", 0, 0)),
 					types.Constraint{
 						Context: types.ConstraintContext{
-							types.Context{
-								ClassName: types.Var("Num"),
-								TypeVariable: types.Var("a"),
-							},
 							types.Context{
 								ClassName: types.Var("Num"),
 								TypeVariable: types.Var("b"),
@@ -622,15 +614,7 @@ var class3Expected = ast.MakePackage(
 				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
 				"g": { Domain: types.MakeTau("a", info.Loc{}), Codomain: types.Int{}, },
 				"h": { 
-					Domain: types.Constraint{
-						Context: types.ConstraintContext{
-							types.Context{
-								ClassName: types.Var("Num"),
-								TypeVariable: types.Var("x"),
-							},
-						},
-						Constrained: types.MakeTau("a", info.Loc{}),
-					}, 
+					Domain: types.MakeTau("a", info.Loc{}),
 					Codomain: types.Constraint{
 						Context: types.ConstraintContext{
 							types.Context{
@@ -655,8 +639,8 @@ var class5Expected = ast.MakePackage(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
 			map[string]types.Function{
 				"f": { 
-					Domain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
-					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+					Domain: types.Int{},
+					Codomain: types.Int{},
 				},
 			},
 		),
@@ -669,13 +653,10 @@ var class6Expected = ast.MakePackage(
 		ast.MakeClass(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
 			map[string]types.Function{
-				"f": { 
-					Domain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
-					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
-				},
+				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
 				"g": { 
 					Domain: types.ConstrainType(types.Var("a"), types.MakeContext("Ord", "a")), 
-					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+					Codomain: types.Int{},
 				},
 			},
 		),
@@ -689,21 +670,21 @@ var class7Expected = ast.MakePackage(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
 			map[string]types.Function{
 				"f": { 
-					Domain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
-					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+					Domain: types.Int{},
+					Codomain: types.Int{},
 				},
 				"g": { 
 					Domain: types.ConstrainType(types.Var("a"), types.MakeContext("Ord", "a")), 
-					Codomain: types.ConstrainType(types.Int{}, types.MakeContext("Ord", "a")),
+					Codomain: types.Int{},
 				},
 				"h": { // (Num x, Ord a) => a -> x
 					Domain: types.ConstrainType(
 						types.Var("a"), 
-						types.MakeContext("Ord", "a"), types.MakeContext("Num", "x"), 
+						types.MakeContext("Ord", "a"),
 					), 
 					Codomain: types.ConstrainType(
 						types.Var("x"), 
-						types.MakeContext("Ord", "a"), types.MakeContext("Num", "x"), 
+						types.MakeContext("Num", "x"), 
 					),
 				},
 			},
