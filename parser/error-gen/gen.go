@@ -35,6 +35,7 @@ const (
 type NameMessage string
 const (
 	RedeclaredConstructor NameMessage = "cannot redeclare type constructor"
+	ClassNotFound NameMessage = "intance function defined for a class that is not declared"
 )
 
 func (m NameMessage) Generate() GenerateErrorFunction {

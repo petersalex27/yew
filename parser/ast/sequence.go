@@ -6,20 +6,16 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	types "yew/type"
 	util "yew/utils"
 )
 
 type Sequence []Expression
 
-func (s Sequence) ResolveNames(table *symbol.SymbolTable) bool {
-	for _, z := range s {
-		if !z.ResolveNames(table) {
-			return false
-		}
-	}
-	return true
+func (s Sequence) ResolveNames(p *Parser) bool {
+	return util.FoldLeft(s, true, func(result bool, e Expression) bool {
+		return result && e.ResolveNames(p)
+	})
 }
 func (s Sequence) GetNodeType() NodeType { return SEQUENCE }
 

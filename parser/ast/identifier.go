@@ -7,7 +7,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	types "yew/type"
 )
 
@@ -41,12 +40,12 @@ func (id Id) GetNodeType() NodeType { return IDENTIFIER }
 func (id Id) ExpressionType() types.Types {
 	return id.ty
 }
-func (id Id) ResolveNames(table *symbol.SymbolTable) bool {
-	sym := table.Get(id.token.ToString())
+func (id Id) ResolveNames(p *Parser) bool {
+	sym := p.Table.Get(id.token.ToString())
 	if sym == nil {
 		// must be in global scope
 		/*e*/
-		_, added := table.AddSymbolToGlobal(sym) // declare symbol
+		_, added := p.Table.AddSymbolToGlobal(sym) // declare symbol
 		if !added {
 			// TODO: print? e.ToError().Print()
 			return false

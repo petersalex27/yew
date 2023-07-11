@@ -9,7 +9,6 @@ import (
 	err "yew/error"
 	scan "yew/lex"
 	nodetype "yew/parser/node-type"
-	symbol "yew/symbol"
 	//nodetype "yew/parser/nodetype"
 )
 
@@ -20,7 +19,7 @@ type Ast interface {
 	GetNodeType() nodetype.NodeType
 	Equal_test(Ast) bool
 	Print([]string)
-	ResolveNames(*symbol.SymbolTable) bool
+	ResolveNames(*Parser) bool
 	FindStartToken() scan.Token
 }
 
@@ -37,7 +36,7 @@ func (stackMarker) Equal_test(Ast) bool {
 	return false
 }
 func (stackMarker) Print([]string) {}
-func (stackMarker) ResolveNames(*symbol.SymbolTable) bool {
+func (stackMarker) ResolveNames(*Parser) bool {
 	return false
 }
 func (stackMarker) FindStartToken() scan.Token {

@@ -1,0 +1,14 @@
+class C a where {
+    f :: a -> Int
+    g :: Int -> a 
+}
+
+C => Int where {
+    f x = x
+    g x = x
+}
+
+C => Float where {
+    f x = 1     -- Float -> Int
+    g x = 1.1   -- Int -> Float 
+}

@@ -46,9 +46,9 @@ func (t TypeDefinition) Print(lines []string) {
 	printLines(lines)
 	fmt.Printf("Type-Definition == %s :: %s\n", t.token.ToString(), t.ty.ToString())
 }
-func (t TypeDefinition) ResolveNames(table *symbol.SymbolTable) bool {
+func (t TypeDefinition) ResolveNames(p *parser.Parser) bool {
 	// TODO: is this right?
-	return Id(t).ResolveNames(table)
+	return Id(t).ResolveNames(p)
 }
 
 func (t TypeDefinition) GetSymbol() symbol.Symbolic {

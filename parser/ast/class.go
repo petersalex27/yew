@@ -134,7 +134,7 @@ func (c Class) Print(ls []string) {
 	}
 }
 
-func (c Class) ResolveNames(table *symbol.SymbolTable) bool {
+func (c Class) ResolveNames(p *parser.Parser) bool {
 	panic("TODO") // TODO
 }
 

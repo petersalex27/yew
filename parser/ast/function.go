@@ -331,8 +331,14 @@ func DeclareFunction(p *Parser, functionName Id, parseFunctionBody func(*Parser)
 	}
 }
 
-func (f Function) ResolveNames(table *symbol.SymbolTable) bool {
-	return f.dec.ResolveNames(table) && f.function.ResolveNames(table)
+func (f Function) ResolveNames(p *Parser) bool {
+	if f.IsInstanceFunction() {
+		sym := p.Table.Get(f.class)
+		if nil == sym {
+			errorgen.ClassNotFound.Generate()
+		}
+	}
+	return f.dec.ResolveNames(p) && f.function.ResolveNames(p)
 }
 
 func MakeFunction(dec Id, function Lambda) Function {

@@ -6,7 +6,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 )
 
 type Assignment struct {
@@ -22,8 +21,8 @@ func MakeAssignment(target Id, e Expression) Assignment {
 	return Assignment{target, e}
 }
 
-func (a Assignment) ResolveNames(table *symbol.SymbolTable) bool {
-	return a.target.ResolveNames(table) && a.expression.ResolveNames(table)
+func (a Assignment) ResolveNames(p *Parser) bool {
+	return a.target.ResolveNames(p) && a.expression.ResolveNames(p)
 }
 
 func (a Assignment) GetNodeType() NodeType { return ASSIGNMENT }

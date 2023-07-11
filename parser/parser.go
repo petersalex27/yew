@@ -980,7 +980,7 @@ func parseApplication(p *Parser, _ scan.Token) bool {
 			}
 			p.Stack.Push(id)
 		}
-		
+
 		if !transformToConstructor {
 			unexpectedToken(p.Input.GetTokenAtOffset(-2), p.Input).Print()
 			return false
@@ -1193,13 +1193,12 @@ func parseInstance(p *Parser, class string, instance types.Types) bool {
 		ignoreLeadingIgnorables(p)
 		if p.Current.GetType() == scan.RCURL {
 			break
-		} 
+		}
 	}
 	return ok
-} 
+}
 
 func parseClassBody(p *Parser, className ast.Id, block bool) bool {
-
 	ignoreLeadingIgnorables(p)
 
 	if block && p.Next.GetType() == scan.RCURL {
@@ -1506,11 +1505,11 @@ func parseStatementNoIgnore(p *Parser) bool {
 func instanceFunctionParse(p *Parser, class string, instance types.Types) bool {
 	if p.Current.GetType() != scan.ID {
 		errorgen.ExpectedInstanceFunctionDeclaration.Generate()(p.Current, p.Input).Print()
-		return false 
+		return false
 	}
 	ok := functionParse(p)
 	if !ok {
-		return false 
+		return false
 	}
 	if p.Stack.Peek().GetNodeType() != nodetype.FUNCTION {
 		errorgen.ExpectedInstanceFunctionDefinition.
@@ -1626,7 +1625,7 @@ func maybePackage(p *Parser) (endParseCallback func(*Parser) (bool, ast.Package)
 	p.Advance() // move (what should be an) id to p.Current
 	validPackageDeclaration :=
 		pushId(p) && // put id on top of stack
-			ast.PacakgeMembership{}.Make(p) // make package membership
+			ast.PackageMembership{}.Make(p) // make package membership
 	if !validPackageDeclaration {
 		return nil
 	}

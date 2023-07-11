@@ -137,7 +137,7 @@ func (ot OpType) ToString() string {
 	}
 }
 
-func (o OpType) ResolveNames(*symbol.SymbolTable) bool { return true }
+func (o OpType) ResolveNames(p *parser.Parser) bool { return true }
 
 func (o OpType) GetNodeType() nodetype.NodeType { return nodetype.BOP_ }
 

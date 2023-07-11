@@ -6,8 +6,8 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	types "yew/type"
+	util "yew/utils"
 )
 
 // can get any order of definitions and expressions by nesting Programs in a
@@ -41,13 +41,10 @@ func (p Program) ExpressionType() types.Types {
 		panic("")
 	}
 }
-func (p Program) ResolveNames(table *symbol.SymbolTable) bool {
-	for _, q := range p {
-		if !q.ResolveNames(table) {
-			return false
-		}
-	}
-	return true
+func (p Program) ResolveNames(parser *Parser) bool {
+	return util.FoldLeft(p, true, func(result bool, ast Ast) bool {
+		return result && ast.ResolveNames(parser)
+	})
 }
 func (p Program) DoTypeInference(newTypeInformation types.Types) types.Types {
 	panic("TODO: implement")

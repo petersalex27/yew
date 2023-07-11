@@ -6,7 +6,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	types "yew/type"
 )
 
@@ -22,8 +21,8 @@ func (app Application) Split() (Expression, Expression) {
 func (app Application) ExpressionType() types.Types {
 	return app.left.ExpressionType().Apply(app.right.ExpressionType())
 }
-func (app Application) ResolveNames(table *symbol.SymbolTable) bool {
-	return app.left.ResolveNames(table) && app.right.ResolveNames(table)
+func (app Application) ResolveNames(p *Parser) bool {
+	return app.left.ResolveNames(p) && app.right.ResolveNames(p)
 	// TODO
 }
 func (app Application) DoTypeInference(newTypeInformation types.Types) types.Types {

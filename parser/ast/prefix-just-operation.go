@@ -72,7 +72,7 @@ func (u UOpType) StackLogString() string {
 	return fmt.Sprintf("%s; %s", u.GetNodeType().ToString(), u.ToString())
 }
 
-func (u UOpType) ResolveNames(*symbol.SymbolTable) bool { return true }
+func (u UOpType) ResolveNames(*parser.Parser) bool { return true }
 func (u UOpType) GetNodeType() nodetype.NodeType { 
 	return nodetype.UOP_ 
 }

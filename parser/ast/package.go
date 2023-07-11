@@ -5,32 +5,32 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	symbol "yew/symbol"
 )
 
 type Package struct {
-	belongsToPackage PacakgeMembership
-	program ProgramTop
+	belongsToPackage PackageMembership
+	program          ProgramTop
 }
 
 func MakePackage(id Id, program ProgramTop) Package {
-	return Package{belongsToPackage: PacakgeMembership(id), program: program}
+	return Package{belongsToPackage: PackageMembership(id), program: program}
 }
 
 func MakePackage2(id scan.IdToken, program ProgramTop) Package {
-	return Package{belongsToPackage: PacakgeMembership(MakeId(id)), program: program}
+	return Package{belongsToPackage: PackageMembership(MakeId(id)), program: program}
 }
 
 func (pack Package) Make(p *Parser) bool {
-	if valid, e := p.Stack.Validate(pacakgeRule); !valid {
+	if valid, e := p.Stack.Validate(packageRule); !valid {
 		e(p.Input).Print()
 		return false
 	}
+	// analysis
 
 	pack.program = p.Stack.Pop().(ProgramTop)
-	pack.belongsToPackage = p.Stack.Pop().(PacakgeMembership)
+	pack.belongsToPackage = p.Stack.Pop().(PackageMembership)
 	p.Stack.Push(pack)
-	return true 
+	return true
 }
 
 func (pack Package) GetNodeType() NodeType {
@@ -43,7 +43,7 @@ func (pack Package) Equal_test(ast Ast) bool {
 
 	pack2, ok := ast.(Package)
 	return ok && pack.belongsToPackage.Equal_test(pack.belongsToPackage) &&
-			pack.program.Equal_test(pack2.program)
+		pack.program.Equal_test(pack2.program)
 }
 func (pack Package) Print(ls []string) {
 	lines := make([]string, len(ls))
@@ -55,7 +55,7 @@ func (pack Package) Print(ls []string) {
 	lines[len(lines)-1] = " └─"
 	pack.program.Print(lines)
 }
-func (pack Package) ResolveNames(table *symbol.SymbolTable) bool {
+func (pack Package) ResolveNames(p *Parser) bool {
 	panic("TODO")
 }
 func (pack Package) FindStartToken() scan.Token {

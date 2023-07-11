@@ -7,7 +7,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	"yew/type"
 	"yew/value"
 )
@@ -24,7 +23,7 @@ type Value scan.ValueToken
 func (v Value) ExpressionType() types.Types {
 	return (v.Value).GetType()
 }
-func (Value) ResolveNames(*symbol.SymbolTable) bool {
+func (Value) ResolveNames(p *Parser) bool {
 	return true
 }
 func (v Value) DoTypeInference(newTypeInformation types.Types) types.Types {

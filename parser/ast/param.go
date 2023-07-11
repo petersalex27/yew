@@ -6,7 +6,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	types "yew/type"
 )
 
@@ -19,8 +18,8 @@ func MakeParameter(paramIndex int, pattern ExpressionTypeAnnotation) Parameter {
 	return Parameter{paramIndex, pattern}
 }
 
-func (p Parameter) ResolveNames(table *symbol.SymbolTable) bool {
-	return p.pattern.ResolveNames(table)
+func (p Parameter) ResolveNames(parser *Parser) bool {
+	return p.pattern.ResolveNames(parser)
 }
 func (Parameter) Make(*Parser) bool {
 	err.PrintBug()

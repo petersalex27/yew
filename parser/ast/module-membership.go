@@ -5,7 +5,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	symbol "yew/symbol"
 )
 
 type ModuleMembership Id
@@ -38,7 +37,7 @@ func (m ModuleMembership) Print(ls []string) {
 	lines = append(lines, " └─")
 	Id(m).Print(lines)
 }
-func (m ModuleMembership) ResolveNames(table *symbol.SymbolTable) bool {
+func (m ModuleMembership) ResolveNames(p *Parser) bool {
 	panic("TODO")
 }
 func (m ModuleMembership) FindStartToken() scan.Token {

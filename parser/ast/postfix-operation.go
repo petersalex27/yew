@@ -5,7 +5,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	symbol "yew/symbol"
 	types "yew/type"
 )
 
@@ -18,8 +17,8 @@ func MakePostfixOperation(op PostOpType, operand Expression) PostfixOperation {
 	return PostfixOperation{op, operand}
 }
 
-func (post PostfixOperation) ResolveNames(table *symbol.SymbolTable) bool {
-	return post.operand.ResolveNames(table)
+func (post PostfixOperation) ResolveNames(p *Parser) bool {
+	return post.operand.ResolveNames(p)
 }
 func (post PostfixOperation) GetNodeType() NodeType {
 	return POPERATION

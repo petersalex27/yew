@@ -6,7 +6,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	types "yew/type"
 	"yew/value"
 )
@@ -34,11 +33,11 @@ func (e EmptyExpression) Make(p *Parser) bool {
 func (e EmptyExpression) ExpressionType() types.Types {
 	return types.Tuple{}
 }
-func (e EmptyExpression) ResolveNames(table *symbol.SymbolTable) bool { 
+func (e EmptyExpression) ResolveNames(p *Parser) bool { 
 	if e.statement == nil {
 		return true
 	}
-	return e.statement.ResolveNames(table)
+	return e.statement.ResolveNames(p)
 }
 func (e EmptyExpression) DoTypeInference(newTypeInformation types.Types) types.Types {
 	return e.ExpressionType().InferType(newTypeInformation)

@@ -18,8 +18,8 @@ type Definition struct {
 func (def Definition) GetSymbol() symbol.Symbolic {
 	return symbol.MakeSymbol(def.assignment.target.token)
 }
-func (def Definition) ResolveNames(table *symbol.SymbolTable) bool {
-	return def.assignment.ResolveNames(table)
+func (def Definition) ResolveNames(p *Parser) bool {
+	return def.assignment.ResolveNames(p)
 }
 
 // (Declaration, Expression) -> (Declaration, Definition)

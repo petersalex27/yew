@@ -6,7 +6,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	symbol "yew/symbol"
 	types "yew/type"
 )
 
@@ -19,8 +18,8 @@ func MakeUnaryOperation(op UOpType, operand Expression) UnaryOperation {
 	return UnaryOperation{op, operand}
 }
 
-func (u UnaryOperation) ResolveNames(table *symbol.SymbolTable) bool {
-	return u.operand.ResolveNames(table)
+func (u UnaryOperation) ResolveNames(p *Parser) bool {
+	return u.operand.ResolveNames(p)
 }
 
 func (u UnaryOperation) ExpressionType() types.Types {

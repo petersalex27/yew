@@ -6,7 +6,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	symbol "yew/symbol"
 	types "yew/type"
 )
 
@@ -20,8 +19,8 @@ func MakeBinaryOperation(op OpType, left Expression, right Expression) BinaryOpe
 	return BinaryOperation{op, left, right}
 }
 
-func (b BinaryOperation) ResolveNames(table *symbol.SymbolTable) bool {
-	return b.left.ResolveNames(table) && b.right.ResolveNames(table)
+func (b BinaryOperation) ResolveNames(p *Parser) bool {
+	return b.left.ResolveNames(p) && b.right.ResolveNames(p)
 }
 
 func (b BinaryOperation) ExpressionType() types.Types {

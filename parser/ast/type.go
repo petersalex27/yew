@@ -278,9 +278,8 @@ func (t Type) Print(lines []string) {
 	printLines(lines)
 	fmt.Printf("Type == %s\n", t.ty.ToString())
 }
-func (t Type) ResolveNames(table *symbol.SymbolTable) bool {
-	return true // TODO?
-}
+
+func (t Type) ResolveNames(p *parser.Parser) bool { return true /* TODO: ??? is this right */ }
 
 func (t Type) FindStartToken()scan.Token {
 	return scan.MakeBlankToken()

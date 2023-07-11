@@ -46,10 +46,10 @@ func (dec Declaration) GetSymbol() symbol.Symbolic {
 	return symbol.MakeSymbol(dec.id.token)
 }
 
-func (dec Declaration) ResolveNames(table *symbol.SymbolTable) bool {
-	if table.IsDefined(symbol.MakeSymbol(dec.id.token)) {
+func (dec Declaration) ResolveNames(p *Parser) bool {
+	if p.Table.IsDefined(symbol.MakeSymbol(dec.id.token)) {
 		return true
-	} else if IncludeBuiltin(table, dec.id.token.ToString()) {
+	} else if IncludeBuiltin(p.Table, dec.id.token.ToString()) {
 		return true
 	}
 

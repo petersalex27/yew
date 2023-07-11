@@ -54,7 +54,7 @@ var moduleMembershipRule = MODULE_MEMBERSHIP.Replaces(IDENTIFIER)
 var packageMembershipRule = PACKAGE_MEMBERSHIP.Replaces(IDENTIFIER)
 
 // Package ::= Package-Membership Program-Top
-var pacakgeRule = PACKAGE.Replaces(PACKAGE_MEMBERSHIP, PROGRAM_TOP)
+var packageRule = PACKAGE.Replaces(PACKAGE_MEMBERSHIP, PROGRAM_TOP)
 
 // Param ::= Expression
 var patternParamRule = PARAM.Replaces(EXPRESSION)
@@ -95,7 +95,7 @@ var justTypeRule = TYPE.Replaces(TYPE)
 // Type ::= Type Type
 var typeAppRule = TYPE.Replaces(TYPE, TYPE)
 
-// Class ::= Identifier Type 
+// Class ::= Identifier Type
 var classRule = CLASS_DEFINITION.Replaces(CLASS_DEFINITION, TYPE_ANNOTATION)
 
 // Type-Annotation ::= Expression Type

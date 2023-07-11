@@ -65,7 +65,7 @@ func (pot PostOpType) ToString() string {
 	return "_postfix_(!)"
 }
 
-func (o PostOpType) ResolveNames(*symbol.SymbolTable) bool { return true }
+func (PostOpType) ResolveNames(*parser.Parser) bool { return true }
 func (o PostOpType) GetNodeType() nodetype.NodeType { return nodetype.POP_ }
 func (o PostOpType) Make(p *parser.Parser) bool {
 	err.PrintBug()

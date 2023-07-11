@@ -56,7 +56,7 @@ func (mod Module) Print(lines []string) {
 	lines[len(lines)-1] = " └─"
 	mod.program.Print(lines)
 }
-func (mod Module) ResolveNames(table *symbol.SymbolTable) bool {
+func (mod Module) ResolveNames(p *Parser) bool {
 	panic("TODO")
 }
 func (mod Module) FindStartToken() scan.Token {

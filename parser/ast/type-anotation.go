@@ -6,7 +6,6 @@ import (
 	scan "yew/lex"
 	. "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	types "yew/type"
 )
 
@@ -18,8 +17,8 @@ type ExpressionTypeAnnotation struct {
 func (e ExpressionTypeAnnotation) ExpressionType() types.Types {
 	return e.expressionType
 }
-func (e ExpressionTypeAnnotation) ResolveNames(table *symbol.SymbolTable) bool {
-	return e.expression.ResolveNames(table)
+func (e ExpressionTypeAnnotation) ResolveNames(p *Parser) bool {
+	return e.expression.ResolveNames(p)
 }
 func (e ExpressionTypeAnnotation) DoTypeInference(newTypeInformation types.Types) types.Types {
 	return (e.expression).DoTypeInference(newTypeInformation)

@@ -2,13 +2,13 @@ package ast
 
 import (
 	"fmt"
+	err "yew/error"
 	scan "yew/lex"
 	errorgen "yew/parser/error-gen"
 	nodetype "yew/parser/node-type"
 	"yew/parser/parser"
-	"yew/symbol"
-	err "yew/error"
 	types "yew/type"
+	util "yew/utils"
 )
 
 type Pattern struct {
@@ -224,9 +224,12 @@ func (pat Pattern) Print(lines []string) {
 		pat.Matchers[len(pat.Matchers)-1].Print(copy)
 	}
 }
-func (pat Pattern) ResolveNames(table *symbol.SymbolTable) bool {
-	// TODO
-	panic("TODO")
+func (pat Pattern) ResolveNames(p *parser.Parser) bool {
+	resolveNames := func(result bool, lam Lambda) bool { 
+		return result && lam.ResolveNames(p) 
+	}
+
+	return util.FoldLeft(pat.Matchers, true, resolveNames)
 }
 func (pat Pattern) ExpressionType() types.Types {
 	if nil == pat.Matchers || len(pat.Matchers) == 0 {

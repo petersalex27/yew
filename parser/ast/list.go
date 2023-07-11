@@ -6,8 +6,8 @@ import (
 	scan "yew/lex"
 	nodetype "yew/parser/node-type"
 	. "yew/parser/parser"
-	"yew/symbol"
 	types "yew/type"
+	util "yew/utils"
 )
 
 type List Sequence
@@ -55,14 +55,10 @@ func (ls List) Print(lns []string) {
 		fmt.Printf("[]\n")
 	}
 }
-func (ls List) ResolveNames(table *symbol.SymbolTable) bool {
-	ok := true
-	for _, l := range ls {
-		if ok = l.ResolveNames(table); !ok {
-			break
-		}
-	}
-	return ok
+func (ls List) ResolveNames(p *Parser) bool {
+	return util.FoldLeft(ls, true, func(result bool, e Expression) bool {
+		return result && e.ResolveNames(p)
+	})
 }
 func (ls List) ExpressionType() types.Types {
 	if len(ls) == 0 {
