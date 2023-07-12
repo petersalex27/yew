@@ -48,11 +48,22 @@ func NewTypeStack() *TypeStack {
 	return stack
 }
 
+type Class_ interface { GetClassName() string }
+type InstanceFunction_ interface { GetInstanceFunction() InstanceFunction_ }
+type ClassTable_ interface {
+	InitClassTable() ClassTable_
+	Lookup(className string) (class Class_, found bool)
+	DeclareClass(p *Parser, newClass Class_) bool
+	DeclareInstance(p *Parser, class Class_, instance types.Types) bool
+	DefineInstanceFunction(p *Parser, class Class_, instance types.Types, function InstanceFunction_) bool
+}
+
 type Parser struct {
 	Input     scan.InputStream
 	Next      scan.Token
 	Current   scan.Token
 	Table     *symbol.SymbolTable
+	ClassTable ClassTable_
 	Stack     *AstStack
 	markIndex int
 	ParsingClass bool
@@ -75,6 +86,7 @@ func InitParser(in scan.InputStream) *Parser {
 	*p = Parser{
 		Input:     in,
 		Table:     symbol.InitSymbolTable(in.GetPath()),
+		//ClassTable: ClassTable.InitClassTable(),
 		Stack:     NewAstStack(),
 		ParsingClass: false,
 		markIndex: 0,

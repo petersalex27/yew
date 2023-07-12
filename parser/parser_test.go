@@ -585,6 +585,7 @@ var classExpected = ast.MakePackage(
 	ast.Program{
 		ast.MakeClass(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 6)),
+			types.Var("a"),
 			map[string]types.Function{
 				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
 			},
@@ -597,6 +598,7 @@ var class2Expected = ast.MakePackage(
 	ast.Program{
 		ast.MakeClass(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 6)),
+			types.Var("a"),
 			map[string]types.Function{
 				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
 				"g": { Domain: types.MakeTau("a", info.Loc{}), Codomain: types.Int{}, },
@@ -610,6 +612,7 @@ var class3Expected = ast.MakePackage(
 	ast.Program{
 		ast.MakeClass(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 6)),
+			types.Var("a"),
 			map[string]types.Function{
 				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
 				"g": { Domain: types.MakeTau("a", info.Loc{}), Codomain: types.Int{}, },
@@ -637,6 +640,7 @@ var class5Expected = ast.MakePackage(
 	ast.Program{
 		ast.MakeClass(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
+			types.Var("a"),
 			map[string]types.Function{
 				"f": { 
 					Domain: types.Int{},
@@ -652,6 +656,7 @@ var class6Expected = ast.MakePackage(
 	ast.Program{
 		ast.MakeClass(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
+			types.Var("a"),
 			map[string]types.Function{
 				"f": { Domain: types.Int{}, Codomain: types.Int{}, },
 				"g": { 
@@ -668,6 +673,7 @@ var class7Expected = ast.MakePackage(
 	ast.Program{
 		ast.MakeClass(
 			ast.MakeId(scan.MakeIdToken("MyClass", 1, 18)),
+			types.Var("a"),
 			map[string]types.Function{
 				"f": { 
 					Domain: types.Int{},

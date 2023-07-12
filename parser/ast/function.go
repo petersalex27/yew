@@ -28,6 +28,8 @@ func (f Function) AsInstance(class string, instance types.Types) Function {
 	return f
 }
 
+func (f Function) GetInstanceFunction() InstanceFunction_ { return f }
+
 func (f Function) IsInstanceFunction() bool {
 	return f.class != ""
 }
@@ -333,10 +335,11 @@ func DeclareFunction(p *Parser, functionName Id, parseFunctionBody func(*Parser)
 
 func (f Function) ResolveNames(p *Parser) bool {
 	if f.IsInstanceFunction() {
-		sym := p.Table.Get(f.class)
-		if nil == sym {
-			errorgen.ClassNotFound.Generate()
-		}
+		class := Class{name: MakeId(scan.MakeIdToken(f.class, 0, 0))}
+		ok := p.ClassTable.DefineInstanceFunction(p, class, f.instance, f)
+		if !ok {
+			return false
+		} 
 	}
 	return f.dec.ResolveNames(p) && f.function.ResolveNames(p)
 }

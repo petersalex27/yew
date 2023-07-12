@@ -1209,7 +1209,7 @@ func parseClassBody(p *Parser, className ast.Id, block bool) bool {
 		return false
 	}
 
-	class := ast.InitClass(className)
+	class := ast.InitClass(className).SetTypeParameter(p.ClassVariable)
 	p.Stack.Push(class)
 
 	// loop until no more function defs

@@ -1,7 +1,10 @@
 package errorgen
 
-import scan "yew/lex"
-import err "yew/error"
+import (
+	"strings"
+	err "yew/error"
+	scan "yew/lex"
+)
 
 type GenerateErrorFunction func (scan.Token, scan.InputStream) err.Error
 
@@ -23,19 +26,55 @@ const (
 	ExpectedFunctionDeclaration SyntaxMessage = "expected function declaration"
 	ExpectedInstanceFunctionDeclaration SyntaxMessage = "expected instance function declaration"
 	ExpectedInstanceFunctionDefinition SyntaxMessage = "expected instance function definition"
+	//NonClassAsClass SyntaxMessage = "cannot define an instance function for"
 )
+
+type SyntaxMessageComplex struct{argc int; msg []string}
+
+var NonClassAsClass = SyntaxMessageComplex{
+	2, []string{
+		"cannot define an instance function for ", 
+		"", 
+		" because ",
+		"",
+		" is not a class",
+	},
+}
+func (m SyntaxMessageComplex) Generate(args ...string) GenerateErrorFunction {
+	argsIndex := 0
+	if len(args) != m.argc {
+		err.PrintBug() // arg count mismatch 
+		panic("")
+	}
+
+	var builder strings.Builder
+	for _, s := range m.msg {
+		if s == "" {
+			builder.WriteString(args[argsIndex])
+			argsIndex++
+		} else {
+			builder.WriteString(s)
+		}
+	}
+	return GenerateSyntaxError(builder.String())
+}
 
 type TypeMessage string
 const (
 	ExpectedTypeIdentifier TypeMessage = "expected type identifier"
 	ExpectedTypeIdentifierNotVar TypeMessage = "expected type identifier but found type variable"
 	UnexpectedType TypeMessage = "unexpected type"
+	RedeclaredClassInstance TypeMessage = "cannot redeclare type class instance"
 )
 
 type NameMessage string
 const (
 	RedeclaredConstructor NameMessage = "cannot redeclare type constructor"
 	ClassNotFound NameMessage = "intance function defined for a class that is not declared"
+	RedeclaredClass NameMessage = "cannot redeclare type class"
+	UndefinedClass NameMessage = "class not defined"
+	FunctionNotInClass NameMessage = "function is not declared in type class being instantiated"
+	FunctionInstanceRedefined NameMessage = "instance function redefined"
 )
 
 func (m NameMessage) Generate() GenerateErrorFunction {
