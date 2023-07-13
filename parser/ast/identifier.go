@@ -12,6 +12,7 @@ import (
 
 type Id struct {
 	token scan.IdToken
+	isInfix bool
 	ty    types.Types
 }
 
@@ -57,7 +58,11 @@ func (id Id) DoTypeInference(newTypeInformation types.Types) types.Types {
 	panic("") // TODO
 }
 func MakeId(token scan.IdToken) Id {
-	return Id{token: token, ty: types.GetNewTau()}
+	return Id{token: token, ty: types.GetNewTau(), isInfix: false}
+}
+func (id Id) SetInfix() Id {
+	id.isInfix = true
+	return id
 }
 func MakeIdWithType(token scan.IdToken, ty types.Types) Id {
 	return Id{token: token, ty: ty}

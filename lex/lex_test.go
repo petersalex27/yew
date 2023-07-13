@@ -52,10 +52,6 @@ var (
 	SLASH_TOKEN         = OtherToken{SLASH, 0, 2, }
 	HAT_TOKEN           = OtherToken{HAT, 0, 2, }
 	EQUALS_TOKEN        = OtherToken{EQUALS, 0, 2, }
-	PLUS_EQUALS_TOKEN   = OtherToken{PLUS_EQUALS, 0, 2, }
-	MINUS_EQUALS_TOKEN  = OtherToken{MINUS_EQUALS, 0, 2, }
-	STAR_EQUALS_TOKEN   = OtherToken{STAR_EQUALS, 0, 2, }
-	SLASH_EQUALS_TOKEN  = OtherToken{SLASH_EQUALS, 0, 2, }
 	COMMA_TOKEN         = OtherToken{COMMA, 0, 2, }
 	DOT_TOKEN           = OtherToken{DOT, 0, 2, }
 	DOT_DOT_TOKEN       = OtherToken{DOT_DOT, 0, 2, }
@@ -82,18 +78,43 @@ var inputCases = []TestInput{
 		path: folderLoc + "in.yw",
 		expected: []string{
 			"Int Char Bool Float String let mut const where class True False\n",
-			"()[]{} ++ + - * / ^ = += -= *= /= , . .. ! != == && || | > >= < <= -> => ; : ::\n",
+			"()[]{} ++ + - * / ^ = , . .. ! != == && || | > >= < <= -> => ; : ::\n",
 			"?",
 		},
 		expectedTokens: []Token{
 			INT_TOKEN, CHAR_TOKEN, BOOL_TOKEN, FLOAT_TOKEN, STRING_TOKEN, LET_TOKEN, MUT_TOKEN, CONST_TOKEN,
 			WHERE_TOKEN, CLASS_TOKEN, TRUE_TOKEN, FALSE_TOKEN, NL_TOKEN, LPAREN_TOKEN, RPAREN_TOKEN, LBRACK_TOKEN,
 			RBRACK_TOKEN, LCURL_TOKEN, RCURL_TOKEN, PLUS_PLUS_TOKEN, PLUS_TOKEN, MINUS_TOKEN, STAR_TOKEN, SLASH_TOKEN,
-			HAT_TOKEN, EQUALS_TOKEN, PLUS_EQUALS_TOKEN, MINUS_EQUALS_TOKEN, STAR_EQUALS_TOKEN, SLASH_EQUALS_TOKEN,
+			HAT_TOKEN, EQUALS_TOKEN,
 			COMMA_TOKEN, DOT_TOKEN, DOT_DOT_TOKEN, BANG_TOKEN, BANG_EQUALS_TOKEN, EQUALS_EQUALS_TOKEN, AMPER_AMPER_TOKEN,
 			BAR_BAR_TOKEN, BAR_TOKEN, GREAT_TOKEN, GREAT_EQUALS_TOKEN, LESS_TOKEN, LESS_EQUALS_TOKEN, ARROW_TOKEN,
 			FAT_ARROW_TOKEN, SEMI_COLON_TOKEN, COLON_TOKEN, COLON_COLON_TOKEN,
 			OtherToken{NEW_LINE, -1, 3, }, OtherToken{QUESTION, -1, 3, }, OtherToken{EOF, -1, 3, },
+		},
+	},
+	{
+		path: folderLoc + "whitespace.yw",
+		expected: []string{
+			"-- comment\n",
+			"-* comm-\n",
+			"--ent *- -* another one *-\n",
+			"\t ",
+		},
+		expectedTokens: []Token{
+			OtherToken{NEW_LINE, 1, 11},
+			OtherToken{NEW_LINE, 3, 27},
+			OtherToken{EOF, 4, 2},
+		},
+	},
+	{
+		path: folderLoc + "sym.yw",
+		expected: []string{
+			"%! -* +- % \n",
+			"*^^! *- *- +-$",
+		},
+		expectedTokens: []Token{
+			MakeIdToken("%!", 1, 1), OtherToken{STAR, 2, 9}, OtherToken{MINUS, 2, 10},
+			MakeIdToken("+-$", 2, 12), OtherToken{EOF, 2, 14},
 		},
 	},
 	{
@@ -191,7 +212,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-// unknown token
+// unknown symbol
 var _in0 = Input{1, 0, "test0", []string{`£`}}
 var _in0_img = Input{1, 1, "test0", []string{`£`}}
 
@@ -239,7 +260,7 @@ var expectedNextErrors = []struct {
 	{
 		_in0,
 		_in0_img,
-		inputErrors[E_UNEXPECTED_TOKEN](&_in0_img),
+		inputErrors[E_UNEXPECTED_SYMBOL](&_in0_img),
 	},
 	{
 		_in1,
@@ -327,7 +348,7 @@ func TestNext(test *testing.T) {
 		i := 0
 		for t := in.Next(); ; t = in.Next() {
 			if t.GetType() != cs.expectedTokens[i].GetType() {
-				fmt.Fprintf(os.Stderr, "Failed %s\n", cs.path)
+				fmt.Fprintf(os.Stderr, "Failed #%d %s\n", i, cs.path)
 				fmt.Printf("Expected: \"%s\"\nFound: \"%s\"\n",
 					cs.expectedTokens[i].ToString(), t.ToString())
 				test.FailNow()

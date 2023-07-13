@@ -48,10 +48,6 @@ const (
 	HAT
 
 	EQUALS
-	PLUS_EQUALS
-	MINUS_EQUALS
-	STAR_EQUALS
-	SLASH_EQUALS
 
 	COLON
 	COLON_COLON
@@ -138,6 +134,24 @@ type OtherToken struct {
 	tokenType TokenType
 	line      int
 	char      int
+}
+
+
+var inPrelude = []TokenType{
+	PLUS, PLUS_PLUS, MINUS, STAR, HAT, SLASH, EQUALS_EQUALS,
+	COLON, BANG, BANG_EQUALS, GREAT, GREAT_EQUALS, LESS, LESS_EQUALS,
+	AMPER_AMPER, BAR_BAR,
+}
+
+// true iff receiver is an operator in prelude
+func (o OtherToken) PreludeIncludes() bool {
+	tt := o.tokenType
+	for _, tokenType := range inPrelude {
+		if tt == tokenType {
+			return true
+		}
+	}
+	return false
 }
 
 func (id TypeIdToken) AsType() types.Tau {
@@ -290,14 +304,6 @@ func (tt TokenType) ToString() string {
 		return "^"
 	case EQUALS:
 		return "="
-	case PLUS_EQUALS:
-		return "+="
-	case MINUS_EQUALS:
-		return "-="
-	case STAR_EQUALS:
-		return "*="
-	case SLASH_EQUALS:
-		return "/="
 	case COLON:
 		return ":"
 	case COLON_COLON:

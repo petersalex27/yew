@@ -265,10 +265,12 @@ func (in *Input) skipWhitespace() (c byte, errorToken *ErrorToken) {
 					return
 				}
 				if in.peek() == '-' {
-					in.nextChar()
 					c = in.nextChar()
-					return
+					break
 				}
+			}
+			if c == '-' {
+				continue // end of comment, continue eating whitespace
 			}
 		} else if c == ' ' || c == '\t' {
 			continue
@@ -459,7 +461,7 @@ type inputErrorType int
 const (
 	E_END_OF_FILE = iota
 	E_ILLEGAL_ESCAPE
-	E_UNEXPECTED_TOKEN
+	E_UNEXPECTED_SYMBOL
 	E_EXPECTED_CHAR_CLOSE
 	E_EXPECTED_RAW_ID_CLOSE
 	E_UNEXPECTED_CONTROL
@@ -473,7 +475,7 @@ const (
 var inputErrors = map[inputErrorType]_errorGenFn{
 	E_END_OF_FILE:           inputErrorGen("unexpected end of file"),
 	E_ILLEGAL_ESCAPE:        inputErrorGen("illegal escape sequence"),
-	E_UNEXPECTED_TOKEN:      inputErrorGen("unexpected token"),
+	E_UNEXPECTED_SYMBOL:      inputErrorGen("unexpected symbol"),
 	E_EXPECTED_CHAR_CLOSE:   inputErrorGen("expected end of character literal"),
 	E_EXPECTED_RAW_ID_CLOSE: inputErrorGen("expected closing backtick"),
 	E_UNEXPECTED_CONTROL:    inputErrorGen("unexpected control character"),
@@ -486,6 +488,19 @@ var inputErrors = map[inputErrorType]_errorGenFn{
 
 var ID_REGEX = regexp.MustCompile("[A-Za-z][A-Za-z0-9_]*(')*")
 var EXT_ID_REGEX = regexp.MustCompile(`[^0-9\{\}\[\]\(\)\s\x60[[:cntrl:]]@]+`)
+// - ! # $ % ^ & * / ? . : > < = + ~
+var SYMBOL_ID_REGEX_0 = regexp.MustCompile(`[!|#\$%\^\&\*/\?\.:><=\+~-]`)
+var SYMBOL_ID_REGEX_1 = regexp.MustCompile(`[!|#\$%\^\&\/\?\.:><=\+~]`) // prev == -
+var SYMBOL_ID_REGEX_2 = regexp.MustCompile(`[!|#\$%\^\&\*/\?\.:><=\+~]`) // prev == *
+func nextRegexForSymb(previous byte) *regexp.Regexp {
+	if previous == '-' {
+		return SYMBOL_ID_REGEX_1
+	} else if previous == '*' {
+		return SYMBOL_ID_REGEX_2
+	}
+	return SYMBOL_ID_REGEX_0
+}
+
 var HEX_REGEX = regexp.MustCompile("0(x|X)([0-9A-Fa-f]_?)*[0-9A-Fa-f]+")
 var OCT_REGEX = regexp.MustCompile("0(o|O)([0-7]_?)*[0-7]+")
 var BIN_REGEX = regexp.MustCompile("0(b|B)([01]_?)*[01]+")
@@ -635,172 +650,125 @@ func (in *Input) ungetChar() {
 	in.unsetNextIndexes()
 }
 
-/*func (in *Input) nonAsciiId() Token {
-	loc := EXT_ID_REGEX.FindStringIndex(in.source[in.sourceIndex:])
-	if loc == nil || loc[0] != 0 {
-		return inputErrors[E_UNEXPECTED_TOKEN](in)
+
+func (in *Input) getStructuralToken(c byte) (token Token, found bool) {
+	found = true
+	switch c {
+	case '"':
+		token = in.getString()
+	case '\'':
+		token = in.getChar()
+	case '\\':
+		token = in.tokenUnit(BACKSLASH)
+	case '@':
+		token = in.tokenUnit(AT)
+		//token = AnotationToken(in.getIdOrKeyword2(true).(IdToken))
+	case ';':
+		token = in.tokenUnit(SEMI_COLON)
+	case '\n':
+		token = in.tokenUnit(NEW_LINE)
+	case '(':
+		token = in.tokenUnit(LPAREN)
+	case ')':
+		token = in.tokenUnit(RPAREN)
+	case '[':
+		token = in.tokenUnit(LBRACK)
+	case ']':
+		token = in.tokenUnit(RBRACK)
+	case '{':
+		token = in.tokenUnit(LCURL)
+	case '}':
+		token = in.tokenUnit(RCURL)
+	case '_':
+		token = in.tokenUnit(UNDERSCORE)
+	case ',':
+		token = in.tokenUnit(COMMA)
+	case 0:
+		token = in.tokenUnit(EOF)
+	default:
+		found = false
 	}
-	length := loc[1]
-	id := in.source[in.sourceIndex:in.sourceIndex+length]
-	charBefore := in.charNumber
-	indexBefore := in.sourceIndex
-	in.charNumber += length
-	in.sourceIndex += length
-	return IdToken{id: id, index: indexBefore, line: in.lineNumber, char: charBefore}
-} */
+
+	return
+}
+
+var builtinOps = map[string]TokenType{
+	// operators that cannot be excluded (these are operators that are not part of prelude)
+	"->": ARROW,
+	"=>": FAT_ARROW,
+	"=": EQUALS,
+	"::": COLON_COLON,
+	"|": BAR,
+	".": DOT,
+	"..": DOT_DOT,
+	"?": QUESTION,
+
+	// operators that can be excluded (these are operators that are part of prelude)
+	"+": PLUS,
+	"++": PLUS_PLUS,
+	"-": MINUS,
+	"*": STAR,
+	"^": HAT,
+	"/": SLASH,
+	"==": EQUALS_EQUALS,
+	":": COLON,
+	"!": BANG,
+	"!=": BANG_EQUALS,
+	">": GREAT,
+	">=": GREAT_EQUALS,
+	"<": LESS,
+	"<=": LESS_EQUALS,
+	"&&": AMPER_AMPER,
+	"||": BAR_BAR,
+}
+
+func (in *Input) getSymbolId() Token {
+	start := in.charNumber // current place in stream
+	var source = in.getSourceSlice() // get line sliced from char number - 1 to end of line/input
+	idx := 0
+	var prev byte = ' '
+	sourceLen := len(source)
+	for idx < sourceLen {
+		if !nextRegexForSymb(prev).MatchString(source[idx:idx+1]) {
+			break
+		}
+		prev = source[idx]
+		idx++
+	}
+
+	if idx == 0 { 
+		// illegal char
+		return inputErrors[E_UNEXPECTED_SYMBOL](in) // generate error at start position
+	}
+
+	in.charNumber += (idx - 1) // update char number
+	symb := source[:idx] // token regex matched
+	symbLength := len(symb) // length of matched token
+	
+	if tokenType, found := builtinOps[symb]; found {
+		return in.tokenUnitN(tokenType, symbLength) // return builtin token
+	}
+	return IdToken{id: symb, line: in.lineNumber, char: start} // return user defined token
+}
 
 func (in *Input) Next() Token {
-	/*if length := len(in.stored); length > 0 {
-		tok := in.stored[length - 1]
-		in.stored = in.stored[:length - 1]
-		return tok
-	}*/
-
 	c, e := in.skipWhitespace()
 	if nil != e {
 		return *e
 	}
 
 	if unicode.IsDigit(rune(c)) {
-		//in.ungetChar()
 		return in.getNumber()
 	} else if nil != ID_REGEX.FindStringIndex(string(c)) {
-		//in.ungetChar()
 		res := in.getIdOrKeyword()
 		return res
 	}
 
-	switch c {
-	case '+':
-		if in.peek() == '+' {
-			in.nextChar()
-			return in.tokenUnitN(PLUS_PLUS, 2)
-		} else if in.peek() == '=' {
-			in.nextChar()
-			return in.tokenUnitN(PLUS_EQUALS, 2)
-		}
-		return in.tokenUnit(PLUS)
-	case '-':
-		if in.peek() == '=' {
-			in.nextChar()
-			return in.tokenUnitN(MINUS_EQUALS, 2)
-		} else if in.peek() == '>' {
-			in.nextChar()
-			return in.tokenUnitN(ARROW, 2)
-		}
-		return in.tokenUnit(MINUS)
-	case '*':
-		if in.peek() == '=' {
-			in.nextChar()
-			return in.tokenUnitN(STAR_EQUALS, 2)
-		}
-		return in.tokenUnit(STAR)
-	case '/':
-		if in.peek() == '=' {
-			in.nextChar()
-			return in.tokenUnitN(SLASH_EQUALS, 2)
-		}
-		return in.tokenUnit(SLASH)
-	case '=':
-		if in.peek() == '=' {
-			in.nextChar()
-			return in.tokenUnitN(EQUALS_EQUALS, 2)
-		} else if in.peek() == '>' {
-			in.nextChar()
-			return in.tokenUnitN(FAT_ARROW, 2)
-		}
-		return in.tokenUnit(EQUALS)
-	case ':':
-		if in.peek() == ':' {
-			in.nextChar()
-			return in.tokenUnitN(COLON_COLON, 2)
-		}
-		return in.tokenUnit(COLON)
-	case ';':
-		return in.tokenUnit(SEMI_COLON)
-	case '\n':
-		return in.tokenUnit(NEW_LINE)
-	case '!':
-		if in.peek() == '=' {
-			in.nextChar()
-			return in.tokenUnitN(BANG_EQUALS, 2)
-		}
-		return in.tokenUnit(BANG)
-	case '>':
-		if in.peek() == '=' {
-			in.nextChar()
-			return in.tokenUnitN(GREAT_EQUALS, 2)
-		}
-		return in.tokenUnit(GREAT)
-	case '<':
-		if in.peek() == '=' {
-			in.nextChar()
-			return in.tokenUnitN(LESS_EQUALS, 2)
-		}
-		return in.tokenUnit(LESS)
-	case '?':
-		return in.tokenUnit(QUESTION)
-	case '(':
-		return in.tokenUnit(LPAREN)
-	case ')':
-		return in.tokenUnit(RPAREN)
-	case '[':
-		return in.tokenUnit(LBRACK)
-	case ']':
-		return in.tokenUnit(RBRACK)
-	case '{':
-		return in.tokenUnit(LCURL)
-	case '}':
-		return in.tokenUnit(RCURL)
-	case '_':
-		return in.tokenUnit(UNDERSCORE)
-	case ',':
-		return in.tokenUnit(COMMA)
-	case '.':
-		if in.peek() == '.' {
-			in.nextChar()
-			return in.tokenUnitN(DOT_DOT, 2)
-		}
-		return in.tokenUnit(DOT)
-	case '^':
-		return in.tokenUnit(HAT)
-	case '&':
-		c = in.nextChar()
-		if c != '&' {
-			return inputErrors[E_UNEXPECTED_TOKEN](in)
-		}
-		return in.tokenUnitN(AMPER_AMPER, 2)
-	case '|':
-		if in.peek() == '|' {
-			in.nextChar()
-			return in.tokenUnitN(BAR_BAR, 2)
-		}
-		return in.tokenUnit(BAR)
-	/*case '`':
-	tok := in.nonAsciiId()
-	if tok.GetType() == ERROR {
-		return tok
+	if token, shouldReturn := in.getStructuralToken(c); shouldReturn {
+		return token
 	}
-	if in.nextChar() != '`' {
-		return inputErrors[E_EXPECTED_RAW_ID_CLOSE](in)
-	}
-	return tok*/
-	case '"':
-		return in.getString()
-	case '\'':
-		return in.getChar()
-	case '\\':
-		return in.tokenUnit(BACKSLASH)
-	case '@':
-		return AnotationToken(in.getIdOrKeyword2(true).(IdToken))
-	case 0:
-		return in.tokenUnit(EOF)
-	default:
-		/*in.ungetChar()
-		return in.nonAsciiId()*/
-		return inputErrors[E_UNEXPECTED_TOKEN](in)
-	}
-	//return inputErrors[E_UNEXPECTED_TOKEN](in)
+
+	return in.getSymbolId()
 }
 
 var patternMap = map[TokenType]byte{
@@ -831,10 +799,6 @@ var patternMap = map[TokenType]byte{
 	SLASH:          'o',
 	HAT:            'p',
 	EQUALS:         'q',
-	PLUS_EQUALS:    'r',
-	MINUS_EQUALS:   's',
-	STAR_EQUALS:    't',
-	SLASH_EQUALS:   'u',
 	COLON:          'v',
 	COLON_COLON:    'w',
 	SEMI_COLON:     'x',

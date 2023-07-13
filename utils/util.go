@@ -125,3 +125,47 @@ func Nothing[T any]() Maybe[T] {
 func Just[T any](x T) Maybe[T] {
 	return Maybe[T]{Nothing: false, Just: x}
 }
+
+type ConditionResult [T any]struct {
+	doThen bool
+	payload T
+}
+
+type ThenResult [T any]struct {
+	skipElse bool
+	payload T
+}
+
+func If[T any](condition func() bool) ConditionResult[T] {
+	return ConditionResult[T]{doThen: condition()}
+}
+
+func (shouldDo ConditionResult[T]) Then(do func()T) ThenResult[T] {
+	doThen := shouldDo.doThen
+	out := ThenResult[T]{skipElse: doThen}
+	if doThen {
+		out.payload = do()
+		return out
+	} else {
+		out.payload = shouldDo.payload
+	}
+	return out
+}
+
+func (res ThenResult[T]) Else(do func()T) T {
+	if !res.skipElse {
+		return do()
+	} 
+	return res.payload
+}
+
+func (res ThenResult[T]) ElseIf(condition func() bool) ConditionResult[T] {
+	if res.skipElse {
+		return ConditionResult[T]{doThen: false, payload: res.payload}
+	} else {
+		// no payload should be attached since payload only exist when a then result is already done
+		return ConditionResult[T]{doThen: condition()} 
+	}
+
+}
+

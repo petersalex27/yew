@@ -640,54 +640,45 @@ func sequence(p *Parser, delimiter scan.TokenType, action func(*Parser, scan.Tok
 	return false
 }
 
+type operationList []scan.TokenType
+
+// DO NOT MODIFY AT RUNTIME! list of infix operation token types for filtering
+var infixOperationList = operationList{
+	scan.PLUS, scan.STAR, scan.SLASH, scan.MINUS, scan.MOD, scan.HAT,
+	scan.PLUS_PLUS, scan.COLON, scan.ARROW, scan.AMPER_AMPER, scan.BAR_BAR,
+	scan.GREAT, scan.GREAT_EQUALS, scan.LESS, scan.LESS_EQUALS,
+	scan.EQUALS_EQUALS, scan.BANG_EQUALS,
+}
+
+// DO NOT MODIFY AT RUNTIME! list of prefix operation token types for filtering
+var prefixOperationList = operationList{ scan.BANG, scan.PLUS_PREFIX__, scan.MINUS_PREFIX__, }
+
+// DO NOT MODIFY AT RUNTIME! list of postfix operation token types for filtering
+var postfixOperationList = operationList{ scan.BANG_POSTFIX__, }
+
+func (os operationList) matchOperationType(op scan.TokenType) bool {
+	for _, o := range os {
+		if o == op {
+			return true
+		}
+	}
+	return false
+}
+
 func pushOperation(p *Parser, token scan.OtherToken) {
-	switch token.GetType() {
-	case scan.PLUS:
-		fallthrough
-	case scan.STAR:
-		fallthrough
-	case scan.SLASH:
-		fallthrough
-	case scan.MINUS:
-		fallthrough
-	case scan.MOD:
-		fallthrough
-	case scan.HAT:
-		fallthrough
-	case scan.PLUS_PLUS:
-		fallthrough
-	case scan.COLON:
-		fallthrough
-	case scan.ARROW:
-		fallthrough
-	case scan.AMPER_AMPER:
-		fallthrough
-	case scan.BAR_BAR:
-		fallthrough
-	case scan.GREAT:
-		fallthrough
-	case scan.LESS:
-		fallthrough
-	case scan.GREAT_EQUALS:
-		fallthrough
-	case scan.LESS_EQUALS:
-		fallthrough
-	case scan.EQUALS_EQUALS:
-		fallthrough
-	case scan.BANG_EQUALS:
-		p.Stack.Push(ast.OpType(token))
-	case scan.BANG:
-		fallthrough
-	case scan.PLUS_PREFIX__:
-		fallthrough
-	case scan.MINUS_PREFIX__:
-		p.Stack.Push(ast.UOpType(token))
-	case scan.BANG_POSTFIX__:
-		p.Stack.Push(ast.PostOpType(token))
-	default:
+	tokenType := token.GetType()
+	var op Ast
+	if infixOperationList.matchOperationType(tokenType) {
+		op = ast.OpType(token)
+	} else if prefixOperationList.matchOperationType(tokenType) {
+		op = ast.UOpType(token)
+	} else if postfixOperationList.matchOperationType(tokenType) {
+		op = ast.PostOpType(token)
+	} else {
 		err.PrintBug()
 		panic("")
 	}
+	p.Stack.Push(op)
 }
 
 // returns proper token for operation now that the context (i.e., part of arithmetic expression)
@@ -1106,10 +1097,6 @@ func InitParseTable() {
 			scan.MOD:       {bp.Multiplicative, parseError, binary, operation},
 			scan.HAT:       {bp.Power, parseError, binary, operation},
 			scan.EQUALS:    {bp.None, parseError, parseError, nil},
-			//scan.PLUS_EQUALS:    {bp.None, parseError, parseError, nil},
-			//scan.MINUS_EQUALS:   {bp.None, parseError, parseError, nil},
-			//scan.STAR_EQUALS:    {bp.None, parseError, parseError, nil},
-			//scan.SLASH_EQUALS:   {bp.None, parseError, parseError, nil},
 			scan.COLON:             {bp.Additive, parseError, binary, operation},
 			scan.COLON_COLON:       {bp.ExpressionAnotation, parseError, typeAnnotation, typeAnnotation},
 			scan.COLON_COLON_EQUAL: {bp.None, parseError, parseError, nil},
@@ -1353,6 +1340,12 @@ func parseInitialTypeId(p *Parser) (ast.Type, bool) {
 }
 
 func parseInitialId(p *Parser) (ast.Id, bool) {
+	maybeParen := p.Current
+	infix := p.Current.GetType() == scan.LPAREN && p.Next.GetType() == scan.ID
+	if infix {
+		p.Advance()
+	}
+
 	if p.Current.GetType() != scan.ID {
 		expectedID(p.Current, p.Input).Print()
 		return ast.Id{}, false
@@ -1361,6 +1354,15 @@ func parseInitialId(p *Parser) (ast.Id, bool) {
 	ok := identifier(p, p.Current)
 	if !ok {
 		return ast.Id{}, false
+	}
+	if infix { // when infix is true, expect `(symbol)`
+		id := p.Stack.Pop().(ast.Id)
+		p.Stack.Push(id.SetInfix())
+		if p.Next.GetType() != scan.RPAREN {
+			unmatchedPAREN(maybeParen, p.Input).Print()
+			return ast.Id{}, false
+		}
+		p.Advance()
 	}
 	id := p.Stack.Peek().(ast.Id)
 	return id, true
@@ -1496,6 +1498,8 @@ func parseStatementNoIgnore(p *Parser) bool {
 			return parseInstance(p, class, instance)
 		}
 		return declareType(p)
+	case scan.LPAREN:
+		fallthrough
 	case scan.ID:
 		return functionParse(p)
 	}
@@ -1658,7 +1662,18 @@ func doParse(p *Parser) (bool, ast.Package) {
 	return endParseCallback(p)
 }
 
-var initParser = InitParser
+func InitParser(in scan.InputStream) *Parser {
+	p := new(Parser)
+	p.Reset()
+	*p = Parser{
+		Input:      in,
+		Table:      symbol.InitSymbolTable(in.GetPath()),
+		ClassTable: ast.ClassTable{}.InitClassTable(),
+		Stack:      NewAstStack(),
+	}
+
+	return p
+}
 
 func Parse(in *scan.Input) (bool, ast.Package) {
 	InitParseTable()
@@ -1668,7 +1683,7 @@ func Parse(in *scan.Input) (bool, ast.Package) {
 		return false, ast.Package{}
 	}
 
-	p := initParser(in2)
+	p := InitParser(in2)
 	return doParse(p)
 }
 

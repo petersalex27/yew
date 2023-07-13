@@ -61,6 +61,56 @@ var app2Expected = ast.MakePackage(
 	},
 )
 
+var infixDefExpected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("id", 1, 0)).SetInfix(),
+			ast.MakeLambda(
+				ast.MakeParameter(0,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+				ast.MakeTypeAnnotation(
+					ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+					types.Int{},
+				),
+			),
+		),
+	},
+)
+
+var infixDef2Expected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.Program{
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("fn", 1, 0)),
+			ast.MakeLambda(
+				ast.MakeParameter(1,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+				ast.MakeLambda(
+					ast.MakeParameter(0,
+						ast.MakeTypeAnnotation(
+							ast.MakeId(scan.MakeIdToken("y", 1, 0)),
+							types.Int{},
+						),
+					),
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+			),
+		),
+	},
+)
+
 var fnDefExpected = ast.MakePackage(
 	DefaultNameSpaceId,
 	ast.Program{
@@ -845,6 +895,8 @@ var asts = []struct {
 	{"./test/instance.yw", instanceExpected},
 	{"./test/instance2.yw", instance2Expected},
 	{"./test/function-constraint.yw", functionConstraintExpected},
+	{"./test/infix.yw", infixDefExpected},
+	{"./test/infix2.yw", infixDef2Expected},
 }
 
 func TestParse(t *testing.T) {
