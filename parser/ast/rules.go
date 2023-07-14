@@ -100,3 +100,6 @@ var classRule = CLASS_DEFINITION.Replaces(CLASS_DEFINITION, TYPE_ANNOTATION)
 
 // Type-Annotation ::= Expression Type
 var typeAnnotRule = TYPE_ANNOTATION.Replaces(EXPRESSION, TYPE)
+
+// Application ::= Function Expression
+var annotationRule = ANNOTATION.Replaces(ANNOTATION, SOMETHING)

@@ -1,0 +1,2 @@
+@noPrelude
+(+) x y :: Int -> Int -> Int = x

@@ -851,6 +851,42 @@ var functionConstraintExpected = ast.MakePackage(
 	},
 )
 
+/*var annotExpected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.MakeProgram(
+		ast.MakeAnnotation(scan.MakeIdToken("myAnnotation", 1, 2)),
+	),
+)*/
+
+var excludeExpected = ast.MakePackage(
+	DefaultNameSpaceId,
+	ast.MakeProgram(
+		ast.MakeFunction(
+			ast.MakeId(scan.MakeIdToken("+", 1, 0)).SetInfix(),
+			ast.MakeLambda(
+				ast.MakeParameter(1,
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+				ast.MakeLambda(
+					ast.MakeParameter(0,
+						ast.MakeTypeAnnotation(
+							ast.MakeId(scan.MakeIdToken("y", 1, 0)),
+							types.Int{},
+						),
+					),
+					ast.MakeTypeAnnotation(
+						ast.MakeId(scan.MakeIdToken("x", 1, 0)),
+						types.Int{},
+					),
+				),
+			),
+		),
+	),
+)
+
 var asts = []struct {
 	path string
 	ast_ parser.Ast
@@ -897,6 +933,8 @@ var asts = []struct {
 	{"./test/function-constraint.yw", functionConstraintExpected},
 	{"./test/infix.yw", infixDefExpected},
 	{"./test/infix2.yw", infixDef2Expected},
+	//{"./test/annot.yw", annotExpected},
+	{"./test/exclude.yw", excludeExpected},
 }
 
 func TestParse(t *testing.T) {

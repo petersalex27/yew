@@ -28,6 +28,7 @@ type Parser struct {
 	ClassVariable types.Tau
 	HasConstraint bool
 	ClassConstraint types.Constraint
+	excludePrelude bool
 	//functions []ast.Function
 }
 
@@ -45,6 +46,10 @@ func (p *Parser) setMarkIndex(new int) (old int) {
 }
 
 func (p *Parser) getMarkIndex() int { return p.markIndex }
+
+func (p *Parser) ExcludePrelude() {
+	p.Input.ExcludePrelude()
+}
 
 func (p *Parser) Advance() {
 	p.Current = p.Next

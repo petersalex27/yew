@@ -626,7 +626,7 @@ func paren(p *Parser, token scan.Token) bool {
 	return true
 }
 
-func block(p *Parser, token scan.Token) bool {
+func block(p *Parser, _ scan.Token) bool {
 	return parseProgram(p, false, true)
 }
 
@@ -651,10 +651,10 @@ var infixOperationList = operationList{
 }
 
 // DO NOT MODIFY AT RUNTIME! list of prefix operation token types for filtering
-var prefixOperationList = operationList{ scan.BANG, scan.PLUS_PREFIX__, scan.MINUS_PREFIX__, }
+var prefixOperationList = operationList{scan.BANG, scan.PLUS_PREFIX__, scan.MINUS_PREFIX__}
 
 // DO NOT MODIFY AT RUNTIME! list of postfix operation token types for filtering
-var postfixOperationList = operationList{ scan.BANG_POSTFIX__, }
+var postfixOperationList = operationList{scan.BANG_POSTFIX__}
 
 func (os operationList) matchOperationType(op scan.TokenType) bool {
 	for _, o := range os {
@@ -1068,35 +1068,35 @@ func InitParseTable() {
 		// consequently, there should never be a token that can be both infix and postfix
 		// (prefix and postfix is fine though)
 		tmp := map[scan.TokenType]parseTableElement{
-			scan.ID:        {bp.Applicative, identifier, parseApplication, identifier},
-			scan.TYPE_ID:   {bp.Applicative, typeIdentifier, parseApplication, typeIdentifier},
-			scan.VALUE:     {bp.Applicative, value_, parseApplication, value_},
-			scan.LBRACK:    {bp.Applicative, bracket, parseApplication, bracket},
-			scan.RBRACK:    {bp.None, parseError, parseError, bracket},
-			scan.LPAREN:    {bp.Group, paren, parseApplicationParen, paren},
-			scan.RPAREN:    {bp.None, parseError, parseError, nil},
-			scan.LCURL:     {bp.None, block, parseError, block},
-			scan.RCURL:     {bp.None, parseError, parseError, nil},
-			scan.STRING:    {bp.None, parseError, parseError, nil},
-			scan.CHAR:      {bp.None, parseError, parseError, nil},
-			scan.BOOL:      {bp.None, parseError, parseError, nil},
-			scan.FLOAT:     {bp.None, parseError, parseError, nil},
-			scan.INT:       {bp.None, parseError, parseError, nil},
-			scan.TYPE:      {bp.None, parseError, parseError, nil},
-			scan.CLASS:     {bp.None, parseError, parseError, nil},
-			scan.WHERE:     {bp.None, parseError, parseError, nil},
-			scan.LET:       {bp.None, parseError, parseError, nil},
-			scan.CONST:     {bp.None, parseError, parseError, nil},
-			scan.MUT:       {bp.None, parseError, parseError, nil},
-			scan.LAZY:      {bp.None, parseError, parseError, nil},
-			scan.PLUS:      {bp.Additive, prefix, binary, operation},
-			scan.PLUS_PLUS: {bp.Additive, parseError, binary, operation},
-			scan.MINUS:     {bp.Additive, prefix, binary, operation},
-			scan.STAR:      {bp.Multiplicative, parseError, binary, operation},
-			scan.SLASH:     {bp.Multiplicative, parseError, binary, operation},
-			scan.MOD:       {bp.Multiplicative, parseError, binary, operation},
-			scan.HAT:       {bp.Power, parseError, binary, operation},
-			scan.EQUALS:    {bp.None, parseError, parseError, nil},
+			scan.ID:                {bp.Applicative, identifier, parseApplication, identifier},
+			scan.TYPE_ID:           {bp.Applicative, typeIdentifier, parseApplication, typeIdentifier},
+			scan.VALUE:             {bp.Applicative, value_, parseApplication, value_},
+			scan.LBRACK:            {bp.Applicative, bracket, parseApplication, bracket},
+			scan.RBRACK:            {bp.None, parseError, parseError, bracket},
+			scan.LPAREN:            {bp.Group, paren, parseApplicationParen, paren},
+			scan.RPAREN:            {bp.None, parseError, parseError, nil},
+			scan.LCURL:             {bp.None, block, parseError, block},
+			scan.RCURL:             {bp.None, parseError, parseError, nil},
+			scan.STRING:            {bp.None, parseError, parseError, nil},
+			scan.CHAR:              {bp.None, parseError, parseError, nil},
+			scan.BOOL:              {bp.None, parseError, parseError, nil},
+			scan.FLOAT:             {bp.None, parseError, parseError, nil},
+			scan.INT:               {bp.None, parseError, parseError, nil},
+			scan.TYPE:              {bp.None, parseError, parseError, nil},
+			scan.CLASS:             {bp.None, parseError, parseError, nil},
+			scan.WHERE:             {bp.None, parseError, parseError, nil},
+			scan.LET:               {bp.None, parseError, parseError, nil},
+			scan.CONST:             {bp.None, parseError, parseError, nil},
+			scan.MUT:               {bp.None, parseError, parseError, nil},
+			scan.LAZY:              {bp.None, parseError, parseError, nil},
+			scan.PLUS:              {bp.Additive, prefix, binary, operation},
+			scan.PLUS_PLUS:         {bp.Additive, parseError, binary, operation},
+			scan.MINUS:             {bp.Additive, prefix, binary, operation},
+			scan.STAR:              {bp.Multiplicative, parseError, binary, operation},
+			scan.SLASH:             {bp.Multiplicative, parseError, binary, operation},
+			scan.MOD:               {bp.Multiplicative, parseError, binary, operation},
+			scan.HAT:               {bp.Power, parseError, binary, operation},
+			scan.EQUALS:            {bp.None, parseError, parseError, nil},
 			scan.COLON:             {bp.Additive, parseError, binary, operation},
 			scan.COLON_COLON:       {bp.ExpressionAnotation, parseError, typeAnnotation, typeAnnotation},
 			scan.COLON_COLON_EQUAL: {bp.None, parseError, parseError, nil},
@@ -1531,14 +1531,23 @@ func parseStatement(p *Parser) bool {
 	return parseStatementNoIgnore(p)
 }
 
-func parseProgram(p *Parser, allowEof bool, endAtRCurl bool) bool {
+func parseProgram_maybeExclude(p *Parser, allowEof bool, endAtRCurl bool, initialSet func(par *Parser) bool) bool {
 	ok := true
 
 	p.Stack.Mark(p)
 
-	for ok {
-		p.Advance()
-		ignoreLeadingIgnorables(p)
+	setNext := func(par *Parser) {
+		par.Advance()
+		ignoreLeadingIgnorables(par)
+	}
+	if initialSet == nil {
+		initialSet = func(par *Parser) bool {
+			setNext(par)
+			return true
+		}
+	}
+
+	for ok = initialSet(p); ok; setNext(p) {
 		curr := p.Current.GetType()
 		if curr == scan.EOF {
 			if allowEof {
@@ -1569,6 +1578,10 @@ func parseProgram(p *Parser, allowEof bool, endAtRCurl bool) bool {
 		p.Stack.Push(top)
 	}
 	return ok
+}
+
+func parseProgram(p *Parser, allowEof bool, endAtRCurl bool) bool {
+	return parseProgram_maybeExclude(p, allowEof, endAtRCurl, nil)
 }
 
 func makeDefaultPackage(prog ast.Program) ast.Package {
@@ -1652,9 +1665,30 @@ func doParse(p *Parser) (bool, ast.Package) {
 
 	var parsedSuccesfully bool
 	endParseCallback := maybePackage(p)
-	parsedSuccesfully =
-		endParseCallback != nil &&
-			parseProgram(p, true, false)
+	parsedSuccesfully = endParseCallback != nil
+
+	initialSet := func(par *Parser) bool {
+		par.Advance()
+		ignoreLeadingIgnorables(p)
+		if par.Current.GetType() == scan.AT && par.Next.GetType() == scan.ID {
+			annotName := p.Next.(scan.IdToken).ToString()
+			if annotName == "noPrelude" {
+				p.ExcludePrelude()
+
+				p.Advance()
+				p.Advance()
+				curr := p.Current.GetType()
+				if curr != scan.NEW_LINE && curr != scan.EOF {
+					errorgen.IllegalPreludeExclusionArgs.Generate()(p.Current, p.Input).Print()
+					return false
+				}
+			}
+			ignoreLeadingIgnorables(p)
+		}
+		return true
+	}
+
+	parsedSuccesfully = parsedSuccesfully && parseProgram_maybeExclude(p, true, false, initialSet)
 	if !parsedSuccesfully {
 		return false, ast.Package{}
 	}

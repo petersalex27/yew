@@ -109,6 +109,7 @@ type Token interface {
 	util.Stringable
 	info.Locatable
 	GetType() TokenType
+	preludeExcludeTransform(bool) Token 
 }
 
 func ToLoc(t Token) info.Loc {
@@ -130,12 +131,37 @@ type IdToken struct {
 
 type TypeIdToken IdToken
 
-type OtherToken struct {
+type PreludeIdToken struct {
 	tokenType TokenType
-	line      int
-	char      int
+	id string
+	line int
+	char int
 }
 
+type OtherToken struct {
+	tokenType TokenType
+	line int
+	char int
+}
+
+func (p PreludeIdToken) preludeExcludeTransform(exclude bool) Token {
+	if exclude {
+		return IdToken{id: p.id, line: p.line, char: p.char}
+	}
+	return OtherToken{tokenType: p.tokenType, line: p.line, char: p.char}
+}
+
+func (p PreludeIdToken) GetType() TokenType {
+	return p.tokenType
+}
+
+func (p PreludeIdToken) ToString() string {
+	return p.id
+}
+
+func (p PreludeIdToken) GetLocation() info.Location {
+	return info.MakeLocation(p.line, p.char)
+}
 
 var inPrelude = []TokenType{
 	PLUS, PLUS_PLUS, MINUS, STAR, HAT, SLASH, EQUALS_EQUALS,
@@ -144,8 +170,7 @@ var inPrelude = []TokenType{
 }
 
 // true iff receiver is an operator in prelude
-func (o OtherToken) PreludeIncludes() bool {
-	tt := o.tokenType
+func PreludeIncludes(tt TokenType) bool {
 	for _, tokenType := range inPrelude {
 		if tt == tokenType {
 			return true
@@ -231,6 +256,25 @@ func (t OtherToken) GetType() TokenType {
 }
 func (e ErrorToken) GetType() TokenType {
 	return ERROR
+}
+
+func (a AnotationToken) preludeExcludeTransform(bool) Token {
+	return a
+}
+func (v ValueToken) preludeExcludeTransform(bool) Token {
+	return v
+}
+func (id IdToken) preludeExcludeTransform(bool) Token {
+	return id
+}
+func (id TypeIdToken) preludeExcludeTransform(bool) Token {
+	return id
+}
+func (t OtherToken) preludeExcludeTransform(bool) Token {
+	return t
+}
+func (e ErrorToken) preludeExcludeTransform(bool) Token {
+	return e
 }
 
 func (a AnotationToken) ToString() string {

@@ -14,7 +14,7 @@ type NodeRule struct {
 
 func (nt NodeType) Replaces(nts ...NodeType) NodeRule {
 	return NodeRule{Production: nt, Expression: nts}
-} 
+}
 
 type nodeRuleString struct {
 	production string
@@ -118,6 +118,10 @@ func GetErrorName(nt NodeType) (article string, name string) {
 		return "a", "type"
 	case PATTERN:
 		return "a", "pattern"
+	case ANNOTATION:
+		return "an", "annotation"
+	case SOMETHING:
+		return "", "something"
 	default:
 		return "", ""
 	}
@@ -217,6 +221,8 @@ var nodeTypeStringMap = map[NodeType]string{
 	TYPE_DEF:           "Type-Definition",
 	TYPE:               "Type",
 	PATTERN:            "Pattern",
+	ANNOTATION:         "Annotation",
+	SOMETHING:          "*",
 	STACK_MARKER:       "",
 	REPEAT__:           "",
 	REPEAT_OR_NONE__:   "",
@@ -271,6 +277,8 @@ const (
 	TYPE
 	TYPE_DEF
 	PATTERN
+	ANNOTATION
+	SOMETHING
 	REPEAT__
 	REPEAT_OR_NONE__
 	IN_PROGRESS__ NodeType = 0x80

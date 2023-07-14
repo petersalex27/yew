@@ -30,6 +30,7 @@ type InputStream struct {
 	streamLength    int64
 	streamCapacity  int64
 	asStringPattern string
+	excludePrelude  bool
 	source          source.Source
 
 	tokens []Token
@@ -71,6 +72,7 @@ func calculateStreamBufferSize(offset int64, sourceLen int64) int64 {
 }
 func InitStream(path string, sourceLen int64) InputStream {
 	return InputStream{
+		excludePrelude: false,
 		path:         path,
 		streamIndex:  0,
 		streamLength: 0,
@@ -746,6 +748,9 @@ func (in *Input) getSymbolId() Token {
 	symbLength := len(symb) // length of matched token
 	
 	if tokenType, found := builtinOps[symb]; found {
+		if PreludeIncludes(tokenType) {
+			return PreludeIdToken{tokenType: tokenType, id: symb, line: in.lineNumber, char: start}
+		}
 		return in.tokenUnitN(tokenType, symbLength) // return builtin token
 	}
 	return IdToken{id: symb, line: in.lineNumber, char: start} // return user defined token
@@ -904,6 +909,10 @@ func (in InputStream) Match(pattern TokenPattern) int {
 	return loc[1]
 }
 
+func (in *InputStream) ExcludePrelude() {
+	in.excludePrelude = true
+}
+
 func (in *InputStream) Next() Token {
 	if in.streamIndex+1 >= in.streamLength {
 		if in.tokens[in.streamIndex].GetType() != EOF {
@@ -913,7 +922,7 @@ func (in *InputStream) Next() Token {
 		return in.tokens[in.streamIndex] // should return EOF
 	}
 	in.streamIndex++
-	return in.tokens[in.streamIndex-1]
+	return in.tokens[in.streamIndex-1].preludeExcludeTransform(in.excludePrelude)
 }
 
 // grows stream's buffer with respect to length of unread input; always grows buffer by at least one

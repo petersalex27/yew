@@ -26,6 +26,8 @@ const (
 	ExpectedFunctionDeclaration SyntaxMessage = "expected function declaration"
 	ExpectedInstanceFunctionDeclaration SyntaxMessage = "expected instance function declaration"
 	ExpectedInstanceFunctionDefinition SyntaxMessage = "expected instance function definition"
+	IllegalPreludeExclusion SyntaxMessage = "the prelude package can only be excluded after the (possibly implicit) package inclusion statement"
+	IllegalPreludeExclusionArgs SyntaxMessage = "the annotation `@noPrelude` does not take any arguments"
 	//NonClassAsClass SyntaxMessage = "cannot define an instance function for"
 )
 
