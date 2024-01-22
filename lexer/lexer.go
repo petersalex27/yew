@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/petersalex27/yew/common/stack"
 	"github.com/petersalex27/yew/errors"
 	"github.com/petersalex27/yew/token"
 )
@@ -24,6 +25,8 @@ type Lexer struct {
 	Line int
 	// current char number for the given line
 	Char int
+	// saved char number
+	SavedChar *stack.Stack[int]
 	// tokens created from source
 	Tokens []token.Token
 	// errors, warnings, and logs during lexical analysis
@@ -44,6 +47,9 @@ func Init(path pathSpec) *Lexer {
 	lex := new(Lexer)
 
 	lex.path = path
+	// beyond 8 being a small power of two, it's an arbitrary choice 
+	const cap uint = 8
+	lex.SavedChar = stack.NewStack[int](cap) 
 
 	// generate source code write-to-lexer function
 	if _, ok := path.(standardInput); ok {
@@ -54,6 +60,8 @@ func Init(path pathSpec) *Lexer {
 
 	return lex
 }
+
+// saves current char
 
 // converts receiver to string
 //
