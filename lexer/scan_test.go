@@ -251,6 +251,81 @@ func TestAnalyzeString(t *testing.T) {
 	}
 }
 
+func TestFixAnnotation(t *testing.T) {
+	tests := []struct {
+		source         token.Token
+		expect         token.Token
+		expectErrorMsg string
+	}{
+		{
+			source: token.Token{Value: "annotation", Type: token.Id},
+			expect: token.Token{Value: "annotation", Type: token.At},
+		},
+		{
+			source: token.Token{Value: "Annotation", Type: token.CapId},
+			expect: token.Token{Value: "Annotation", Type: token.At},
+		},
+		{
+			source: token.Token{Value: "annotation_a", Type: token.Affixed},
+			expect: token.Token{Value: "annotation_a", Type: token.Affixed},
+			expectErrorMsg: InvalidAnnotation,
+		},
+	}
+
+	for _, test := range tests {
+		actual, actualErrorMsg := fixAnnotation(test.source)
+		if actual != test.expect {
+			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
+		}
+		if actualErrorMsg != test.expectErrorMsg {
+			t.Fatalf("unexpected error message (\"%s\"): got \"%s\"", test.expectErrorMsg, actualErrorMsg)
+		}
+	}
+}
+
+func TestAnalyzeAnnotation(t *testing.T) {
+	tests := []struct {
+		source string
+		expect token.Token
+	}{
+		{
+			source: `@annotation`,
+			expect: token.Token{Value: "annotation", Type: token.At, Line: 1, Start: 1, End: 12},
+		},
+		{
+			source: `@Annotation`,
+			expect: token.Token{Value: "Annotation", Type: token.At, Line: 1, Start: 1, End: 12},
+		},
+		{
+			source: `@annotation _ stuff`,
+			expect: token.Token{Value: "annotation", Type: token.At, Line: 1, Start: 1, End: 12},
+		},
+	}
+
+	for _, test := range tests {
+		lex := Init(StdinSpec)
+		lex.Source = []string{test.source}
+		lex.Line, lex.Char = 1, 1
+
+		ok, eof := lex.analyzeAnnotation()
+		if !ok {
+			t.Fatalf("could not analyze annotation")
+		}
+		if eof {
+			t.Fatalf("unexpected end of file")
+		}
+
+		if len(lex.Tokens) != 1 {
+			t.Fatalf("unexpected token stream: got %v", lex.Tokens)
+		}
+
+		actual := lex.Tokens[0]
+		if actual != test.expect {
+			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
+		}
+	}
+}
+
 func TestAnalyzeStandalone(t *testing.T) {
 	tests := []struct {
 		source string

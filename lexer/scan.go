@@ -20,6 +20,7 @@ const (
 	underscore_class
 	comment_class
 	char_class
+	annotation_class
 	end_class
 	error_class
 )
@@ -93,6 +94,8 @@ func (lex *Lexer) classify(c byte) (class symbolClass) {
 		class = lex.reclassifyUnderscore()
 	} else if c == '-' {
 		class = lex.classifyMinus()
+	} else if c == '@' {
+		class = annotation_class
 	} else if isSymbol(c) {
 		class = symbol_class
 	} else {
@@ -509,6 +512,39 @@ func (lex *Lexer) analyzeSymbol() (ok, eof bool) {
 	return lex.analyzeIdentifier()
 }
 
+func fixAnnotation(t token.Token) (tok token.Token, errorMessage string) {
+	if strings.ContainsRune(t.Value, '_') {
+		errorMessage = InvalidAnnotation
+	} else {
+		t.Type = token.At
+	}
+	return t, errorMessage
+}
+
+func (lex *Lexer) analyzeAnnotation() (ok, eof bool) {
+	start := lex.Char
+	lex.SavedChar.Push(start)
+	_, eof = lex.nextChar()
+	if eof {
+		panic("bug: input not validated")
+	}
+
+	var tok token.Token
+	tok, ok = lex.getId()
+	if !ok {
+		return
+	}
+	var errorMessage string
+	tok, errorMessage = fixAnnotation(tok)
+	if ok = errorMessage == ""; !ok {
+		lex.error(errorMessage)
+		return
+	}
+	lex.add(tok)
+	return
+}
+
+
 func getEscape(r rune, escapeString bool) (c byte, ok bool) {
 	ok = true
 	switch r {
@@ -816,6 +852,16 @@ func matchNonCapId(line string) (id string, ty token.Type, errorMessage string) 
 //	`! &`
 func (lex *Lexer) analyzeIdentifier() (ok, eof bool) {
 	lex.SavedChar.Push(lex.Char)
+	var token token.Token
+	token, ok = lex.getId()
+	if !ok {
+		return
+	}
+	lex.add(token)
+	return true, false
+}
+
+func (lex *Lexer) getId() (tok token.Token, ok bool) {
 	line, ok := lex.remainingLine()
 	if !ok {
 		panic("bug: function called without verifying readable source exists")
@@ -833,14 +879,14 @@ func (lex *Lexer) analyzeIdentifier() (ok, eof bool) {
 
 	if errorMessage != "" {
 		lex.error(errorMessage)
-		return false, false
+		ok = false
+		return
 	}
 
 	// add token
 	lex.Char += len(id) // this works b/c id is copied from `line` (not modified)
-	token := ty.MakeValued(id)
-	lex.add(token)
-	return true, false
+	tok = ty.MakeValued(id)
+	return
 }
 
 // when char after first underscore is valid, returns ("", 0); otherwise, returns non-empty string
@@ -893,6 +939,8 @@ func (class symbolClass) analyze(lex *Lexer) (ok, eof bool) {
 		return lex.analyzeUnderscore()
 	case comment_class:
 		return lex.analyzeComment()
+	case annotation_class:
+		return lex.analyzeAnnotation()
 	}
 
 	lex.error(InvalidCharacter)

@@ -18,6 +18,7 @@ const (
 	IllegalStringLiteral string = "illegal string literal"
 	IllegalUnderscoreSequence string = "illegal contiguous sequence of underscores"
 	InvalidUnderscore string = "invalid underscore"
+	InvalidAnnotation string = "invalid annotation"
 )
 
 // creates a OS error from the given message
