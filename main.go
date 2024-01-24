@@ -14,13 +14,31 @@ func promptRepl(lex *lexer.Lexer) int {
 	return lex.Write()
 }
 
-func respondRepl(lex *lexer.Lexer, i, result int) (i_end, result_end int) {
-	for result > 0 {
-		print("<< ", lex.Source[i])
-		i++
-		result--
+func respondRepl(lex *lexer.Lexer, i, t, result int) (i_end, t_end, result_end int) {
+	if result == 0 {
+		return i, t, result
 	}
-	return i, result
+	tokens, ok := lex.Tokenize()
+	if !ok {
+		messages := lex.FlushMessages()
+		for _, m := range messages {
+			fmt.Fprintf(os.Stderr, "%s\n", m.Error())
+		}
+		// remove erroneous tokens and source
+		lex.Tokens = lex.Tokens[:t]
+		lex.Source = lex.Source[:i]
+		return i, t, result
+	}
+
+	print("<<")
+	for _, tok := range tokens[t:] {
+		t++
+		print(" ", tok.String())
+	}
+	print("\n")
+	i += result
+	result = 0
+	return i, t, result
 }
 
 func repl() {
@@ -38,10 +56,11 @@ func repl() {
 
 	lex := lexer.Init(lexer.StdinSpec)
 	i := 0
+	t := 0
 
 	for result := 0; result >= 0; {
 		result = promptRepl(lex)
-		i, result = respondRepl(lex, i, result)
+		i, t, result = respondRepl(lex, i, t, result)
 	}
 }
 

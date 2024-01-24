@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/petersalex27/yew/common/stack"
 	"github.com/petersalex27/yew/errors"
@@ -31,6 +32,16 @@ type Lexer struct {
 	Tokens []token.Token
 	// errors, warnings, and logs during lexical analysis
 	messages []errors.ErrorMessage
+}
+
+func (lex *Lexer) Messages() []errors.ErrorMessage {
+	return lex.messages
+}
+
+func (lex *Lexer) FlushMessages() []errors.ErrorMessage {
+	messages := lex.messages
+	lex.messages = []errors.ErrorMessage{}
+	return messages
 }
 
 // initialize lexer for writing to its internal source buffer `lex.Source` from the input stream
@@ -94,6 +105,12 @@ func (lex *Lexer) Write() int {
 	}
 	after := len(lex.Source)
 	return after - before
+}
+
+func (lex *Lexer) add(token token.Token) {
+	start, _ := lex.SavedChar.Pop()
+	token.Line, token.Start, token.End = lex.Line, start, lex.Char
+	lex.Tokens = append(lex.Tokens, token)
 }
 
 // adds a message to lex's message slice
@@ -186,6 +203,32 @@ func readSourceFile(f *os.File) []string {
 		buf = append(buf, text)
 	}
 	return buf
+}
+
+// reads input through byte `end` and returns it and true iff successful
+func (lex *Lexer) readThrough(end byte) (string, bool) {
+	res, ok := lex.readUntil(end)
+	if !ok {
+		return res, ok
+	}
+
+	last, eof := lex.nextChar()
+	if ok = !eof; !ok {
+		return res, ok
+	}
+
+	return res + string(last), ok
+}
+
+// reads input to (but not including) byte `end` and returns it and true iff successful
+func (lex *Lexer) readUntil(char byte) (string, bool) {
+	var builder strings.Builder
+	c, ok := lex.currentSourceChar()
+	for ; c != char && ok; c, ok = lex.currentSourceChar() {
+		in, _ := lex.nextChar()
+		builder.WriteByte(in)
+	}
+	return builder.String(), ok
 }
 
 // returns true if and only if character number is a valid character position for `line`
