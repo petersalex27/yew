@@ -252,8 +252,3 @@ func (lex *Lexer) readUntil(char byte) (string, bool) {
 	}
 	return builder.String(), ok
 }
-
-// returns true if and only if character number is a valid character position for `line`
-func validateCharNumber(line string, charNumber int) bool {
-	return charNumber > 0 && charNumber <= len(line)
-}
