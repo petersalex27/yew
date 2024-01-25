@@ -57,6 +57,8 @@ const (
 	Underscore
 
 	At
+
+	End
 )
 
 func (ty Type) String() string {
@@ -129,6 +131,8 @@ func (ty Type) String() string {
 		return "Underscore"
 	case At:
 		return "At"
+	case End:
+		return "End"
 	default:
 		return fmt.Sprintf("Type(%d)", ty)
 	}

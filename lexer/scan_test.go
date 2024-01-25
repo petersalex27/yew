@@ -13,94 +13,96 @@ import (
 func TestAnalyzeNumber(t *testing.T) {
 	tests := []struct {
 		source string
+		pos    []int
 		expect token.Token
 	}{
 		{
 			source: "1",
-			expect: token.Token{Value: "1", Type: token.IntValue, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "1", Type: token.IntValue, End: 1},
 		},
 		{
 			source: "0x1",
-			expect: token.Token{Value: "0x1", Type: token.IntValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "0x1", Type: token.IntValue, End: 3},
 		},
 		{
 			source: "0xa",
-			expect: token.Token{Value: "0xa", Type: token.IntValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "0xa", Type: token.IntValue, End: 3},
 		},
 		{
 			source: "0Xa",
-			expect: token.Token{Value: "0Xa", Type: token.IntValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "0Xa", Type: token.IntValue, End: 3},
 		},
 		{
 			source: "0o1",
-			expect: token.Token{Value: "0o1", Type: token.IntValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "0o1", Type: token.IntValue, End: 3},
 		},
 		{
 			source: "0O1",
-			expect: token.Token{Value: "0O1", Type: token.IntValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "0O1", Type: token.IntValue, End: 3},
 		},
 		{
 			source: "0b1",
-			expect: token.Token{Value: "0b1", Type: token.IntValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "0b1", Type: token.IntValue, End: 3},
 		},
 		{
 			source: "0B1",
-			expect: token.Token{Value: "0B1", Type: token.IntValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "0B1", Type: token.IntValue, End: 3},
 		},
 		{
 			source: "1.0",
-			expect: token.Token{Value: "1.0", Type: token.FloatValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "1.0", Type: token.FloatValue, End: 3},
 		},
 		{
 			source: "1e1",
-			expect: token.Token{Value: "1e1", Type: token.FloatValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "1e1", Type: token.FloatValue, End: 3},
 		},
 		{
 			source: "1E1",
-			expect: token.Token{Value: "1E1", Type: token.FloatValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "1E1", Type: token.FloatValue, End: 3},
 		},
 		{
 			source: "1e+1",
-			expect: token.Token{Value: "1e+1", Type: token.FloatValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "1e+1", Type: token.FloatValue, End: 4},
 		},
 		{
 			source: "1e-1",
-			expect: token.Token{Value: "1e-1", Type: token.FloatValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "1e-1", Type: token.FloatValue, End: 4},
 		},
 		{
 			source: "1.0e1",
-			expect: token.Token{Value: "1.0e1", Type: token.FloatValue, Start: 1, End: 6, Line: 1},
+			expect: token.Token{Value: "1.0e1", Type: token.FloatValue, End: 5},
 		},
 		{
 			source: "0_1",
-			expect: token.Token{Value: "1", Type: token.IntValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "1", Type: token.IntValue, End: 3},
 		},
 		{
 			source: "00_1",
-			expect: token.Token{Value: "1", Type: token.IntValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "1", Type: token.IntValue, End: 4},
 		},
 		{
 			source: "11__1",
-			expect: token.Token{Value: "111", Type: token.IntValue, Start: 1, End: 6, Line: 1},
+			expect: token.Token{Value: "111", Type: token.IntValue, End: 5},
 		},
 		{
 			source: "0x1_1",
-			expect: token.Token{Value: "0x11", Type: token.IntValue, Start: 1, End: 6, Line: 1},
+			expect: token.Token{Value: "0x11", Type: token.IntValue, End: 5},
 		},
 		{
 			source: "0o1_1",
-			expect: token.Token{Value: "0o11", Type: token.IntValue, Start: 1, End: 6, Line: 1},
+			expect: token.Token{Value: "0o11", Type: token.IntValue, End: 5},
 		},
 		{
 			source: "0b1_1",
-			expect: token.Token{Value: "0b11", Type: token.IntValue, Start: 1, End: 6, Line: 1},
+			expect: token.Token{Value: "0b11", Type: token.IntValue, End: 5},
 		},
 	}
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
-		lex.Source = []string{test.source}
-		lex.Line, lex.Char = 1, 1
+		lex.Source = []byte(test.source)
+		lex.PositionRanges = []int{len(test.source)}
+		lex.Line = 1
 
 		ok, eof := lex.analyzeNumber()
 		if !ok {
@@ -128,58 +130,59 @@ func TestAnalyzeChar(t *testing.T) {
 	}{
 		{
 			source: `'a'`,
-			expect: token.Token{Value: "a", Type: token.CharValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "a", Type: token.CharValue, End: 3},
 		},
 		{
 			source: `' '`,
-			expect: token.Token{Value: " ", Type: token.CharValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: " ", Type: token.CharValue, End: 3},
 		},
 		{
 			source: `'@'`,
-			expect: token.Token{Value: "@", Type: token.CharValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "@", Type: token.CharValue, End: 3},
 		},
 		{
 			source: `'\n'`,
-			expect: token.Token{Value: "\n", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "\n", Type: token.CharValue, End: 4},
 		},
 		{
 			source: `'\t'`,
-			expect: token.Token{Value: "\t", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "\t", Type: token.CharValue, End: 4},
 		},
 		{
 			source: `'\a'`,
-			expect: token.Token{Value: "\a", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "\a", Type: token.CharValue, End: 4},
 		},
 		{
 			source: `'\b'`,
-			expect: token.Token{Value: "\b", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "\b", Type: token.CharValue, End: 4},
 		},
 		{
 			source: `'\v'`,
-			expect: token.Token{Value: "\v", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "\v", Type: token.CharValue, End: 4},
 		},
 		{
 			source: `'\f'`,
-			expect: token.Token{Value: "\f", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "\f", Type: token.CharValue, End: 4},
 		},
 		{
 			source: `'\r'`,
-			expect: token.Token{Value: "\r", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "\r", Type: token.CharValue, End: 4},
 		},
 		{
 			source: `'\''`,
-			expect: token.Token{Value: "'", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "'", Type: token.CharValue, End: 4},
 		},
 		{
 			source: `'\\'`,
-			expect: token.Token{Value: "\\", Type: token.CharValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "\\", Type: token.CharValue, End: 4},
 		},
 	}
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
-		lex.Source = []string{test.source}
-		lex.Line, lex.Char = 1, 1
+		lex.Source = []byte(test.source)
+		lex.PositionRanges = []int{len(test.source)}
+		lex.Line = 1
 
 		ok, eof := lex.analyzeChar()
 		if !ok {
@@ -207,30 +210,31 @@ func TestAnalyzeString(t *testing.T) {
 	}{
 		{
 			source: `""`,
-			expect: token.Token{Value: "", Type: token.StringValue, Start: 1, End: 3, Line: 1},
+			expect: token.Token{Value: "", Type: token.StringValue, End: 2},
 		},
 		{
 			source: `" "`,
-			expect: token.Token{Value: " ", Type: token.StringValue, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: " ", Type: token.StringValue, End: 3},
 		},
 		{
 			source: `"--"`,
-			expect: token.Token{Value: "--", Type: token.StringValue, Start: 1, End: 5, Line: 1},
+			expect: token.Token{Value: "--", Type: token.StringValue, End: 4},
 		},
 		{
 			source: `"this is a string"`,
-			expect: token.Token{Value: "this is a string", Type: token.StringValue, Start: 1, End: 19, Line: 1},
+			expect: token.Token{Value: "this is a string", Type: token.StringValue, End: 18},
 		},
 		{
 			source: `"\n\t\a\b\v\f\r\"\\"`,
-			expect: token.Token{Value: "\n\t\a\b\v\f\r\"\\", Type: token.StringValue, Start: 1, End: 21, Line: 1},
+			expect: token.Token{Value: "\n\t\a\b\v\f\r\"\\", Type: token.StringValue, End: 20},
 		},
 	}
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
-		lex.Source = []string{test.source}
-		lex.Line, lex.Char = 1, 1
+		lex.Source = []byte(test.source)
+		lex.PositionRanges = []int{len(test.source)}
+		lex.Line = 1
 
 		ok, eof := lex.analyzeString()
 		if !ok {
@@ -266,8 +270,8 @@ func TestFixAnnotation(t *testing.T) {
 			expect: token.Token{Value: "Annotation", Type: token.At},
 		},
 		{
-			source: token.Token{Value: "annotation_a", Type: token.Affixed},
-			expect: token.Token{Value: "annotation_a", Type: token.Affixed},
+			source:         token.Token{Value: "annotation_a", Type: token.Affixed},
+			expect:         token.Token{Value: "annotation_a", Type: token.Affixed},
 			expectErrorMsg: InvalidAnnotation,
 		},
 	}
@@ -290,22 +294,23 @@ func TestAnalyzeAnnotation(t *testing.T) {
 	}{
 		{
 			source: `@annotation`,
-			expect: token.Token{Value: "annotation", Type: token.At, Line: 1, Start: 1, End: 12},
+			expect: token.Token{Value: "annotation", Type: token.At, End: 11},
 		},
 		{
 			source: `@Annotation`,
-			expect: token.Token{Value: "Annotation", Type: token.At, Line: 1, Start: 1, End: 12},
+			expect: token.Token{Value: "Annotation", Type: token.At, End: 11},
 		},
 		{
 			source: `@annotation _ stuff`,
-			expect: token.Token{Value: "annotation", Type: token.At, Line: 1, Start: 1, End: 12},
+			expect: token.Token{Value: "annotation", Type: token.At, End: 11},
 		},
 	}
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
-		lex.Source = []string{test.source}
-		lex.Line, lex.Char = 1, 1
+		lex.Source = []byte(test.source)
+		lex.PositionRanges = []int{len(test.source)}
+		lex.Line = 1
 
 		ok, eof := lex.analyzeAnnotation()
 		if !ok {
@@ -333,38 +338,39 @@ func TestAnalyzeStandalone(t *testing.T) {
 	}{
 		{
 			source: `(`,
-			expect: token.Token{Value: "(", Type: token.LeftParen, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "(", Type: token.LeftParen, End: 1},
 		},
 		{
 			source: `[`,
-			expect: token.Token{Value: "[", Type: token.LeftBracket, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "[", Type: token.LeftBracket, End: 1},
 		},
 		{
 			source: `{`,
-			expect: token.Token{Value: "{", Type: token.LeftBrace, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "{", Type: token.LeftBrace, End: 1},
 		},
 		{
 			source: `,`,
-			expect: token.Token{Value: ",", Type: token.Comma, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: ",", Type: token.Comma, End: 1},
 		},
 		{
 			source: `)`,
-			expect: token.Token{Value: ")", Type: token.RightParen, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: ")", Type: token.RightParen, End: 1},
 		},
 		{
 			source: `]`,
-			expect: token.Token{Value: "]", Type: token.RightBracket, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "]", Type: token.RightBracket, End: 1},
 		},
 		{
 			source: `}`,
-			expect: token.Token{Value: "}", Type: token.RightBrace, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "}", Type: token.RightBrace, End: 1},
 		},
 	}
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
-		lex.Source = []string{test.source}
-		lex.Line, lex.Char = 1, 1
+		lex.Source = []byte(test.source)
+		lex.PositionRanges = []int{len(test.source)}
+		lex.Line = 1
 
 		ok, eof := lex.analyzeStandalone()
 		if !ok {
@@ -471,8 +477,9 @@ func TestMatchKeyword(t *testing.T) {
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
-		lex.Source = []string{test.source}
-		lex.Line, lex.Char = 1, 1
+		lex.Source = []byte(test.source)
+		lex.PositionRanges = []int{len(test.source)}
+		lex.Line = 1
 
 		actual := matchKeyword(test.source, token.Id)
 		if actual != test.expect {
@@ -612,54 +619,55 @@ func TestAnalyzeIdentifier(t *testing.T) {
 	}{
 		{
 			source: `+`,
-			expect: token.Token{Value: "+", Type: token.Id, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "+", Type: token.Id, End: 1},
 		},
 		{
 			source: `+{`,
-			expect: token.Token{Value: "+", Type: token.Id, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "+", Type: token.Id, End: 1},
 		},
 		{
 			source: `+=`,
-			expect: token.Token{Value: "+=", Type: token.Id, Start: 1, End: 3, Line: 1},
+			expect: token.Token{Value: "+=", Type: token.Id, End: 2},
 		},
 		{
 			source: `_+_`,
-			expect: token.Token{Value: "_+_", Type: token.Affixed, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "_+_", Type: token.Affixed, End: 3},
 		},
 		{
 			source: `_>>=_`,
-			expect: token.Token{Value: "_>>=_", Type: token.Affixed, Start: 1, End: 6, Line: 1},
+			expect: token.Token{Value: "_>>=_", Type: token.Affixed, End: 5},
 		},
 		{
 			source: `_mod_`,
-			expect: token.Token{Value: "_mod_", Type: token.Affixed, Start: 1, End: 6, Line: 1},
+			expect: token.Token{Value: "_mod_", Type: token.Affixed, End: 5},
 		},
 		{
 			source: `mod`,
-			expect: token.Token{Value: "mod", Type: token.Id, Start: 1, End: 4, Line: 1},
+			expect: token.Token{Value: "mod", Type: token.Id, End: 3},
 		},
 		{
 			source: `!`,
-			expect: token.Token{Value: "!", Type: token.Id, Start: 1, End: 2, Line: 1},
+			expect: token.Token{Value: "!", Type: token.Id, End: 1},
 		},
 		{
 			source: `_!`,
-			expect: token.Token{Value: "_!", Type: token.Affixed, Start: 1, End: 3, Line: 1},
+			expect: token.Token{Value: "_!", Type: token.Affixed, End: 2},
 		},
 		{
 			source: `!_`,
-			expect: token.Token{Value: "!_", Type: token.Affixed, Start: 1, End: 3, Line: 1},
+			expect: token.Token{Value: "!_", Type: token.Affixed, End: 2},
 		},
 		{
 			source: `if_then_else_`,
-			expect: token.Token{Value: "if_then_else_", Type: token.Affixed, Start: 1, End: 14, Line: 1},
+			expect: token.Token{Value: "if_then_else_", Type: token.Affixed, End: 13},
 		},
 	}
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
-		lex.Source = []string{test.source}
-		lex.Line, lex.Char = 1, 1
+		lex.Source = []byte(test.source)
+		lex.PositionRanges = []int{len(test.source)}
+		lex.Line = 1
 
 		ok, eof := lex.analyzeIdentifier()
 		if !ok {
@@ -681,10 +689,10 @@ func TestAnalyzeIdentifier(t *testing.T) {
 }
 
 func TestAnalyzeUnderscore(t *testing.T) {
-	expect := token.Token{Value: "_", Type: token.Underscore, Start: 1, End: 2, Line: 1}
+	expect := token.Token{Value: "_", Type: token.Underscore, End: 1}
 	lex := Init(StdinSpec)
-	lex.Source = []string{`_`}
-	lex.Line, lex.Char = 1, 1
+	lex.Source = []byte(`_`)
+	lex.Line = 1
 
 	ok, eof := lex.analyzeUnderscore()
 	if !ok {
@@ -706,47 +714,48 @@ func TestAnalyzeUnderscore(t *testing.T) {
 
 func TestAnalyzeSingleLineComment(t *testing.T) {
 	tests := []struct {
-		source []string
+		source []byte
 		expect token.Token
 	}{
 		{
-			source: []string{`--`},
-			expect: token.Token{Value: "", Type: token.Comment, Start: 1, End: 3, Line: 1},
+			source: []byte(`--`),
+			expect: token.Token{Value: "", Type: token.Comment, End: 2},
 		},
 		{
-			source: []string{`-- `},
-			expect: token.Token{Value: " ", Type: token.Comment, Start: 1, End: 4, Line: 1},
+			source: []byte(`-- `),
+			expect: token.Token{Value: " ", Type: token.Comment, End: 3},
 		},
 		{
-			source: []string{`--comment`},
-			expect: token.Token{Value: "comment", Type: token.Comment, Start: 1, End: 10, Line: 1},
+			source: []byte(`--comment`),
+			expect: token.Token{Value: "comment", Type: token.Comment, End: 9},
 		},
 		{
-			source: []string{`-- comment`},
-			expect: token.Token{Value: " comment", Type: token.Comment, Start: 1, End: 11, Line: 1},
+			source: []byte(`-- comment`),
+			expect: token.Token{Value: " comment", Type: token.Comment, End: 10},
 		},
 		{
-			source: []string{"--\tcomment"},
-			expect: token.Token{Value: "\tcomment", Type: token.Comment, Start: 1, End: 11, Line: 1},
+			source: []byte("--\tcomment"),
+			expect: token.Token{Value: "\tcomment", Type: token.Comment, End: 10},
 		},
 		{
-			source: []string{"--comment "},
-			expect: token.Token{Value: "comment ", Type: token.Comment, Start: 1, End: 11, Line: 1},
+			source: []byte("--comment "),
+			expect: token.Token{Value: "comment ", Type: token.Comment, End: 10},
 		},
 		{
-			source: []string{"-- a comment"},
-			expect: token.Token{Value: " a comment", Type: token.Comment, Start: 1, End: 13, Line: 1},
+			source: []byte("-- a comment"),
+			expect: token.Token{Value: " a comment", Type: token.Comment, End: 12},
 		},
 		{
-			source: []string{"-------"},
-			expect: token.Token{Value: "-----", Type: token.Comment, Start: 1, End: 8, Line: 1},
+			source: []byte("-------"),
+			expect: token.Token{Value: "-----", Type: token.Comment, End: 7},
 		},
 	}
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
 		lex.Source = test.source
-		lex.Line, lex.Char = 1, 1
+		lex.PositionRanges = []int{len(test.source)}
+		lex.Line = 1
 
 		ok, eof := lex.analyzeComment()
 		if !ok {
@@ -769,82 +778,77 @@ func TestAnalyzeSingleLineComment(t *testing.T) {
 
 func TestAnalyzeMultiLineComment(t *testing.T) {
 	tests := []struct {
-		source []string
+		source []byte
+		pos    []int
 		expect token.Token
 	}{
 		{
-			source: []string{`-**-`},
-			expect: token.Token{Value: "", Type: token.Comment, Start: 1, End: 5, Line: 1},
+			source: []byte(`-**-`),
+			pos: []int{4},
+			expect: token.Token{Value: "", Type: token.Comment, End: 4},
 		},
 		{
-			source: []string{`-*****-`},
-			expect: token.Token{Value: "***", Type: token.Comment, Start: 1, End: 8, Line: 1},
+			source: []byte(`-*****-`),
+			pos: []int{7},
+			expect: token.Token{Value: "***", Type: token.Comment, End: 7},
 		},
 		{
-			source: []string{`-*-*-`},
-			expect: token.Token{Value: "-", Type: token.Comment, Start: 1, End: 6, Line: 1},
+			source: []byte(`-*-*-`),
+			pos: []int{5},
+			expect: token.Token{Value: "-", Type: token.Comment, End: 5},
 		},
 		{
-			source: []string{`-*--*-`},
-			expect: token.Token{Value: "--", Type: token.Comment, Start: 1, End: 7, Line: 1},
+			source: []byte(`-*--*-`),
+			pos: []int{6},
+			expect: token.Token{Value: "--", Type: token.Comment, End: 6},
 		},
 		{
-			source: []string{`-*-**-`},
-			expect: token.Token{Value: "-*", Type: token.Comment, Start: 1, End: 7, Line: 1},
+			source: []byte(`-*-**-`),
+			pos: []int{6},
+			expect: token.Token{Value: "-*", Type: token.Comment, End: 6},
 		},
 		{
-			source: []string{`-*-**-a`},
-			expect: token.Token{Value: "-*", Type: token.Comment, Start: 1, End: 7, Line: 1},
+			source: []byte(`-*-**-a`),
+			pos: []int{7},
+			expect: token.Token{Value: "-*", Type: token.Comment, End: 6},
 		},
 		{
-			source: []string{`-*a comment*-`},
-			expect: token.Token{Value: "a comment", Type: token.Comment, Start: 1, End: 14, Line: 1},
+			source: []byte(`-*a comment*-`),
+			pos: []int{13},
+			expect: token.Token{Value: "a comment", Type: token.Comment, End: 13},
 		},
 		{
-			source: []string{`-* a comment *-`},
-			expect: token.Token{Value: " a comment ", Type: token.Comment, Start: 1, End: 16, Line: 1},
+			source: []byte(`-* a comment *-`),
+			pos: []int{15},
+			expect: token.Token{Value: " a comment ", Type: token.Comment, End: 15},
 		},
 		{
-			source: []string{
-				"-*\n",
-				`*-`,
-			},
-			expect: token.Token{Value: "\n", Type: token.Comment, Start: 1, End: 3, Line: 2},
+			source: []byte("-*\n*-"),
+			pos: []int{3,5},
+			expect: token.Token{Value: "\n", Type: token.Comment, End: 5},
 		},
 		{
-			source: []string{
-				"-* this\n",
-				`is a comment*-`,
-			},
-			expect: token.Token{Value: " this\nis a comment", Type: token.Comment, Start: 1, End: 15, Line: 2},
+			source: []byte("-* this\nis a comment*-"),
+			pos: []int{8,22},
+			expect: token.Token{Value: " this\nis a comment", Type: token.Comment, End: 22},
 		},
 		{
-			source: []string{
-				"-*\n",
-				"this\n",
-				"is\n",
-				"a\n",
-				"comment*-",
-			},
-			expect: token.Token{Value: "\nthis\nis\na\ncomment", Type: token.Comment, Start: 1, End: 10, Line: 5},
+			source: []byte("-*\nthis\nis\na\ncomment*-"),
+			pos: []int{3,9,11,13,22},
+			expect: token.Token{Value: "\nthis\nis\na\ncomment", Type: token.Comment, End: 22},
 		},
 		{
-			source: []string{
-				"-*\n",
-				"this\n",
-				"is\n",
-				"a\n",
-				"comment\n",
-				"*-",
-			},
-			expect: token.Token{Value: "\nthis\nis\na\ncomment\n", Type: token.Comment, Start: 1, End: 3, Line: 6},
+			source: []byte("-*\nthis\nis\na\ncomment\n*-"),
+			pos: []int{3,9,11,13,23},
+			expect: token.Token{Value: "\nthis\nis\na\ncomment\n", Type: token.Comment, End: 23},
 		},
 	}
 
 	for _, test := range tests {
 		lex := Init(StdinSpec)
 		lex.Source = test.source
-		lex.Line, lex.Char = 1, 1
+		lex.PositionRanges = test.pos
+		lex.Line = 1
 
 		ok, eof := lex.analyzeComment()
 		if !ok {

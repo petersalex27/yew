@@ -48,15 +48,19 @@ func TestSetLocation(t *testing.T) {
 		},
 		{
 			args: []int{1, 2}, 
-			expected: ErrorMessage{Line: 1, Start: 2,},
+			expected: ErrorMessage{Line: 1, LineEnd: 2,},
 		},
 		{
 			args: []int{1, 2, 3}, 
-			expected: ErrorMessage{Line: 1, Start: 2, End: 3},
+			expected: ErrorMessage{Line: 1, LineEnd: 2, Start: 3},
 		},
 		{
 			args: []int{1, 2, 3, 4}, 
-			expected: ErrorMessage{Line: 1, Start: 2, End: 3},
+			expected: ErrorMessage{Line: 1, LineEnd: 2, Start: 3, End: 4,},
+		},
+		{
+			args: []int{1, 2, 3, 4, 5}, 
+			expected: ErrorMessage{Line: 1, LineEnd: 2, Start: 3, End: 4,},
 		},
 	}
 	
@@ -116,7 +120,7 @@ func TestHeader(t *testing.T) {
 
 func TestLocationString(t *testing.T) {
 	tests := []struct{
-		line, start, end int
+		line, lineEnd, start, end int
 		path string
 		expected string
 	}{
@@ -127,6 +131,11 @@ func TestLocationString(t *testing.T) {
 		},
 		{
 			line: 1, start: 0, end: 0,
+			path: "",
+			expected: "\n[_:1]",
+		},
+		{
+			line: 1, lineEnd: 1, start: 0, end: 0,
 			path: "",
 			expected: "\n[_:1]",
 		},
@@ -165,11 +174,22 @@ func TestLocationString(t *testing.T) {
 			path: "",
 			expected: "\n[_:1:1]",
 		},
+		{
+			line: 1, lineEnd: 3, start: 1, end: 3,
+			path: "a",
+			expected: "\n[a:1-2:1,2]",
+		},
+		{
+			line: 1, lineEnd: 3, start: 1, end: 0,
+			path: "a",
+			expected: "\n[a:1-2:1]",
+		},
 	}
 
 	for _, test := range tests {
 		e := ErrorMessage{
 			Line: test.line,
+			LineEnd: test.lineEnd,
 			Start: test.start,
 			End: test.end,
 			SourceName: test.path,
@@ -177,7 +197,7 @@ func TestLocationString(t *testing.T) {
 
 		actual := e.locationString()
 		if actual != test.expected {
-			t.Fatalf("unexpected location string from line=%d, start=%d, end=%d, path=\"%s\": got \"%s\"", test.line, test.start, test.end, test.path, actual)
+			t.Fatalf("unexpected location string from line=%d, lineEnd=%d, start=%d, end=%d, path=\"%s\": got \"%s\"", test.line, test.lineEnd, test.start, test.end, test.path, actual)
 		}
 	}
 }

@@ -49,13 +49,13 @@ func (lex *Lexer) reclassifyUnderscore() (class symbolClass) {
 		return symbol_class
 	}
 
-	start := lex.Char - 1
+	start := lex.charNumber() - 1
 	errorMessage, endChar := lex.validateUnderscoreNextChar()
 	if errorMessage == "" {
 		return underscore_class
 	}
 
-	lex.error2(errorMessage, lex.Line, start, endChar)
+	lex.error2(errorMessage, lex.Line, lex.Line+1, start, endChar)
 	return error_class
 }
 
@@ -109,7 +109,8 @@ var endMultiCommentRegex = regexp.MustCompile(`\*-`)
 
 // creates and pushes token for single-line comment with Value=`lineAfterDashes`
 func (lex *Lexer) getSingleLineComment(lineAfterDashes string) (ok, eof bool) {
-	lex.Char += len(lineAfterDashes)
+	offs := len(lineAfterDashes)
+	lex.Pos += offs
 	tok := token.Comment.MakeValued(lineAfterDashes)
 	lex.add(tok)
 	return true, false
@@ -136,8 +137,6 @@ func (lex *Lexer) getMultiLineComment(line string) (ok, eof bool) {
 			lex.error(UnexpectedEOF)
 			return
 		}
-		lex.SavedChar.Pop()
-		lex.SavedChar.Push(lex.Char)
 
 		comment = comment + next
 
@@ -153,13 +152,13 @@ func (lex *Lexer) getMultiLineComment(line string) (ok, eof bool) {
 	// create an push comment token
 	comment = comment + next
 	tok := token.Comment.MakeValued(comment)
-	lex.Char += loc[1] // set just past end of comment
+	lex.Pos += loc[1]
 	lex.add(tok)
 	return ok, false
 }
 
 func (lex *Lexer) analyzeComment() (ok, eof bool) {
-	lex.SavedChar.Push(lex.Char)
+	lex.SavedChar.Push(lex.Pos)
 
 	var c byte
 	_, eof = lex.nextChar() // remove initial '-'
@@ -372,19 +371,25 @@ func maybeFractional(num, line string) (tok token.Token, numChars int, errorMess
 	return
 }
 
+func (lex *Lexer) charNumber() int {
+	return (lex.PositionRanges[lex.Line-1] + 1) - lex.Pos
+}
+
 // return current line starting from current char until the end of line
 func (lex *Lexer) remainingLine() (line string, ok bool) {
-	line, ok = lex.currentSourceLine()
-	if !ok || (lex.Char > 0 && lex.Char > len(line)) {
+	if lex.Line > len(lex.PositionRanges) {
 		return "", false
 	}
-
-	return line[lex.Char-1:], true
+	start, end := lex.Pos, lex.PositionRanges[lex.Line-1]
+	if start >= end {
+		return "", false
+	}
+	return string(lex.Source[start:end]), true
 }
 
 // read number from input
 func (lex *Lexer) analyzeNumber() (ok, eof bool) {
-	lex.SavedChar.Push(lex.Char)
+	lex.SavedChar.Push(lex.Pos)
 	line, ok := lex.remainingLine()
 	if !ok {
 		panic("bug: function called without verifying readable source exists")
@@ -409,7 +414,7 @@ func (lex *Lexer) analyzeNumber() (ok, eof bool) {
 		errorMessage = InvalidCharacter
 	}
 
-	lex.Char += numChars
+	lex.Pos += numChars
 	if errorMessage != "" {
 		lex.error(errorMessage)
 		return false, eof
@@ -474,9 +479,9 @@ func (lex *Lexer) analyzeStandalone() (ok, eof bool) {
 
 	var tokenType token.Type
 	if tokenType, ok = standaloneMap[c]; ok {
-		lex.SavedChar.Push(lex.Char)
+		lex.SavedChar.Push(lex.Pos)
 		token := tokenType.Make()
-		lex.Char = lex.Char + 1
+		lex.Pos = lex.Pos + 1
 		lex.add(token)
 	}
 	return
@@ -522,7 +527,7 @@ func fixAnnotation(t token.Token) (tok token.Token, errorMessage string) {
 }
 
 func (lex *Lexer) analyzeAnnotation() (ok, eof bool) {
-	start := lex.Char
+	start := lex.Pos
 	lex.SavedChar.Push(start)
 	_, eof = lex.nextChar()
 	if eof {
@@ -632,7 +637,7 @@ func updateEscape(s string, escapeString bool) (string, bool, int) {
 }
 
 func (lex *Lexer) analyzeChar() (ok, eof bool) {
-	lex.SavedChar.Push(lex.Char)
+	lex.SavedChar.Push(lex.Pos)
 
 	var c byte
 	c, eof = lex.nextChar() // should be leading '
@@ -660,7 +665,7 @@ func (lex *Lexer) analyzeChar() (ok, eof bool) {
 		return
 	}
 
-	lex.Char += length
+	lex.Pos += length
 	if c, eof = lex.nextChar(); c != '\'' || eof { // remove closing `'`
 		ok = false
 		if eof {
@@ -674,7 +679,7 @@ func (lex *Lexer) analyzeChar() (ok, eof bool) {
 	var index int
 	escaped, ok, index = updateEscape(escaped, false)
 	if !ok {
-		lex.Char += index + 1
+		lex.Pos += index + 1
 		lex.error(IllegalEscapeSequence)
 		return
 	}
@@ -749,7 +754,7 @@ func (lex *Lexer) getStringContent() (content string, ok bool) {
 }
 
 func (lex *Lexer) analyzeString() (ok, eof bool) {
-	lex.SavedChar.Push(lex.Char)
+	lex.SavedChar.Push(lex.Pos)
 	var c byte
 	c, eof = lex.nextChar() // should be first quotation mark
 	// check for leading quotation mark
@@ -851,7 +856,7 @@ func matchNonCapId(line string) (id string, ty token.Type, errorMessage string) 
 //
 //	`! &`
 func (lex *Lexer) analyzeIdentifier() (ok, eof bool) {
-	lex.SavedChar.Push(lex.Char)
+	lex.SavedChar.Push(lex.Pos)
 	var token token.Token
 	token, ok = lex.getId()
 	if !ok {
@@ -884,7 +889,8 @@ func (lex *Lexer) getId() (tok token.Token, ok bool) {
 	}
 
 	// add token
-	lex.Char += len(id) // this works b/c id is copied from `line` (not modified)
+	offs := len(id) // this works b/c id is copied from `line` (not modified)
+	lex.Pos += offs
 	tok = ty.MakeValued(id)
 	return
 }
@@ -900,19 +906,19 @@ func (lex *Lexer) validateUnderscoreNextChar() (errorMessage string, errorEndCha
 	r := rune(c)
 	ok := r != '_'
 	if !ok {
-		return IllegalUnderscoreSequence, lex.Char + 1
+		return IllegalUnderscoreSequence, lex.Pos + 1
 	}
 
 	ok = unicode.IsDigit(r)
 	if !ok {
-		return InvalidUnderscore, lex.Char
+		return InvalidUnderscore, lex.Pos
 	}
 
 	return "", 0
 }
 
 func (lex *Lexer) analyzeUnderscore() (ok, eof bool) {
-	lex.SavedChar.Push(lex.Char)
+	lex.SavedChar.Push(lex.Pos)
 	_, eof = lex.nextChar()
 	if ok = !eof; !ok {
 		panic("bug: source was not validated")
@@ -949,16 +955,7 @@ func (class symbolClass) analyze(lex *Lexer) (ok, eof bool) {
 
 // true iff lexer is at end of source
 func (lex *Lexer) eof() bool {
-	if lex.Line > len(lex.Source) {
-		return true
-	}
-
-	if lex.Line != len(lex.Source) {
-		return false
-	}
-
-	line := lex.Source[lex.Line-1]
-	return lex.Char > len(line)
+	return lex.Pos >= len(lex.Source)
 }
 
 // get current char
@@ -980,24 +977,21 @@ func (lex *Lexer) peek() (c byte, eof bool) {
 // advances input by a single char and returns the new current char
 func (lex *Lexer) nextChar() (c byte, eof bool) {
 	if c, eof = lex.peek(); !eof {
-		lex.Char++
+		lex.Pos++
 	}
 	return
 }
 
 // unadvance input by a single char and returns the new current char
 func (lex *Lexer) ungetChar() (c byte) {
-	if lex.Char > 1 {
-		lex.Char = lex.Char - 1
-	} else if lex.Line > 1 {
+	char := lex.charNumber()
+	if char > 1 {
+		lex.Pos--
+	} else if lex.Line > 1 { // char is 1
 		lex.Line = lex.Line - 1
-		lex.Char = len(lex.Source[lex.Line-1])
+		lex.Pos--
 	} else {
 		panic("bug: cannot move input to a position before its start")
-	}
-
-	if !lex.ValidChar() {
-		panic("bug: illegal char unget")
 	}
 
 	c, _ = lex.currentSourceChar()
@@ -1017,7 +1011,7 @@ func (lex *Lexer) skipWhitespace() (eof bool) {
 		case ' ':
 			fallthrough // advance char counter
 		case '\t':
-			lex.Char++ // advance char counter
+			lex.Pos++
 		default: // non whitespace
 			return eof
 		}
@@ -1027,15 +1021,10 @@ func (lex *Lexer) skipWhitespace() (eof bool) {
 
 func eofLineAdvance(lex *Lexer) (ok, eof bool) {
 	eof = true
-	ok = lex.Line > len(lex.Source) // if already at EOF, then not ok; else ok
-	lex.Line = len(lex.Source) + 1  // set to eof
+	ok = lex.Line > len(lex.PositionRanges) // if already at EOF, then not ok; else ok
+	lex.Line = len(lex.PositionRanges) + 1  // set to eof
+	lex.Pos++
 	return
-}
-
-// sets line to next line and char to one
-func setLineToNext(lex *Lexer) {
-	lex.Line++
-	lex.Char = 1
 }
 
 // moves line counter to next line and char counter to first char
@@ -1043,12 +1032,14 @@ func setLineToNext(lex *Lexer) {
 // returns ok==true if line counter was advanced and eof==true either when already at end of source
 // or if advancing the line counter puts lexer at end of input
 func (lex *Lexer) advanceLine() (ok, eof bool) {
-	if (lex.Line + 1) > len(lex.Source) {
+	println("advancing!")
+	if lex.Line >= len(lex.PositionRanges) {
 		// returns ok==true when not at EOF before advancing; eof==true unconditionally
 		return eofLineAdvance(lex)
 	}
 
-	setLineToNext(lex)
+	lex.Line++
+	lex.Pos = lex.PositionRanges[lex.Line-2]
 	return true, false
 }
 
@@ -1078,17 +1069,15 @@ func (lex *Lexer) analyze() (ok bool, eof bool) {
 // prepares lexer for reading from source based on whether it's already read and whether the source is empty or not
 func (lex *Lexer) fixLineChar() {
 	if lex.Line == 0 {
-		lex.Line = common.Min(1, len(lex.Source)) // set line to zero when no source code, else set to one
-		lex.Char = lex.Line                       // this will make (line, char) == (1, 1) OR (line, char) == (0, 0)
-	} else if lex.Char != 1 {
-		lex.Char = 1
+		lex.Pos = 0
+		lex.Line = common.Min(1, len(lex.PositionRanges)) // set line to zero when no source code, else set to one
 	}
-
-	debug_validateLineAndChar(lex)
+	lex.Pos, _ = lex.LinePos(lex.Line)
 }
 
 // tokenize lex source
 func (lex *Lexer) Tokenize() (tokens []token.Token, ok bool) {
+	fmt.Printf("\n%v\n", lex)
 	lex.fixLineChar() // prepare for reading from source
 
 	var eof bool

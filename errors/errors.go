@@ -12,24 +12,25 @@ type ErrorMessage struct {
 	SourceName string // source name where error occurred
 	Message    string // actual message part of error
 	Line       int    // line number
-	Start      int    // start (inclusive) char number
-	End        int    // end (exclusive) char number
+	LineEnd    int
+	Start      int // start (inclusive) char number
+	End        int // end (exclusive) char number
 }
 
 // given:
 //
 // if path is not given, uses "_"
 //
-// 	- line # = n, start # = s, end # = e
-//	locationString() == "\n[/path/to/src:n:s-e]"
-// 	- line # = n, start # = s
-//	locationString() == "\n[/path/to/src:n:s]"
-// 	- line # = n
-//	locationString() == "\n[/path/to/src:n]"
-//	- no numbers, just non-empty path
-//	locationString() == "\n[/path/to/src]"
-//	- no number, no path
-//	locationString() == ""
+//   - line # = n, start # = s, end # = e
+//     locationString() == "\n[/path/to/src:n:s-e]"
+//   - line # = n, start # = s
+//     locationString() == "\n[/path/to/src:n:s]"
+//   - line # = n
+//     locationString() == "\n[/path/to/src:n]"
+//   - no numbers, just non-empty path
+//     locationString() == "\n[/path/to/src]"
+//   - no number, no path
+//     locationString() == ""
 func (e ErrorMessage) locationString() string {
 	srcName := "_"
 	if e.SourceName != "" {
@@ -39,20 +40,35 @@ func (e ErrorMessage) locationString() string {
 	if e.Line <= 0 && srcName == "_" {
 		return ""
 	}
-	
+
+	s := ""
 	if e.Line <= 0 {
 		return fmt.Sprintf("\n[%s]", srcName)
 	}
 
+	if e.LineEnd-1 > e.Line {
+		s = fmt.Sprintf("\n[%s:%d-%d", srcName, e.Line, e.LineEnd-1)
+	} else {
+		s = fmt.Sprintf("\n[%s:%d", srcName, e.Line)
+	}
+
 	if e.Start <= 0 {
-		return fmt.Sprintf("\n[%s:%d]", srcName, e.Line)
+		return s + "]"
 	}
 
-	if (e.End-1) <= e.Start {
-		return fmt.Sprintf("\n[%s:%d:%d]", srcName, e.Line, e.Start)
+	if e.LineEnd-1 > e.Line {
+		// start is on a diff line than end
+		if e.End <= 1 {
+			return s + fmt.Sprintf(":%d]", e.Start)
+		}
+		return s + fmt.Sprintf(":%d,%d]", e.Start, e.End-1)
 	}
 
-	return fmt.Sprintf("\n[%s:%d:%d-%d]", srcName, e.Line, e.Start, e.End-1)
+	// start is on same line as end
+	if (e.End - 1) <= e.Start {
+		return s + fmt.Sprintf(":%d]", e.Start)
+	}
+	return s + fmt.Sprintf(":%d-%d]", e.Start, e.End-1)
 }
 
 func (e ErrorMessage) Error() string {
@@ -85,10 +101,10 @@ func (e ErrorMessage) hasCodeSnippet() bool {
 //     respectively; any remaining arguments are ignored
 func (e ErrorMessage) setLocation(line_start_end ...int) ErrorMessage {
 	// reference location fields of error
-	setter := []*int{&e.Line, &e.Start, &e.End}
+	setter := []*int{&e.Line, &e.LineEnd, &e.Start, &e.End}
 	// assign to location fields of error in this order for up to as many as are available (max 3
 	// fields)
-	for i := 0; i < common.Min(3, len(line_start_end)); i++ {
+	for i := 0; i < common.Min(4, len(line_start_end)); i++ {
 		*setter[i] = line_start_end[i]
 	}
 

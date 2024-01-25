@@ -8,17 +8,17 @@ import "testing"
 func TestWrite(t *testing.T) {
 	{
 		write := func(lex *Lexer) bool {
-			lex.Source = append(lex.Source, "test")
+			lex.Source = append(lex.Source, []byte("test")...)
 			return true
 		}
 		lex := Lexer{
 			write: write,
-			Source: []string{"test"},
+			Source: []byte("test"),
 		}
-		expected := 1
+		expected := 4
 		actual := lex.Write()
 		if actual != expected {
-			t.Fatalf("unexpected return value: got %d", actual)
+			t.Fatalf("unexpected return value(%d): got %d", expected, actual)
 		}
 	}
 	
@@ -28,7 +28,7 @@ func TestWrite(t *testing.T) {
 		}
 		lex := Lexer{
 			write: write,
-			Source: []string{"test"},
+			Source: []byte("test"),
 		}
 		expected := -1
 		actual := lex.Write()
@@ -46,63 +46,70 @@ func TestCurrentSourceChar(t *testing.T) {
 	}{
 		{
 			Lexer: Lexer{
-				Source: []string{"a"},
-				Line: 1,
-				Char: 1,
+				Source: []byte("a"),
+				Pos: 0,
+				PositionRanges: []int{1},
 			},
 			char: 'a',
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"a", "b"},
-				Line: 2,
-				Char: 1,
+				Source: []byte("a\nb"),
+				Pos: 2,
+				PositionRanges: []int{2,3},
 			},
 			char: 'b',
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{},
-				Line: 1,
-				Char: 1,
+				Source: []byte(""),
+				Pos: 0,
 			},
 			char: 0,
 			ok: false,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"abc"},
-				Line: 1,
-				Char: 1,
+				Source: []byte(""),
+				Pos: 1,
+			},
+			char: 0,
+			ok: false,
+		},
+		{
+			Lexer: Lexer{
+				Source: []byte("abc"),
+				Pos: 0,
+				PositionRanges: []int{3},
 			},
 			char: 'a',
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"abc"},
-				Line: 1,
-				Char: 2,
+				Source: []byte("abc"),
+				Pos: 1,
+				PositionRanges: []int{3},
 			},
 			char: 'b',
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"abc"},
-				Line: 1,
-				Char: 3,
+				Source: []byte("abc"),
+				Pos: 2,
+				PositionRanges: []int{3},
 			},
 			char: 'c',
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"abc"},
-				Line: 1,
-				Char: 4,
+				Source: []byte("abc"),
+				Pos: 3,
+				PositionRanges: []int{3},
 			},
 			char: 0,
 			ok: false,
@@ -129,70 +136,68 @@ func TestCurrentSourceLine(t *testing.T) {
 		{
 			Lexer: Lexer{
 				Line: 0,
-				Char: 1,
 			},
 			line: "",
 			ok: false,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"a"},
+				Source: []byte("a"),
+				PositionRanges: []int{1},
 				Line: 1,
-				Char: 0,
 			},
 			line: "a",
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"a"},
+				Source: []byte("a"),
+				PositionRanges: []int{1},
 				Line: 1,
-				Char: 1,
 			},
 			line: "a",
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"a", "b"},
+				Source: []byte("a\nb"),
+				PositionRanges: []int{2,3},
 				Line: 2,
-				Char: 1,
 			},
 			line: "b",
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{},
+				Source: []byte(""),
 				Line: 1,
-				Char: 1,
 			},
 			line: "",
 			ok: false,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"abc"},
+				Source: []byte("abc"),
+				PositionRanges: []int{3},
 				Line: 1,
-				Char: 3,
 			},
 			line: "abc",
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"abc"},
+				Source: []byte("abc"),
+				PositionRanges: []int{3},
 				Line: 1,
-				Char: 4,
 			},
 			line: "abc",
 			ok: true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []string{"abc"},
+				Source: []byte("abc"),
+				PositionRanges: []int{3},
 				Line: 2,
-				Char: 1,
 			},
 			line: "",
 			ok: false,
@@ -202,7 +207,7 @@ func TestCurrentSourceLine(t *testing.T) {
 	for _, test := range tests {
 		line, ok := test.Lexer.currentSourceLine()
 		if test.line != line {
-			t.Fatalf("unexpected string (Lexer=%v, line=\"%s\", ok=%t): got %s", (&test.Lexer), test.line, test.ok, line)
+			t.Fatalf("unexpected string (Lexer=%v, line=\"%s\", ok=%t): got \"%s\"", (&test.Lexer), test.line, test.ok, line)
 		}
 		if test.ok != ok {
 			t.Fatalf("unexpected ok value: got %t", ok)

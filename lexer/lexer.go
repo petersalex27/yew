@@ -21,11 +21,16 @@ type Lexer struct {
 	// write some amount of source to lexer
 	write func(*Lexer) bool
 	// source file as an array of strings for each non-empty line, does not include newline chars
-	Source []string
+	Source []byte
+	// records end (exclusive) position for all lines n at index n-1.
+	//
+	// for example, given
+	//	PositionRanges = []int{10, 23, 56}
+	// line one ends at position 10, line two ends at position 23, and line three ends at position 56
+	PositionRanges []int
 	// current line number
 	Line int
-	// current char number for the given line
-	Char int
+	Pos int
 	// saved char number
 	SavedChar *stack.Stack[int]
 	// tokens created from source
@@ -72,6 +77,21 @@ func Init(path pathSpec) *Lexer {
 	return lex
 }
 
+// returns index position for given line from start (inclusive) to end (exclusive)
+func (lexer *Lexer) LinePos(line int) (start, end int) {
+	numLines := len(lexer.PositionRanges)
+	if line > numLines || line < 1 {
+		panic("bug: illegal argument, line > number of lines or < 1")
+	}
+	
+	if line > 1 {
+		start = lexer.PositionRanges[line-2]
+	} // else start=0
+
+	end = lexer.PositionRanges[line-1]
+	return
+}
+
 // saves current char
 
 // converts receiver to string
@@ -79,20 +99,14 @@ func Init(path pathSpec) *Lexer {
 // intended for debugging and fail messages for tests
 func (lex *Lexer) String() string {
 	return fmt.Sprintf(
-		"Lexer{path: %v, write: nil ? %t, Source: %v, Line: %d, Char: %d, Tokens: %v, messages: %v}", 
-		lex.path, lex.write == nil, lex.Source, lex.Line, lex.Char, lex.Tokens, lex.messages,
+		"Lexer{path: %v, write: nil ? %t, Source: %v, Line: %d, Pos: %d, Tokens: %v, messages: %v}", 
+		lex.path, lex.write == nil, lex.Source, lex.Line, lex.Pos, lex.Tokens, lex.messages,
 	)
-}
-
-// returns true if and only if character number is valid for the current line
-func (lex *Lexer) ValidChar() bool {
-	line, ok := lex.currentSourceLine()
-	return ok && validateCharNumber(line, lex.Char)
 }
 
 // returns true if and only if line number is a valid line position for lex's source
 func (lex *Lexer) ValidLine() bool {
-	return (lex.Line > 0) && (lex.Line <= len(lex.Source))
+	return (lex.Line > 0) && (lex.Line <= len(lex.PositionRanges))
 }
 
 // writes contents of input to lexer's source slice
@@ -109,7 +123,7 @@ func (lex *Lexer) Write() int {
 
 func (lex *Lexer) add(token token.Token) {
 	start, _ := lex.SavedChar.Pop()
-	token.Line, token.Start, token.End = lex.Line, start, lex.Char
+	token.Start, token.End = start, lex.Pos
 	lex.Tokens = append(lex.Tokens, token)
 }
 
@@ -120,18 +134,17 @@ func (lex *Lexer) addMessage(e errors.ErrorMessage) {
 
 // returns current char of source
 func (lex *Lexer) currentSourceChar() (char byte, ok bool) {
-	var line string
-	line, ok = lex.currentSourceLine()
-	if ok = ok && validateCharNumber(line, lex.Char); ok {
-		char = line[lex.Char-1]
+	if lex.Pos >= len(lex.Source) {
+		return 0, false
 	}
-	return char, ok
+	return lex.Source[lex.Pos], true
 }
 
 // returns current line of source
 func (lex *Lexer) currentSourceLine() (line string, ok bool) {
 	if ok = lex.ValidLine(); ok {
-		line = lex.Source[lex.Line-1]
+		start, end := lex.LinePos(lex.Line)
+		line = string(lex.Source[start:end])
 	}
 
 	return line, ok
@@ -147,9 +160,14 @@ func genWriteFromStream(stream *os.File) func(lex *Lexer) bool {
 	reader := bufio.NewReader(os.Stdin)
 	// closure on `reader`
 	return func(lex *Lexer) bool {
-		switch line, err := reader.ReadString('\n'); err {
+		switch line, err := reader.ReadBytes('\n'); err {
 		case nil:
-			lex.Source = append(lex.Source, line)
+			length := len(line)
+			if len(lex.PositionRanges) != 0 {
+				length += lex.PositionRanges[len(lex.PositionRanges)-1]
+			}
+			lex.PositionRanges = append(lex.PositionRanges, length)
+			lex.Source = append(lex.Source, line...)
 			fallthrough
 		case io.EOF:
 			return true
@@ -168,7 +186,7 @@ func lexWrite_fromPath(lex *Lexer) bool {
 
 	defer f.Close()
 
-	lex.Source = readSourceFile(f)
+	lex.Source, lex.PositionRanges = readSourceFile(f)
 
 	lex.write = nil // prevent further writing
 
@@ -195,14 +213,18 @@ func (lex *Lexer) openPath() *os.File {
 }
 
 // reads entire source file, splitting input at newlines
-func readSourceFile(f *os.File) []string {
-	buf := []string{}
+func readSourceFile(f *os.File) ([]byte, []int) {
+	buf := []byte{}
+	pos := []int{}
 	scanner := bufio.NewScanner(f)
+	tot := 0
 	for scanner.Scan() {
 		text := scanner.Text()
-		buf = append(buf, text)
+		tot += len(text)
+		pos = append(pos, tot)
+		buf = append(buf, []byte(text)...)
 	}
-	return buf
+	return buf, pos
 }
 
 // reads input through byte `end` and returns it and true iff successful
