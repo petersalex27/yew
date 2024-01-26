@@ -9,12 +9,14 @@ import "github.com/petersalex27/yew/token"
 
 // parses import
 func (parser *Parser) parseImport() (im Import, ok bool) {
-	var importKeyword token.Token
-	if importKeyword, ok = parser.importToken(); !ok {
-		return
-	}
+	// var importKeyword token.Token
+	// if importKeyword, ok = parser.importToken(); !ok {
+	// 	return
+	// }
 
-	
+	// TODO: finish
+
+	return
 }
 
 // parses an import block
@@ -63,7 +65,7 @@ func (parser *Parser) parseImportContext(im *Import) (ok bool) {
 	if noContextAdded {
 		// no context is added b/c the assignment is pointless as it assigns some unused var to another
 		// thing
-		parser.warning2(NoContextAdded, destId.Start, srcId.End)
+		parser.warning2(UnusedContext, destId.Start, srcId.End)
 		im.LookupName = im.ImportName
 	} else {
 		// context added is destId = srcId, and destId has the same value as ImportName

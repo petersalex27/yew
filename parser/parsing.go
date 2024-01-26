@@ -39,6 +39,16 @@ func (p *Parser) BuildModule() {
 	p.module = &mod // TODO: remove--this just here to avoid compiler errors rn
 }
 
+func (parser *Parser) dropNewlines() {
+	for parser.Next.Type == token.Newline {
+		_ = parser.Advance()
+	}
+}
+
+func (parser *Parser) bindingArrowToken() (arrow token.Token, ok bool) {
+	return parser.getToken(token.Arrow, ExpectedBinding)
+}
+
 func (parser *Parser) equalToken() (eq token.Token, ok bool) {
 	return parser.getToken(token.Equal, ExpectedEqual)
 }

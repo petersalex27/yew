@@ -13,6 +13,7 @@ import (
 
 type Parser struct {
 	Path           string
+	Names          []token.Token
 	PositionRanges []int
 	module         *Module
 	Tokens         []token.Token
@@ -20,6 +21,7 @@ type Parser struct {
 	messages       []errors.ErrorMessage
 	Current, Next  token.Token
 	optionalFlag   bool
+	panicking      bool
 }
 
 // get next token and advance input
@@ -76,11 +78,30 @@ func (p *Parser) GetModule() Module {
 // initializes a returns new parser
 func Init(path string, positions []int, tokens []token.Token) *Parser {
 	return &Parser{
-		Path:     path,
+		Path:           path,
 		PositionRanges: positions,
-		Tokens:   tokens,
-		messages: []errors.ErrorMessage{},
+		Tokens:         tokens,
+		messages:       []errors.ErrorMessage{},
 	}
+}
+
+// clears parser's message buffer and returns all messages
+func (parser *Parser) FlushMessages() (messages []errors.ErrorMessage) {
+	messages = parser.messages
+	parser.messages = []errors.ErrorMessage{}
+	return messages
+}
+
+// true iff parser has recorded an error since the last time the errors have been reset 
+func (p *Parser) Panicking() bool { return p.panicking }
+
+// returns next token but does not advance past it
+func (p *Parser) Peek() token.Token {
+	if p.tokenCounter >= len(p.Tokens) {
+		return endToken()
+	}
+
+	return p.Tokens[p.tokenCounter]
 }
 
 // start optional parsing--returns defer-able function that restores previous option flag value
@@ -97,18 +118,10 @@ func (parser *Parser) StopOptional() (deferEnd func()) {
 	return func() { parser.optionalFlag = save }
 }
 
-// returns next token but does not advance past it
-func (p *Parser) Peek() token.Token {
-	if p.tokenCounter >= len(p.Tokens) {
-		return endToken()
-	}
-
-	return p.Tokens[p.tokenCounter]
-}
-
 // adds a message to parser's internal messages slice
 func (parser *Parser) addMessage(e errors.ErrorMessage) {
 	parser.messages = append(parser.messages, e)
+	parser.panicking = parser.panicking || e.IsFatal()
 }
 
 // returns an "End" token

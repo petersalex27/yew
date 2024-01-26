@@ -17,6 +17,9 @@ type ErrorMessage struct {
 	End        int // end (exclusive) char number
 }
 
+// true if and only if e is a fatal error (not a warning or other kind of message)
+func (e ErrorMessage) IsFatal() bool { return e.isFatal }
+
 // given:
 //
 // if path is not given, uses "_"
