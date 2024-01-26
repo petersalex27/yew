@@ -12,13 +12,14 @@ import (
 )
 
 type Parser struct {
-	Path          string
-	module        *Module
-	Tokens        []token.Token
-	tokenCounter  int
-	messages      []errors.ErrorMessage
-	Current, Next token.Token
-	optionalFlag  bool
+	Path           string
+	PositionRanges []int
+	module         *Module
+	Tokens         []token.Token
+	tokenCounter   int
+	messages       []errors.ErrorMessage
+	Current, Next  token.Token
+	optionalFlag   bool
 }
 
 // get next token and advance input
@@ -73,9 +74,10 @@ func (p *Parser) GetModule() Module {
 }
 
 // initializes a returns new parser
-func Init(path string, tokens []token.Token) *Parser {
+func Init(path string, positions []int, tokens []token.Token) *Parser {
 	return &Parser{
 		Path:     path,
+		PositionRanges: positions,
 		Tokens:   tokens,
 		messages: []errors.ErrorMessage{},
 	}

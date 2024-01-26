@@ -1052,6 +1052,8 @@ func (lex *Lexer) analyze() (ok bool, eof bool) {
 
 	c, _ := lex.nextChar()
 	if c == '\n' {
+		lex.SavedChar.Push(lex.Pos-1)
+		lex.add(token.Newline.Make())
 		return lex.advanceLine()
 	}
 

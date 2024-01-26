@@ -58,6 +58,7 @@ const (
 
 	At
 
+	Newline
 	End
 )
 
@@ -131,6 +132,8 @@ func (ty Type) String() string {
 		return "Underscore"
 	case At:
 		return "At"
+	case Newline:
+		return "Newline"
 	case End:
 		return "End"
 	default:
@@ -173,4 +176,6 @@ var tokenStringMap = map[Type]string{
 	Underscore: "_",
 
 	At: "@",
+
+	Newline: "\n",
 }

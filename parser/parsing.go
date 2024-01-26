@@ -8,32 +8,6 @@ package parser
 
 import "github.com/petersalex27/yew/token"
 
-// parses import
-func (p *Parser) parseImport() (_ Import, ok bool) {
-	var importKeyword, name token.Token
-	if importKeyword, ok = p.importToken(); !ok {
-		return
-	}
-
-	if name, ok = p.idToken(); !ok {
-		return
-	}
-
-	end := p.StartOptional()
-	defer end()
-
-	if _, ok = p.whereToken(); !ok {
-		start, end := importKeyword.Start, name.End
-		return Import{Start: start, End: end, ImportName: name, LookupName: name}, true
-	}
-
-	
-}
-
-func (p *Parser) parseImports() []Import {
-	
-}
-
 // builds a module from a newly initialized module
 func (p *Parser) BuildModule() {
 	// for now, comments get dropped // TODO: include comments in the AST
@@ -62,6 +36,11 @@ func (p *Parser) BuildModule() {
 		Start: module.Start,
 		ModuleName: name,
 	}
+	p.module = &mod // TODO: remove--this just here to avoid compiler errors rn
+}
+
+func (parser *Parser) equalToken() (eq token.Token, ok bool) {
+	return parser.getToken(token.Equal, ExpectedEqual)
 }
 
 func (p *Parser) getToken(ty token.Type, errorMessage string) (tok token.Token, ok bool) {

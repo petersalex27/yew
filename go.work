@@ -5,6 +5,5 @@ use (
 	./errors
 	./lexer
 	./common
-	//./parser
-	//./source
+	./parser
 )
