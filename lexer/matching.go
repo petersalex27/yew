@@ -27,6 +27,7 @@ func matchRegex(r *regexp.Regexp, s string) string {
 var keywords = map[string]token.Type{
 	"alias":   token.Alias,
 	"derives": token.Derives,
+	"end":     token.End,
 	"import":  token.Import,
 	"in":      token.In,
 	"let":     token.Let,

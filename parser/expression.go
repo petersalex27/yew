@@ -14,7 +14,7 @@ func (parser *Parser) iterateParenParse() (right ExprNode, end bool) {
 		return
 	}
 	parser.dropNewlines()
-	end = parser.Next.Type == token.RightParen || parser.Next.Type == token.End
+	end = parser.Next.Type == token.RightParen || parser.Next.Type == token.EndOfTokens
 	return
 }
 
@@ -48,13 +48,13 @@ func (parser *Parser) iterateListLikeParse(listLike *ListLike, separatorType tok
 
 	// if forceEnd and not next is not a right paren, error will be thrown later when right paren is
 	// checked for but not found
-	end = forceEnd || parser.Next.Type == endType || parser.Next.Type == token.End
+	end = forceEnd || parser.Next.Type == endType || parser.Next.Type == token.EndOfTokens
 	return
 }
 
 // handles iterative logic for parsing parenthesized expressions
 func (parser *Parser) loopParenParse(e ExprNode) (_ ExprNode, ok bool) {
-	end := parser.Next.Type == token.RightParen || parser.Next.Type == token.End
+	end := parser.Next.Type == token.RightParen || parser.Next.Type == token.EndOfTokens
 	if end {
 		return e, true
 	}
@@ -98,7 +98,7 @@ func (parser *Parser) parseBoringOrEnclosed(start int) (ExprNode, bool) {
 
 func (parser *Parser) parseElements(initElems []ExprNode, separatorType, endType token.Type) (listLike ListLike, ok bool) {
 	listLike.Elems = initElems
-	end := parser.Next.Type == endType || parser.Next.Type == token.End
+	end := parser.Next.Type == endType || parser.Next.Type == token.EndOfTokens
 	for !end {
 		end = parser.iterateListLikeParse(&listLike, separatorType, endType)
 	}
@@ -210,7 +210,7 @@ func (parser *Parser) parseTuple(first ExprNode, start int) (tuple TupleKind, ok
 
 func (parser *Parser) validateEndOfListLike(expect token.Type) (ok bool) {
 	if ok = parser.Next.Type == expect; !ok {
-		if parser.Next.Type == token.End {
+		if parser.Next.Type == token.EndOfTokens {
 			parser.error(UnexpectedEOF)
 			return
 		}

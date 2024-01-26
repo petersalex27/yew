@@ -92,7 +92,7 @@ func (parser *Parser) FlushMessages() (messages []errors.ErrorMessage) {
 	return messages
 }
 
-// true iff parser has recorded an error since the last time the errors have been reset 
+// true iff parser has recorded an error since the last time the errors have been reset
 func (p *Parser) Panicking() bool { return p.panicking }
 
 // returns next token but does not advance past it
@@ -126,12 +126,12 @@ func (parser *Parser) addMessage(e errors.ErrorMessage) {
 
 // returns an "End" token
 func endToken() token.Token {
-	return token.Token{Type: token.End}
+	return token.Token{Type: token.EndOfTokens}
 }
 
 // skips sequence of tokens of type ty
 func (p *Parser) skip(ty token.Type) {
-	if ty == token.End {
+	if ty == token.EndOfTokens {
 		return // do not allow this, just exit method
 	}
 

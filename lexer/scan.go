@@ -495,7 +495,7 @@ func (lex *Lexer) analyzeStandalone() (ok, eof bool) {
 //
 // keywords:
 //
-//	`alias derives import in let module use trait where`
+//	`alias derives end import in let module use trait where`
 //
 // alpha-numeric identifiers (lower and upper case), the following are examples:
 //
@@ -1032,7 +1032,7 @@ func eofLineAdvance(lex *Lexer) (ok, eof bool) {
 // returns ok==true if line counter was advanced and eof==true either when already at end of source
 // or if advancing the line counter puts lexer at end of input
 func (lex *Lexer) advanceLine() (ok, eof bool) {
-	println("advancing!")
+	//println("advancing!")
 	if lex.Line >= len(lex.PositionRanges) {
 		// returns ok==true when not at EOF before advancing; eof==true unconditionally
 		return eofLineAdvance(lex)

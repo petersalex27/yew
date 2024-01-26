@@ -437,6 +437,10 @@ func TestMatchKeyword(t *testing.T) {
 			expect: token.Derives,
 		},
 		{
+			source: `end`,
+			expect: token.End,
+		},
+		{
 			source: `let`,
 			expect: token.Let,
 		},
@@ -784,62 +788,62 @@ func TestAnalyzeMultiLineComment(t *testing.T) {
 	}{
 		{
 			source: []byte(`-**-`),
-			pos: []int{4},
+			pos:    []int{4},
 			expect: token.Token{Value: "", Type: token.Comment, End: 4},
 		},
 		{
 			source: []byte(`-*****-`),
-			pos: []int{7},
+			pos:    []int{7},
 			expect: token.Token{Value: "***", Type: token.Comment, End: 7},
 		},
 		{
 			source: []byte(`-*-*-`),
-			pos: []int{5},
+			pos:    []int{5},
 			expect: token.Token{Value: "-", Type: token.Comment, End: 5},
 		},
 		{
 			source: []byte(`-*--*-`),
-			pos: []int{6},
+			pos:    []int{6},
 			expect: token.Token{Value: "--", Type: token.Comment, End: 6},
 		},
 		{
 			source: []byte(`-*-**-`),
-			pos: []int{6},
+			pos:    []int{6},
 			expect: token.Token{Value: "-*", Type: token.Comment, End: 6},
 		},
 		{
 			source: []byte(`-*-**-a`),
-			pos: []int{7},
+			pos:    []int{7},
 			expect: token.Token{Value: "-*", Type: token.Comment, End: 6},
 		},
 		{
 			source: []byte(`-*a comment*-`),
-			pos: []int{13},
+			pos:    []int{13},
 			expect: token.Token{Value: "a comment", Type: token.Comment, End: 13},
 		},
 		{
 			source: []byte(`-* a comment *-`),
-			pos: []int{15},
+			pos:    []int{15},
 			expect: token.Token{Value: " a comment ", Type: token.Comment, End: 15},
 		},
 		{
 			source: []byte("-*\n*-"),
-			pos: []int{3,5},
+			pos:    []int{3, 5},
 			expect: token.Token{Value: "\n", Type: token.Comment, End: 5},
 		},
 		{
 			source: []byte("-* this\nis a comment*-"),
-			pos: []int{8,22},
+			pos:    []int{8, 22},
 			expect: token.Token{Value: " this\nis a comment", Type: token.Comment, End: 22},
 		},
 		{
 			source: []byte("-*\nthis\nis\na\ncomment*-"),
-			pos: []int{3,9,11,13,22},
+			pos:    []int{3, 9, 11, 13, 22},
 			expect: token.Token{Value: "\nthis\nis\na\ncomment", Type: token.Comment, End: 22},
 		},
 		{
 			source: []byte("-*\nthis\nis\na\ncomment\n*-"),
-			pos: []int{3,9,11,13,23},
+			pos:    []int{3, 9, 11, 13, 23},
 			expect: token.Token{Value: "\nthis\nis\na\ncomment\n", Type: token.Comment, End: 23},
 		},
 	}

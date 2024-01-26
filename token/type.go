@@ -28,6 +28,7 @@ const (
 
 	Alias
 	Derives
+	End
 	Import
 	In
 	Let
@@ -59,7 +60,7 @@ const (
 	At
 
 	Newline
-	End
+	EndOfTokens
 )
 
 func (ty Type) String() string {
@@ -82,6 +83,8 @@ func (ty Type) String() string {
 		return "Alias"
 	case Derives:
 		return "Derives"
+	case End:
+		return "End"
 	case Import:
 		return "Import"
 	case In:
@@ -134,8 +137,8 @@ func (ty Type) String() string {
 		return "At"
 	case Newline:
 		return "Newline"
-	case End:
-		return "End"
+	case EndOfTokens:
+		return "EndOfTokens"
 	default:
 		return fmt.Sprintf("Type(%d)", ty)
 	}
@@ -149,6 +152,7 @@ var tokenStringMap = map[Type]string{
 
 	Alias:   "alias",
 	Derives: "derives",
+	End:     "end",
 	Import:  "import",
 	In:      "in",
 	Let:     "let",
