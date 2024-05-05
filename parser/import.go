@@ -1,95 +1,71 @@
 // =================================================================================================
-// Alex Peters - January 25, 2024
-//
-// Handles parsing of imports
+// Alex Peters - March 04, 2024
 // =================================================================================================
 package parser
 
 import "github.com/petersalex27/yew/token"
 
-// parses import
-func (parser *Parser) parseImport() (im Import, ok bool) {
-	// var importKeyword token.Token
-	// if importKeyword, ok = parser.importToken(); !ok {
-	// 	return
-	// }
+type Import struct {
+	Lookup token.Token // name used to lookup import
+	Id     token.Token // name used in source code
+}
 
-	// TODO: finish
+type ImportTable map[string]Import
 
+func (parser *Parser) parseImportLineHelper() (lookup, id token.Token, ok bool) {
+	lookup, ok = parser.get(token.Id)
+	if !ok {
+		parser.error(ExpectedIdentifier)
+		return
+	}
+
+	id = lookup
+
+	if parser.Peek().Type != token.As {
+		return // regular package import
+	}
+
+	// parse "qualified-as" name
+	_ = parser.Advance()
+	id, ok = parser.get(token.Id)
+	if !ok {
+		parser.error(ExpectedIdentifier)
+		return
+	}
 	return
 }
 
-// parses an import block
-func (parser *Parser) parserImportBlock()
-
-func (parser *Parser) parseImportData() (im Import, ok bool) {
-	var name token.Token
-
-	if name, ok = parser.idToken(); !ok {
-		return
+// adds an import to an import table `imports` from the "module-lookup-name" `lookup` and the "as-name" `id`
+//
+// ok is true on successful registration, else false and an error message is returned
+func (imports *ImportTable) register(lookupName, asName token.Token) (ok bool, errorMessage string) {
+	if _, found := (*imports)[asName.Value]; found {
+		return false, DuplicateImportName
 	}
 
-	im.ImportName = name
+	(*imports)[asName.Value] = Import{Lookup: lookupName, Id: asName}
+	return true, ""
+}
 
-	im.Start = name.Start
-
-	var done bool
-	done, ok = parser.parseImportOptionalWhere(&im, name)
-	if done {
-		return
+func parseImportLine(parser *Parser) (ok bool) {
+	var lookup, asId token.Token
+	lookup, asId, ok = parser.parseImportLineHelper()
+	if !ok {
+		return // error already reported in parseImportLineHelper
 	}
 
-	ok = parser.parseImportContext(&im)
+	var errorMsg string
+	ok, errorMsg = parser.imports.register(lookup, asId)
+	if !ok {
+		parser.error(errorMsg)
+	}
 	return
 }
 
-// requires parsing of context ('where' and an assignment)
-func (parser *Parser) parseImportContext(im *Import) (ok bool) {
-	var destId, srcId token.Token
-	endStopped := parser.StopOptional()
-	defer endStopped()
-
-	if destId, ok = parser.idToken(); !ok {
-		return
+func (parser *Parser) parseImports() (ok bool) {
+	if parser.Peek().Type != token.Import {
+		return true
 	}
-
-	if _, ok = parser.equalToken(); !ok {
-		return
-	}
-
-	if srcId, ok = parser.idToken(); !ok {
-		return
-	}
-
-	noContextAdded := im.ImportName.Value != destId.Value
-	if noContextAdded {
-		// no context is added b/c the assignment is pointless as it assigns some unused var to another
-		// thing
-		parser.warning2(UnusedContext, destId.Start, srcId.End)
-		im.LookupName = im.ImportName
-	} else {
-		// context added is destId = srcId, and destId has the same value as ImportName
-		im.LookupName = srcId
-	}
-
-	im.End = srcId.End
-	return
-}
-
-func (parser *Parser) parseImports() []Import {
-	return nil // TODO
-}
-
-func (parser *Parser) parseImportOptionalWhere(im *Import, name token.Token) (done, ok bool) {
-	end := parser.StartOptional()
-	defer end()
-
-	ok = true // unconditionally
-
-	if _, found := parser.whereToken(); !found {
-		done = true
-		im.End = name.End
-		im.LookupName = name
-	}
-	return
+	again := func(p *Parser, i int) bool { return p.equalIndent(i) }
+	return parser.parseSection(parseImportLine, again)
 }

@@ -13,7 +13,7 @@ func (tokenType Type) MakeValued(val string) Token {
 }
 
 func IsKeyword(tokenType Type) bool {
-	return tokenType >= Alias && tokenType <= Backslash
+	return tokenType > _keywords_start_ && tokenType < _keywords_end_
 }
 
 const (
@@ -23,12 +23,14 @@ const (
 	StringValue
 
 	Id
+	ImplicitId
 	Affixed
-	CapId
+	Hole
 
+	// keywords start
+	_keywords_start_ // ===================================
 	Alias
 	Derives
-	End
 	Import
 	In
 	Let
@@ -36,6 +38,15 @@ const (
 	Use
 	Trait
 	Where
+	As
+	With
+	Of
+	Extension
+	Case
+	Public
+	Open
+	Automatic
+	Mutual
 
 	LeftParen
 	RightParen
@@ -52,14 +63,21 @@ const (
 	Bar
 	Equal
 	Backslash
+	// keywords end
+	_keywords_end_ // ==============================
 
 	Comment
 
 	Underscore
 
-	At
+	Percent
+
+	Indent
 
 	Newline
+
+	ExtensionKey
+
 	EndOfTokens
 )
 
@@ -75,16 +93,18 @@ func (ty Type) String() string {
 		return "StringValue"
 	case Id:
 		return "Id"
+	case ImplicitId:
+		return "ImplicitId"
 	case Affixed:
 		return "Affixed"
-	case CapId:
-		return "CapId"
+	case Hole:
+		return "Hole"
 	case Alias:
 		return "Alias"
 	case Derives:
 		return "Derives"
-	case End:
-		return "End"
+	case With:
+		return "With"
 	case Import:
 		return "Import"
 	case In:
@@ -99,6 +119,22 @@ func (ty Type) String() string {
 		return "Trait"
 	case Where:
 		return "Where"
+	case Of:
+		return "Of"
+	case As:
+		return "As"
+	case Extension:
+		return "Extension"
+	case Case:
+		return "Case"
+	case Public:
+		return "Public"
+	case Open:
+		return "Open"
+	case Automatic:
+		return "Automatic"
+	case Mutual:
+		return "Mutual"
 	case LeftParen:
 		return "LeftParen"
 	case RightParen:
@@ -133,10 +169,14 @@ func (ty Type) String() string {
 		return "Comment"
 	case Underscore:
 		return "Underscore"
-	case At:
-		return "At"
+	case Percent:
+		return "Percent"
+	case Indent:
+		return "Indent"
 	case Newline:
 		return "Newline"
+	case ExtensionKey:
+		return "ExtensionKey"
 	case EndOfTokens:
 		return "EndOfTokens"
 	default:
@@ -150,16 +190,24 @@ var tokenStringMap = map[Type]string{
 	FloatValue:  "",
 	StringValue: "",
 
-	Alias:   "alias",
-	Derives: "derives",
-	End:     "end",
-	Import:  "import",
-	In:      "in",
-	Let:     "let",
-	Module:  "module",
-	Use:     "use",
-	Trait:   "trait",
-	Where:   "where",
+	Alias:     "alias",
+	Derives:   "derives",
+	With:      "with",
+	Import:    "import",
+	In:        "in",
+	Let:       "let",
+	Module:    "module",
+	Use:       "use",
+	Trait:     "trait",
+	Where:     "where",
+	As:        "as",
+	Of:        "of",
+	Extension: "extension",
+	Case:      "case",
+	Public:    "public",
+	Open:      "open",
+	Automatic: "automatic",
+	Mutual:    "mutual",
 
 	LeftParen:    "(",
 	RightParen:   ")",
@@ -179,7 +227,11 @@ var tokenStringMap = map[Type]string{
 
 	Underscore: "_",
 
-	At: "@",
+	Percent: "%",
 
 	Newline: "\n",
+
+	ExtensionKey: "",
+
+	Hole: "",
 }

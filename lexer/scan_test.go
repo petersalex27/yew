@@ -7,6 +7,8 @@ package lexer
 import (
 	"testing"
 
+	"github.com/petersalex27/yew/errors"
+	"github.com/petersalex27/yew/source"
 	"github.com/petersalex27/yew/token"
 )
 
@@ -99,7 +101,7 @@ func TestAnalyzeNumber(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = []byte(test.source)
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
@@ -179,7 +181,7 @@ func TestAnalyzeChar(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = []byte(test.source)
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
@@ -231,7 +233,7 @@ func TestAnalyzeString(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = []byte(test.source)
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
@@ -263,11 +265,11 @@ func TestFixAnnotation(t *testing.T) {
 	}{
 		{
 			source: token.Token{Value: "annotation", Type: token.Id},
-			expect: token.Token{Value: "annotation", Type: token.At},
+			expect: token.Token{Value: "annotation", Type: token.Percent},
 		},
 		{
-			source: token.Token{Value: "Annotation", Type: token.CapId},
-			expect: token.Token{Value: "Annotation", Type: token.At},
+			source: token.Token{Value: "Annotation", Type: token.Id},
+			expect: token.Token{Value: "Annotation", Type: token.Percent},
 		},
 		{
 			source:         token.Token{Value: "annotation_a", Type: token.Affixed},
@@ -293,21 +295,21 @@ func TestAnalyzeAnnotation(t *testing.T) {
 		expect token.Token
 	}{
 		{
-			source: `@annotation`,
-			expect: token.Token{Value: "annotation", Type: token.At, End: 11},
+			source: `%annotation`,
+			expect: token.Token{Value: "annotation", Type: token.Percent, End: 11},
 		},
 		{
-			source: `@Annotation`,
-			expect: token.Token{Value: "Annotation", Type: token.At, End: 11},
+			source: `%Annotation`,
+			expect: token.Token{Value: "Annotation", Type: token.Percent, End: 11},
 		},
 		{
-			source: `@annotation _ stuff`,
-			expect: token.Token{Value: "annotation", Type: token.At, End: 11},
+			source: `%annotation _ stuff`,
+			expect: token.Token{Value: "annotation", Type: token.Percent, End: 11},
 		},
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = []byte(test.source)
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
@@ -367,7 +369,7 @@ func TestAnalyzeStandalone(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = []byte(test.source)
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
@@ -437,8 +439,8 @@ func TestMatchKeyword(t *testing.T) {
 			expect: token.Derives,
 		},
 		{
-			source: `end`,
-			expect: token.End,
+			source: `with`,
+			expect: token.With,
 		},
 		{
 			source: `let`,
@@ -468,6 +470,18 @@ func TestMatchKeyword(t *testing.T) {
 			source: `where`,
 			expect: token.Where,
 		},
+		{
+			source: `with`,
+			expect: token.With,
+		},
+		{
+			source: `as`,
+			expect: token.As,
+		},
+		{
+			source: `of`,
+			expect: token.Of,
+		},
 		// identifiers
 		{
 			source: `not`,
@@ -480,7 +494,7 @@ func TestMatchKeyword(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = []byte(test.source)
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
@@ -489,6 +503,30 @@ func TestMatchKeyword(t *testing.T) {
 		if actual != test.expect {
 			t.Fatalf("token type (%v): got %v", test.expect, actual)
 		}
+	}
+}
+
+func TestCharNum(t *testing.T) {
+	const src string = "test.source"
+	lex := Init(source.StdinSpec)
+	lex.Source = []byte(src)
+	lex.PositionRanges = []int{len(src)}
+	lex.Line = 1
+
+	for i := 0; i < len(src); i++ {
+		actual, eof := lex.charNumber()
+		if actual != i+1 {
+			t.Fatalf("expected %d: got %d", i+1, actual)
+		}
+		if eof {
+			t.Fatalf("unexpected end of file")
+		}
+		lex.Pos++
+	}
+
+	_, eof := lex.charNumber()
+	if !eof {
+		t.Fatalf("expected end of file")
 	}
 }
 
@@ -650,6 +688,10 @@ func TestAnalyzeIdentifier(t *testing.T) {
 			expect: token.Token{Value: "mod", Type: token.Id, End: 3},
 		},
 		{
+			source: `?mod`,
+			expect: token.Token{Value: "?mod", Type: token.Hole, End: 4},
+		},
+		{
 			source: `!`,
 			expect: token.Token{Value: "!", Type: token.Id, End: 1},
 		},
@@ -665,15 +707,42 @@ func TestAnalyzeIdentifier(t *testing.T) {
 			source: `if_then_else_`,
 			expect: token.Token{Value: "if_then_else_", Type: token.Affixed, End: 13},
 		},
+		{
+			source: `a`,
+			expect: token.Token{Value: "a", Type: token.ImplicitId, End: 1},
+		},
+		{
+			source: `a'`,
+			expect: token.Token{Value: "a'", Type: token.ImplicitId, End: 2},
+		},
+		{
+			source: `a''`,
+			expect: token.Token{Value: "a''", Type: token.ImplicitId, End: 3},
+		},
+		{
+			source: `a1`,
+			expect: token.Token{Value: "a1", Type: token.ImplicitId, End: 2},
+		},
+		{
+			source: `a12`,
+			expect: token.Token{Value: "a12", Type: token.ImplicitId, End: 3},
+		},
+		{
+			source: `a1'`,
+			expect: token.Token{Value: "a1'", Type: token.ImplicitId, End: 3},
+		},
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = []byte(test.source)
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
 
-		ok, eof := lex.analyzeIdentifier()
+		ok, eof := lex.analyzeSymbol()
+		if errors.PrintErrors(lex.messages) != 0 {
+			t.Fatalf("failed with above errors")
+		}
 		if !ok {
 			t.Fatalf("could not analyze identifier")
 		}
@@ -687,14 +756,14 @@ func TestAnalyzeIdentifier(t *testing.T) {
 
 		actual := lex.Tokens[0]
 		if actual != test.expect {
-			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
+			t.Fatalf("unexpected token (%v): got %v", test.expect.Debug(), actual.Debug())
 		}
 	}
 }
 
 func TestAnalyzeUnderscore(t *testing.T) {
 	expect := token.Token{Value: "_", Type: token.Underscore, End: 1}
-	lex := Init(StdinSpec)
+	lex := Init(source.StdinSpec)
 	lex.Source = []byte(`_`)
 	lex.Line = 1
 
@@ -712,7 +781,7 @@ func TestAnalyzeUnderscore(t *testing.T) {
 
 	actual := lex.Tokens[0]
 	if actual != expect {
-		t.Fatalf("unexpected token (%v): got %v", expect, actual)
+		t.Fatalf("unexpected token (%v): got %v", expect.Debug(), actual.Debug())
 	}
 }
 
@@ -756,10 +825,11 @@ func TestAnalyzeSingleLineComment(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = test.source
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
+		lex.SetKeepComments(true)
 
 		ok, eof := lex.analyzeComment()
 		if !ok {
@@ -775,7 +845,7 @@ func TestAnalyzeSingleLineComment(t *testing.T) {
 
 		actual := lex.Tokens[0]
 		if actual != test.expect {
-			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
+			t.Fatalf("unexpected token (%v): got %v", test.expect.Debug(), actual.Debug())
 		}
 	}
 }
@@ -849,10 +919,11 @@ func TestAnalyzeMultiLineComment(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(StdinSpec)
+		lex := Init(source.StdinSpec)
 		lex.Source = test.source
 		lex.PositionRanges = test.pos
 		lex.Line = 1
+		lex.SetKeepComments(true)
 
 		ok, eof := lex.analyzeComment()
 		if !ok {
@@ -868,7 +939,7 @@ func TestAnalyzeMultiLineComment(t *testing.T) {
 
 		actual := lex.Tokens[0]
 		if actual != test.expect {
-			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
+			t.Fatalf("unexpected token (%v): got %v", test.expect.Debug(), actual.Debug())
 		}
 	}
 }

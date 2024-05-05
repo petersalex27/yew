@@ -1,0 +1,35 @@
+package parser
+
+// ListType, List, TupleType, Tuple, Pairs
+
+func (AmbiguousList) NodeType() NodeType {
+	return listType
+}
+
+func (ls AmbiguousList) Pos() (start, end int) {
+	return ls.Start, ls.End
+}
+
+func (List) NodeType() NodeType {
+	return listExprType
+}
+
+func (ls List) Pos() (start, end int) {
+	return ls.Start, ls.End
+}
+
+func (AmbiguousTuple) NodeType() NodeType {
+	return tupleType
+}
+
+func (t AmbiguousTuple) Pos() (start, end int) {
+	return t.Start, t.End
+}
+
+func (Pairs) NodeType() NodeType {
+	return pairsType
+}
+
+func (ps Pairs) Pos() (start, end int) {
+	return ps.Start, ps.End
+}

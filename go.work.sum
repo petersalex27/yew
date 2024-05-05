@@ -1,1 +1,4 @@
+github.com/kr/pretty v0.2.0 h1:s5hAObm+yFO5uHYt5dYjxi2rXrsnmRpJx4OYvIWUaQs=
+github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/llir/ll v0.0.0-20220802044011-65001c0fb73c h1:UwtWiaR7Zg/IItv2hEN1EATTY/Hv69llULknaeMgxWo=
+golang.org/x/text v0.3.3 h1:cokOdA+Jmi5PJGXLlLllQSgYigAEfHXJAERHVMaCc2k=

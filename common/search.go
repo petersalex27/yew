@@ -13,7 +13,7 @@ package common
 // new line w/o at least one newline char)
 //
 // if not found, returns -1
-func SearchRange(endPoints []int, elem int) (index int) {
+func SearchRange(endPoints []int, elem int, elemIsEndPos bool) (index int) {
 	if elem < 0 {
 		return -1
 	}
@@ -22,7 +22,11 @@ func SearchRange(endPoints []int, elem int) (index int) {
 	for left < right {
 		mid := left + (right - left) / 2
 		if endPoints[mid] == elem {
-			left = mid + 1
+			if elemIsEndPos {
+				left = mid
+			} else {
+				left = mid + 1
+			}
 			break
 		} else if endPoints[mid] > elem {
 			right = mid

@@ -1,12 +1,16 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/petersalex27/yew/errors"
 	"github.com/petersalex27/yew/lexer"
+	"github.com/petersalex27/yew/parser"
+	"github.com/petersalex27/yew/source"
 )
 
 func promptRepl(lex *lexer.Lexer) int {
@@ -21,9 +25,7 @@ func respondRepl(lex *lexer.Lexer, i, t, result int) (i_end, t_end, result_end i
 	tokens, ok := lex.Tokenize()
 	if !ok {
 		messages := lex.FlushMessages()
-		for _, m := range messages {
-			fmt.Fprintf(os.Stderr, "%s\n", m.Error())
-		}
+		errors.PrintErrors(messages)
 		// remove erroneous tokens and source
 		lex.Tokens = lex.Tokens[:t]
 		lex.Source = lex.Source[:i]
@@ -54,7 +56,7 @@ func repl() {
 		os.Exit(0)
 	}()
 
-	lex := lexer.Init(lexer.StdinSpec)
+	lex := lexer.Init(source.StdinSpec)
 	i := 0
 	t := 0
 
@@ -64,6 +66,43 @@ func repl() {
 	}
 }
 
+var (
+	interactive = flag.Bool("i", false, "-i")
+	file = flag.String("file", "", "-file <path>")
+)
+
+func init() {
+	flag.Usage = func() {
+		// TODO
+		fmt.Fprintf(os.Stderr, "usage: yew [-i] [-file <path>]\n")
+		flag.PrintDefaults()
+	}
+}
+
+func compileFile(path string) {
+	lex := lexer.Init(source.FilePath(path))
+	lex.Write()
+	/*tokens*/_, ok := lex.Tokenize()
+	if !ok {
+		msgs := lex.FlushMessages()
+		errors.PrintErrors(msgs)
+
+		os.Exit(1)
+	}
+
+	p := parser.Init(lex.SourceCode)
+	_, _ = p.Begin() // TODO
+}
+
 func main() {
-	repl()
+	flag.Parse()
+	fmt.Printf("%t, %s\n", *interactive, *file)
+	if *interactive {
+		repl()
+	} else if *file != "" {
+		compileFile(*file)
+		os.Exit(0)
+	} else {
+		flag.Usage()
+	}
 }

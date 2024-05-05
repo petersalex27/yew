@@ -21,16 +21,10 @@ const (
 	comment_class
 	char_class
 	annotation_class
+	hole_class
 	end_class
 	error_class
 )
-
-// ( ) [ ] { } ! @ # $ % ^ & * ~ , < > . ? / ; : | - + = \ `
-const symbolRegexClassRaw string = `[\(\)\[\]\{\}!@#\$%\^\&\*~,<>\.\?/;:\|\-\+=\\` + "`]"
-
-var symbolRegex = regexp.MustCompile(symbolRegexClassRaw)
-
-const freeSymbolRegexClassRaw string = `[!#\$%\^\&\*~,<>\?/:\|\-\+=\\` + "`]"
 
 //var freeSymbolRegex = regexp.MustCompile(freeSymbolRegexClassRaw)
 
@@ -49,13 +43,13 @@ func (lex *Lexer) reclassifyUnderscore() (class symbolClass) {
 		return symbol_class
 	}
 
-	start := lex.charNumber() - 1
-	errorMessage, endChar := lex.validateUnderscoreNextChar()
+	start := lex.Pos
+	errorMessage, _ := validateUnderscoreNextChar(c, eof, lex.Pos)
 	if errorMessage == "" {
 		return underscore_class
 	}
 
-	lex.error2(errorMessage, lex.Line, lex.Line+1, start, endChar)
+	lex.error2(errorMessage, start, lex.Pos)
 	return error_class
 }
 
@@ -94,8 +88,10 @@ func (lex *Lexer) classify(c byte) (class symbolClass) {
 		class = lex.reclassifyUnderscore()
 	} else if c == '-' {
 		class = lex.classifyMinus()
-	} else if c == '@' {
+	} else if c == '%' {
 		class = annotation_class
+	} else if c2, _ := lex.peek(); c == '?' && unicode.IsLower(rune(c2)) {
+		class = hole_class
 	} else if isSymbol(c) {
 		class = symbol_class
 	} else {
@@ -105,14 +101,21 @@ func (lex *Lexer) classify(c byte) (class symbolClass) {
 	return
 }
 
-var endMultiCommentRegex = regexp.MustCompile(`\*-`)
-
 // creates and pushes token for single-line comment with Value=`lineAfterDashes`
 func (lex *Lexer) getSingleLineComment(lineAfterDashes string) (ok, eof bool) {
 	offs := len(lineAfterDashes)
+	// remove newline (comment right before eof won't have newline)
+	if offs > 0 && lineAfterDashes[offs-1] == '\n' {
+		offs-- // don't take newline
+	}
 	lex.Pos += offs
 	tok := token.Comment.MakeValued(lineAfterDashes)
-	lex.add(tok)
+	if lex.keepComments {
+		lex.add(tok)
+	} else {
+		// remove saved char number
+		lex.SavedChar.Pop()
+	}
 	return true, false
 }
 
@@ -153,7 +156,12 @@ func (lex *Lexer) getMultiLineComment(line string) (ok, eof bool) {
 	comment = comment + next
 	tok := token.Comment.MakeValued(comment)
 	lex.Pos += loc[1]
-	lex.add(tok)
+	if lex.keepComments {
+		lex.add(tok)
+	} else {
+		// remove saved char number
+		lex.SavedChar.Pop()
+	}
 	return ok, false
 }
 
@@ -189,11 +197,6 @@ func (lex *Lexer) analyzeComment() (ok, eof bool) {
 	}
 	panic("bug in analyzeComment: else branch reached")
 }
-
-var intRegex = regexp.MustCompile(`[0-9](_*[0-9]+)*`)
-var hexRegex = regexp.MustCompile(`(0x|0X)[0-9a-fA-F](_*[0-9a-fA-F]+)*`)
-var octRegex = regexp.MustCompile(`(0o|0O)[0-7](_*[0-7]+)*`)
-var binRegex = regexp.MustCompile(`(0b|0B)(0|1)(_*(0|1)+)*`)
 
 func isNumEndCharValid(line string, numEnd int) bool {
 	if len(line) <= numEnd {
@@ -241,6 +244,11 @@ func isSign(s string, i int) bool {
 // of the token
 func returnInt(num string, numChars int) (token.Token, int, string) {
 	num = stripChar(num, '_')
+	// remove leading 0s so translation to llvm ir is not confused thinking it's octal
+	num = strings.TrimLeft(num, "0")
+	if num == "" { // number was all 0s?
+		num = "0" // yes => set to a single 0
+	}
 	return token.IntValue.MakeValued(num), numChars, ""
 }
 
@@ -339,10 +347,6 @@ func analyzeExponentNum(numOrigin, line string, numCharsOrigin int) (num string,
 // return a number token. Could be either floating point number or integer
 func maybeFractional(num, line string) (tok token.Token, numChars int, errorMessage string) {
 	numChars, errorMessage = len(num), ""
-	// remove leading zeros (so 0[integer] isn't mistaken as an octal number by llvm or go)
-	for numChars != 0 && num[0] == '0' {
-		num = num[1:]
-	}
 
 	if len(line) <= numChars { // just an integer at the end of the line
 		return returnInt(num, numChars)
@@ -371,8 +375,17 @@ func maybeFractional(num, line string) (tok token.Token, numChars int, errorMess
 	return
 }
 
-func (lex *Lexer) charNumber() int {
-	return (lex.PositionRanges[lex.Line-1] + 1) - lex.Pos
+func (lex *Lexer) prevEnd() (previousLineEnd int) {
+	if lex.Line > 1 {
+		previousLineEnd = lex.PositionRanges[lex.Line-2]
+	}
+	return
+}
+
+func (lex *Lexer) charNumber() (charNum int, eof bool) {
+	charNum = lex.Pos - (lex.prevEnd() - 1) //(lex.Pos) % (lex.PositionRanges[lex.Line-1]) + 1
+	eof = lex.Pos >= len(lex.Source)
+	return
 }
 
 // return current line starting from current char until the end of line
@@ -429,28 +442,6 @@ func affixedRegexGen(element string) string {
 	return fmt.Sprintf(`(%s)?_?(((%s_)+(%s)?)|(%s))`, element, element, element, element)
 }
 
-// the following regular expression, or, alpha-numeric id regex occurring between or in-front-of/after zero or one '_':
-//
-//	`([a-z][a-zA-Z0-9']*)?_?((([a-z][a-zA-Z0-9']*_)+([a-z][a-zA-Z0-9']*)?)|([a-z][a-zA-Z0-9']*))`
-//
-// examples:
-//
-//	`not_`
-//	`_mod_`
-//	`zipWith`
-var affixedIdRegex = regexp.MustCompile(affixedRegexGen(idRegexClassRaw + `*`))
-
-// the following regular expression occurring between or in front of zero or one '_':
-//
-//	`\([!@#\$%\^\&\*~,<>\.\?/:\|-\+=`]+\)`
-//
-// examples:
-//
-//	`_>>=_`
-//	`_!`
-//	`!`
-var affixedSymbolRegex = regexp.MustCompile(affixedRegexGen(freeSymbolRegexClassRaw + `+`))
-
 func locateAtStart(s string, regex *regexp.Regexp) (string, bool) {
 	loc := regex.FindStringIndex(s)
 	if loc != nil && loc[0] == 0 {
@@ -487,6 +478,34 @@ func (lex *Lexer) analyzeStandalone() (ok, eof bool) {
 	return
 }
 
+func (lex *Lexer) analyzeHole() (ok, eof bool) {
+	if c, _ := lex.peek(); c != '?' {
+		panic("next character in input should've been validated before calling")
+	}
+
+	_, _ = lex.nextChar() // move past '?'
+	ok, eof = lex.analyzeIdentifier()
+	if !ok {
+		return // some error
+	}
+
+	index := len(lex.Tokens) - 1
+	tok := lex.Tokens[index]
+
+	// check that non-? part of identifier is camelCase
+	if ok = camelCase(tok.Value); !ok {
+		lex.error2(IllegalHoleId, tok.Start-1, tok.End)
+		return
+	}
+
+	// update token
+	tok.Start-- // start should be one backward to account for leading '?'
+	tok.Type = token.Hole
+	tok.Value = "?" + tok.Value
+	lex.Tokens[index] = tok
+	return
+}
+
 // reads and creates a token for some sequence of symbols
 //
 // this includes the standalone symbols that cannot be used in names:
@@ -509,6 +528,10 @@ func (lex *Lexer) analyzeStandalone() (ok, eof bool) {
 //
 //	`! &`
 func (lex *Lexer) analyzeSymbol() (ok, eof bool) {
+	if c, _ := lex.peek(); c == '?' {
+		return lex.analyzeHole()
+	}
+
 	ok, eof = lex.analyzeStandalone()
 	if ok {
 		return
@@ -521,7 +544,7 @@ func fixAnnotation(t token.Token) (tok token.Token, errorMessage string) {
 	if strings.ContainsRune(t.Value, '_') {
 		errorMessage = InvalidAnnotation
 	} else {
-		t.Type = token.At
+		t.Type = token.Percent
 	}
 	return t, errorMessage
 }
@@ -545,10 +568,13 @@ func (lex *Lexer) analyzeAnnotation() (ok, eof bool) {
 		lex.error(errorMessage)
 		return
 	}
+	if tok.Value == "affix" {
+		loc := len(lex.Tokens)
+		lex.AffixIndexes = append(lex.AffixIndexes, loc)
+	}
 	lex.add(tok)
 	return
 }
-
 
 func getEscape(r rune, escapeString bool) (c byte, ok bool) {
 	ok = true
@@ -779,25 +805,21 @@ func (lex *Lexer) analyzeString() (ok, eof bool) {
 	return
 }
 
-var idRegexClassRaw = `[a-z][a-zA-Z0-9']`
-var typeIdRegexClassRaw = `[A-Z][a-zA-Z0-9']`
-var capIdRegex = regexp.MustCompile(typeIdRegexClassRaw + `*`)
-
 // finds a substring of `line` starting at index 0 to an index > 0 that is an identifier
 //
 // if a substring with the above requirements cannot be found, then a non-empty `errorMessage` is
 // returned
 func matchId(line string) (matched string, errorMessage string, illegalArgument bool) {
 	if len(line) < 1 {
-		return "", "", true 
+		return "", "", true
 	}
 
-	matched = matchRegex(affixedIdRegex, line)
+	matched = matchRegex(identifierRegex, line)
 	if len(matched) > 0 {
 		return
 	}
 
-	matched = matchRegex(affixedSymbolRegex, line)
+	matched = matchRegex(symbolRegex, line)
 	if len(matched) < 1 {
 		errorMessage = InvalidCharacter
 	}
@@ -805,17 +827,30 @@ func matchId(line string) (matched string, errorMessage string, illegalArgument 
 	return
 }
 
+func affixedContainsImplicitId(s string) bool {
+	for _, s := range strings.Split(s, "_") {
+		if isImplicitId(s) {
+			return true
+		}
+	}
+	return false
+}
+
 // validates affixed id
 func checkAffixed(line, id string) (errorMessage string) {
+	if len(id) > len(line) {
+		panic("bug: id is longer than line")
+	}
+
 	// check if id ends with '_', if it does, check that it isn't actually more than one '_' in `line`
 	if id[len(id)-1] != '_' {
 		return ""
 	}
 
-	if len(id) > len(line) {
-		panic("id shouldn't be longer than line")
-	} else if len(id) != len(line) && line[len(id)] == '_' {
+	if len(id) != len(line) && line[len(id)] == '_' {
 		return InvalidAffixId
+	} else if affixedContainsImplicitId(id) {
+		return IllegalAffixedImplicitId
 	}
 	return ""
 }
@@ -839,6 +874,41 @@ func matchNonCapId(line string) (id string, ty token.Type, errorMessage string) 
 	} else {
 		ty = matchKeyword(id, token.Id) // id or some keyword
 	}
+	return
+}
+
+// returns type of identifier
+//
+// return value `ty` is ...
+//   - token.Id
+//   - token.Affixed
+//   - token.ImplicitId
+//   - keyword token type
+func (lex *Lexer) getIdType(line, id string) (ty token.Type, errorMessage string) {
+	ty = token.Id
+
+	if strings.ContainsRune(id, '_') {
+		ty = token.Affixed
+		errorMessage = checkAffixed(line, id)
+	} else if key, yes := lex.isKeyword(id); yes {
+		ty = key
+	} else if isImplicitId(id) {
+		ty = token.ImplicitId
+	}
+
+	return
+}
+
+func (lex *Lexer) matchIdentifier(line string) (id string, ty token.Type, errorMessage string) {
+	var illegalArgument bool
+	id, errorMessage, illegalArgument = matchId(line)
+	if illegalArgument {
+		panic("bug: illegal argument, empty string for argument `line`")
+	} else if errorMessage != "" {
+		return
+	}
+
+	ty, errorMessage = lex.getIdType(line, id)
 	return
 }
 
@@ -875,17 +945,25 @@ func (lex *Lexer) getId() (tok token.Token, ok bool) {
 	var ty token.Type
 	errorMessage := ""
 
-	id := matchRegex(capIdRegex, line)
-	if len(id) > 0 {
-		ty = token.CapId
-	} else {
-		id, ty, errorMessage = matchNonCapId(line)
-	}
+	// id := matchRegex(capIdRegex, line)
+	// if len(id) > 0 {
+	// 	ty = token.CapId
+	// } else {
+	// 	id, ty, errorMessage = matchNonCapId(line)
+	// }
+	var id string
+	id, ty, errorMessage = lex.matchIdentifier(line)
 
 	if errorMessage != "" {
 		lex.error(errorMessage)
 		ok = false
 		return
+	}
+
+	// track affixed identifiers
+	if ty == token.Affixed {
+		loc := len(lex.Tokens)
+		lex.Affixed = append(lex.Affixed, loc)
 	}
 
 	// add token
@@ -895,23 +973,26 @@ func (lex *Lexer) getId() (tok token.Token, ok bool) {
 	return
 }
 
+// input `c` and `eof` should be the result of calling `lex.peek()`, pos should be `lex.Pos` at the
+// time this function is called
+//
 // when char after first underscore is valid, returns ("", 0); otherwise, returns non-empty string
 // representing error message and the character to put for the end char number of the error
-func (lex *Lexer) validateUnderscoreNextChar() (errorMessage string, errorEndChar int) {
-	c, eof := lex.peek()
+func validateUnderscoreNextChar(c byte, eof bool, pos int) (errorMessage string, errorEndChar int) {
 	if eof {
 		return "", 0
 	}
 
 	r := rune(c)
+
 	ok := r != '_'
 	if !ok {
-		return IllegalUnderscoreSequence, lex.Pos + 1
+		return IllegalUnderscoreSequence, pos + 1
 	}
 
 	ok = unicode.IsDigit(r)
 	if !ok {
-		return InvalidUnderscore, lex.Pos
+		return InvalidUnderscore, pos
 	}
 
 	return "", 0
@@ -933,9 +1014,7 @@ func (class symbolClass) analyze(lex *Lexer) (ok, eof bool) {
 	switch class {
 	case number_class:
 		return lex.analyzeNumber()
-	case identifier_class:
-		fallthrough
-	case symbol_class:
+	case identifier_class, symbol_class, hole_class:
 		return lex.analyzeSymbol()
 	case char_class:
 		return lex.analyzeChar()
@@ -984,11 +1063,11 @@ func (lex *Lexer) nextChar() (c byte, eof bool) {
 
 // unadvance input by a single char and returns the new current char
 func (lex *Lexer) ungetChar() (c byte) {
-	char := lex.charNumber()
-	if char > 1 {
+	char, eof := lex.charNumber()
+	if char > 1 || eof {
 		lex.Pos--
 	} else if lex.Line > 1 { // char is 1
-		lex.Line = lex.Line - 1
+		lex.Line--
 		lex.Pos--
 	} else {
 		panic("bug: cannot move input to a position before its start")
@@ -998,6 +1077,31 @@ func (lex *Lexer) ungetChar() (c byte) {
 	return
 }
 
+func (lex *Lexer) addIndent(tabs, spaces int) {
+	if lex.illegalWhitespace == ' ' && spaces != 0 {
+		lex.error(IllegalWhitespace)
+		return
+	} else if lex.illegalWhitespace == '\t' && tabs != 0 {
+		lex.error(IllegalWhitespace)
+		return
+	}
+
+	startPos := lex.Pos - (tabs + spaces)
+	if startPos == lex.Pos { // don't add zero length indents
+		return
+	}
+	whitespace := string(lex.Source[startPos:lex.Pos])
+	tok := token.Token{
+		Value: whitespace,
+		Type:  token.Indent,
+		Start: startPos,
+		End:   lex.Pos,
+	}
+
+	// DON'T USE `lex.add`!!! No char number is saved!
+	lex.Tokens = append(lex.Tokens, tok)
+}
+
 // reads whitespace until next non-whitespace char, then advances input and returns non-whitespace
 // char (and eof==true when lexer is at end of source)
 //
@@ -1005,16 +1109,29 @@ func (lex *Lexer) ungetChar() (c byte) {
 func (lex *Lexer) skipWhitespace() (eof bool) {
 	// technically, condition isn't needed b/c if eof==true, then c==0 which is the default case
 	var c byte
+	charNum, _ := lex.charNumber()
+	atStart := charNum == 1
+
+	tabs := 0
+	spaces := 0
 	c, eof = lex.peek()
 	for ; !eof; c, eof = lex.peek() {
 		switch c {
 		case ' ':
-			fallthrough // advance char counter
+			lex.nextChar()
+			spaces++ // advance char counter
 		case '\t':
-			lex.Pos++
+			lex.nextChar()
+			tabs++
 		default: // non whitespace
+			if atStart {
+				lex.addIndent(tabs, spaces)
+			}
 			return eof
 		}
+	}
+	if atStart {
+		lex.addIndent(tabs, spaces)
 	}
 	return eof
 }
@@ -1052,7 +1169,7 @@ func (lex *Lexer) analyze() (ok bool, eof bool) {
 
 	c, _ := lex.nextChar()
 	if c == '\n' {
-		lex.SavedChar.Push(lex.Pos-1)
+		lex.SavedChar.Push(lex.Pos - 1)
 		lex.add(token.Newline.Make())
 		return lex.advanceLine()
 	}
@@ -1077,9 +1194,22 @@ func (lex *Lexer) fixLineChar() {
 	lex.Pos, _ = lex.LinePos(lex.Line)
 }
 
+func (lex *Lexer) Next() (tok token.Token, ok bool) {
+	var eof bool
+	ok, eof = lex.analyze()
+	if eof {
+		return token.EndOfTokens.Make(), ok // still return eof even if !ok
+	} else if !ok {
+		return
+	}
+
+	tok = lex.Tokens[lex.nextIndex]
+	lex.nextIndex++
+	return
+}
+
 // tokenize lex source
 func (lex *Lexer) Tokenize() (tokens []token.Token, ok bool) {
-	fmt.Printf("\n%v\n", lex)
 	lex.fixLineChar() // prepare for reading from source
 
 	var eof bool

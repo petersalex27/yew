@@ -1,10 +1,9 @@
-yew:
-	go build
+btags := 
+
+yewc:
+	go build -tags "${btags}"
 	go install github.com/petersalex27/yew
 
-debug:
-	go build -tags debug
-	go install github.com/petersalex27/yew
-
-clean:
+.PHONY: clean yewc
+clean: yew
 	rm yew

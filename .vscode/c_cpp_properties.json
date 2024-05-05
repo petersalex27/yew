@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/homebrew/include/**"
+            ],
+            "defines": [],
+            "macFrameworkPath": [],
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "macos-clang-arm64",
+            "compilerPath": "/usr/bin/clang",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "/opt/homebrew/include"
+                ]
+            }
+        }
+    ],
+    "version": 4
+}

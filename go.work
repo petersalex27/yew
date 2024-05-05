@@ -1,9 +1,15 @@
-go 1.20
+go 1.22.0
 
 use (
 	.
+	./common
 	./errors
 	./lexer
-	./common
 	./parser
+	./print
+	./source
+	./bridge
+	./module
+	./types
+	./infer
 )

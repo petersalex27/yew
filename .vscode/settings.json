@@ -1,5 +1,26 @@
 {
   "cSpell.words": [
-    "wmap"
-  ]
+    "annots",
+    "appc",
+    "DEPFUNC",
+    "Droppables",
+    "fprivate",
+    "idents",
+    "insts",
+    "kleene",
+    "lextoparse",
+    "mult",
+    "noprint",
+    "printables",
+    "stlc",
+    "toks",
+    "Typeas",
+    "unifications",
+    "wmap",
+    "Yewmod"
+  ],
+  "files.associations": {
+    "*.old": "json",
+    "stdint.h": "c"
+  }
 }

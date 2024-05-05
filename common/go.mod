@@ -1,3 +1,3 @@
 module github.com/petersalex27/yew/common
 
-go 1.20
+go 1.22

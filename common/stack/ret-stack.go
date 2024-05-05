@@ -41,10 +41,27 @@ func (stack *SaveStack[T]) Peek() (elem T, stat StackStatus) {
 	return stack.Stack.Peek()
 }
 
+// number of stack frames
+func (stack *SaveStack[T]) GetFrames() uint {
+	return stack.returnStack.GetCount() + 1
+}
+
+// number of elements in current frame
 func (stack *SaveStack[T]) GetCount() uint {
 	return stack.GetFullCount() - stack.bc
 }
 
+// true iff current frame is empty
+func (stack *SaveStack[T]) Empty() bool {
+	return stack.GetCount() == 0
+}
+
+// true iff all frames are empty
+func (stack *SaveStack[T]) FullEmpty() bool {
+	return stack.GetFullCount() == 0
+}
+
+// number of elems in all frames
 func (stack *SaveStack[T]) GetFullCount() uint {
 	return stack.Stack.GetCount()
 }
@@ -53,6 +70,7 @@ func (stack *SaveStack[T]) Status() StackStatus {
 	return stack.Stack.Status()
 }
 
+// create return point point to return to later
 func (stack *SaveStack[T]) Save() {
 	save := stack.bc
 	stack.returnStack.Push(save)
@@ -83,6 +101,17 @@ func (stack *SaveStack[T]) Return() (stat StackStatus) {
 	stat = stack.Rebase() // merge top two frames
 	if stat.IsOk() {
 		stack.sc = old // remove top (now merged with frame under it) frame
+	}
+	return
+}
+
+// search from top to bottom for first occurrence of element that predicate occurs for
+func (s *SaveStack[T]) Search(predicate func(T) bool) (found bool, elem T) {
+	for i := int64(s.sc) - 1; i >= int64(s.bc); i-- {
+		if found = predicate(s.elems[i]); found {
+			elem = s.elems[i]
+			return
+		}
 	}
 	return
 }

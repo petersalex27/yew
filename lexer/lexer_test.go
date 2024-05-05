@@ -3,7 +3,11 @@
 // =================================================================================================
 package lexer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/petersalex27/yew/source"
+)
 
 func TestWrite(t *testing.T) {
 	{
@@ -12,8 +16,8 @@ func TestWrite(t *testing.T) {
 			return true
 		}
 		lex := Lexer{
-			write: write,
-			Source: []byte("test"),
+			write:      write,
+			SourceCode: source.SourceCode{Source: []byte("test")},
 		}
 		expected := 4
 		actual := lex.Write()
@@ -21,14 +25,14 @@ func TestWrite(t *testing.T) {
 			t.Fatalf("unexpected return value(%d): got %d", expected, actual)
 		}
 	}
-	
+
 	{
 		write := func(*Lexer) bool {
 			return false
 		}
 		lex := Lexer{
-			write: write,
-			Source: []byte("test"),
+			write:      write,
+			SourceCode: source.SourceCode{Source: []byte("test")},
 		}
 		expected := -1
 		actual := lex.Write()
@@ -39,80 +43,92 @@ func TestWrite(t *testing.T) {
 }
 
 func TestCurrentSourceChar(t *testing.T) {
-	tests := []struct{
+	tests := []struct {
 		Lexer
 		char byte
-		ok bool
+		ok   bool
 	}{
 		{
 			Lexer: Lexer{
-				Source: []byte("a"),
+				SourceCode: source.SourceCode{
+					Source:         []byte("a"),
+					PositionRanges: []int{1},
+				},
 				Pos: 0,
-				PositionRanges: []int{1},
 			},
 			char: 'a',
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("a\nb"),
+				SourceCode: source.SourceCode{
+					Source:         []byte("a\nb"),
+					PositionRanges: []int{2, 3},
+				},
 				Pos: 2,
-				PositionRanges: []int{2,3},
 			},
 			char: 'b',
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte(""),
-				Pos: 0,
+				SourceCode: source.SourceCode{Source: []byte("")},
+				Pos:        0,
 			},
 			char: 0,
-			ok: false,
+			ok:   false,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte(""),
-				Pos: 1,
+				SourceCode: source.SourceCode{Source: []byte("")},
+				Pos:        1,
 			},
 			char: 0,
-			ok: false,
+			ok:   false,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("abc"),
+				SourceCode: source.SourceCode{
+					Source:         []byte("abc"),
+					PositionRanges: []int{3},
+				},
 				Pos: 0,
-				PositionRanges: []int{3},
 			},
 			char: 'a',
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("abc"),
+				SourceCode: source.SourceCode{
+					Source:         []byte("abc"),
+					PositionRanges: []int{3},
+				},
 				Pos: 1,
-				PositionRanges: []int{3},
 			},
 			char: 'b',
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("abc"),
+				SourceCode: source.SourceCode{
+					Source:         []byte("abc"),
+					PositionRanges: []int{3},
+				},
 				Pos: 2,
-				PositionRanges: []int{3},
 			},
 			char: 'c',
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("abc"),
+				SourceCode: source.SourceCode{
+					Source:         []byte("abc"),
+					PositionRanges: []int{3},
+				},
 				Pos: 3,
-				PositionRanges: []int{3},
 			},
 			char: 0,
-			ok: false,
+			ok:   false,
 		},
 	}
 
@@ -128,79 +144,91 @@ func TestCurrentSourceChar(t *testing.T) {
 }
 
 func TestCurrentSourceLine(t *testing.T) {
-	tests := []struct{
+	tests := []struct {
 		Lexer
 		line string
-		ok bool
+		ok   bool
 	}{
 		{
 			Lexer: Lexer{
 				Line: 0,
 			},
 			line: "",
-			ok: false,
+			ok:   false,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("a"),
-				PositionRanges: []int{1},
+				SourceCode: source.SourceCode{
+					Source:         []byte("a"),
+					PositionRanges: []int{1},
+				},
 				Line: 1,
 			},
 			line: "a",
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("a"),
-				PositionRanges: []int{1},
+				SourceCode: source.SourceCode{
+					Source:         []byte("a"),
+					PositionRanges: []int{1},
+				},
 				Line: 1,
 			},
 			line: "a",
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("a\nb"),
-				PositionRanges: []int{2,3},
+				SourceCode: source.SourceCode{
+					Source:         []byte("a\nb"),
+					PositionRanges: []int{2, 3},
+				},
 				Line: 2,
 			},
 			line: "b",
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte(""),
-				Line: 1,
+				SourceCode: source.SourceCode{Source: []byte("")},
+				Line:       1,
 			},
 			line: "",
-			ok: false,
+			ok:   false,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("abc"),
-				PositionRanges: []int{3},
+				SourceCode: source.SourceCode{
+					Source:         []byte("abc"),
+					PositionRanges: []int{3},
+				},
 				Line: 1,
 			},
 			line: "abc",
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("abc"),
-				PositionRanges: []int{3},
+				SourceCode: source.SourceCode{
+					Source:         []byte("abc"),
+					PositionRanges: []int{3},
+				},
 				Line: 1,
 			},
 			line: "abc",
-			ok: true,
+			ok:   true,
 		},
 		{
 			Lexer: Lexer{
-				Source: []byte("abc"),
-				PositionRanges: []int{3},
+				SourceCode: source.SourceCode{
+					Source:         []byte("abc"),
+					PositionRanges: []int{3},
+				},
 				Line: 2,
 			},
 			line: "",
-			ok: false,
+			ok:   false,
 		},
 	}
 

@@ -1,7 +1,9 @@
 package common
 
+import "cmp"
+
 // returns min {a, b} or a if a==b
-func Min[T interface{~int|~uint}](a, b T) T {
+func Min[T cmp.Ordered](a, b T) T {
 	if a > b {
 		return b
 	}
@@ -9,7 +11,7 @@ func Min[T interface{~int|~uint}](a, b T) T {
 }
 
 // returns max {a, b} or a if a==b
-func Max[T interface{~int|~uint}](a, b T) T {
+func Max[T cmp.Ordered](a, b T) T {
 	if a < b {
 		return b
 	}

@@ -3,7 +3,7 @@ package stack
 import (
 	"fmt"
 
-	"github.com/petersalex27/yew/common"
+	"github.com/petersalex27/yew/common/math"
 )
 
 // interface for usual stack operations (i.e., push, pop, peek, and number of
@@ -51,7 +51,7 @@ func makeStack[T any](cap uint) (out Stack[T]) {
 		cap = 8
 	} else {
 		// make capacity a power of 2
-		cap = common.PowerOfTwoCeil(cap)
+		cap = math.PowerOfTwoCeil(cap)
 	}
 	out.st, out.sc = cap, 0
 	out.elems = make([]T, cap)
@@ -160,7 +160,7 @@ func (s *Stack[T]) Push(elem T) {
 
 // removes min(n, s.GetCount()) elements from the stack
 func (s *Stack[T]) Clear(n uint) {
-	n = common.Min(uint(s.GetCount()), n)
+	n = math.Min(uint(s.GetCount()), n)
 	s.sc = s.sc - n
 }
 
@@ -211,4 +211,15 @@ func (s *Stack[T]) Status() StackStatus {
 // returns true iff stack has no elements
 func (s *Stack[T]) Empty() bool {
 	return s.GetCount() == 0
+}
+
+// searches from top to bottom for first thing predicate returns true for
+func (s *Stack[T]) Search(predicate func(T) bool) (found bool, elem T) {
+	for i := int64(s.sc)-1; i >= 0; i-- {
+		if found = predicate(s.elems[i]); found {
+			elem = s.elems[i]
+			return
+		}
+	}
+	return
 }

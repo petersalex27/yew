@@ -1,6 +1,6 @@
 module github.com/petersalex27/yew
 
-go 1.20
+go 1.22
 
 require github.com/llir/llvm v0.3.6
 

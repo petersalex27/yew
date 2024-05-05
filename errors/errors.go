@@ -2,13 +2,24 @@ package errors
 
 import (
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/petersalex27/yew/common"
+)
+
+type MessageType byte
+const (
+	AnyMessage MessageType = 0
+	ErrorType MessageType = 'e'
+	WarningType MessageType = 'w'
+	LogType MessageType = 'l'
 )
 
 // error message to be printed
 type ErrorMessage struct {
 	isFatal    bool   // true when compilation should be ended
+	messageType MessageType 
 	SourceName string // source name where error occurred
 	Message    string // actual message part of error
 	Line       int    // line number
@@ -19,6 +30,10 @@ type ErrorMessage struct {
 
 // true if and only if e is a fatal error (not a warning or other kind of message)
 func (e ErrorMessage) IsFatal() bool { return e.isFatal }
+
+func (e ErrorMessage) GetType() MessageType {
+	return e.messageType
+}
 
 // given:
 //
@@ -164,6 +179,7 @@ func MakeError(subType string, msg string, line_start_end ...int) ErrorMessage {
 	msg = header(errorMsgType, subType) + validateMessageString(msg)
 	e := message(msg, line_start_end...)
 	e.isFatal = true
+	e.messageType = ErrorType
 	return e
 }
 
@@ -171,6 +187,7 @@ func MakeError(subType string, msg string, line_start_end ...int) ErrorMessage {
 func MakeWarning(subType string, msg string, line_start_end ...int) ErrorMessage {
 	msg = header(warningMsgType, subType) + validateMessageString(msg)
 	w := message(msg, line_start_end...)
+	w.messageType = WarningType
 	return w
 }
 
@@ -178,5 +195,39 @@ func MakeWarning(subType string, msg string, line_start_end ...int) ErrorMessage
 func MakeLog(subType string, msg string, line_start_end ...int) ErrorMessage {
 	msg = header(logMsgType, subType) + validateMessageString(msg)
 	log := message(msg, line_start_end...)
+	log.messageType = LogType
 	return log
+}
+
+// writes all messages belonging to `mt` in `es` to `w`, returning number of messages belonging to `mt` in `es`
+//
+// panics if message type `mt` is not one of `AnyMessage`, `ErrorType`, `WarningType`, or `LogType`
+func LogMessage(w io.Writer, mt MessageType, messages []ErrorMessage) (n int) {
+	switch mt {
+	case AnyMessage, ErrorType, WarningType, LogType:
+		return unchecked_LogMessage(w, mt, messages)
+	default:
+		panic("illegal message type: must be one of `AnyMessage`, `ErrorType`, `WarningType`, or `LogType`")
+	}
+}
+
+func unchecked_LogMessage(w io.Writer, mt MessageType, messages []ErrorMessage) (n int) {
+	for _, e := range messages {
+		// true if `mt` and `e.messageType` are the same or either is `AnyType`
+		if e.messageType ^ mt == 0 {
+			n++
+			fmt.Fprintf(w, "%s\n", e.Error())
+		}
+	}
+	return
+}
+
+// writes all errors in `es` to `os.Stderr`, returning number of errors occurring in `es`
+func PrintErrors(es []ErrorMessage) (n int) {
+	return unchecked_LogMessage(os.Stderr, ErrorType, es)
+}
+
+// writes all errors in `es` to `w`, returning number of errors occurring in `es`
+func LogErrors(w io.Writer, es []ErrorMessage) (n int) {
+	return unchecked_LogMessage(w, ErrorType, es)
 }

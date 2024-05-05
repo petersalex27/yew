@@ -7,36 +7,40 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"strings"
-
+	
+	"github.com/petersalex27/yew/common"
 	"github.com/petersalex27/yew/common/stack"
 	"github.com/petersalex27/yew/errors"
+	"github.com/petersalex27/yew/source"
 	"github.com/petersalex27/yew/token"
 )
 
 type Lexer struct {
-	// path to source file
-	path pathSpec
+	keepComments bool
+	illegalWhitespace byte
 	// write some amount of source to lexer
 	write func(*Lexer) bool
-	// source file as an array of strings for each non-empty line, does not include newline chars
-	Source []byte
-	// records end (exclusive) position for all lines n at index n-1.
-	//
-	// for example, given
-	//	PositionRanges = []int{10, 23, 56}
-	// line one ends at position 10, line two ends at position 23, and line three ends at position 56
-	PositionRanges []int
+	source.SourceCode
 	// current line number
 	Line int
+	// current position in source
 	Pos int
 	// saved char number
 	SavedChar *stack.Stack[int]
+	// Affixed Identifiers
+	Affixed      []int
+	AffixIndexes []int
 	// tokens created from source
 	Tokens []token.Token
-	// errors, warnings, and logs during lexical analysis
+	// errors, warnings, and logs written during lexical analysis
 	messages []errors.ErrorMessage
+	// keywords
+	keywords map[string]token.Type
+	// index for Next calls
+	nextIndex int
 }
 
 func (lex *Lexer) Messages() []errors.ErrorMessage {
@@ -59,22 +63,55 @@ func (lex *Lexer) FlushMessages() []errors.ErrorMessage {
 // write input to lex.Source with
 //
 //	lex.Write()
-func Init(path pathSpec) *Lexer {
+func Init(path source.PathSpec) *Lexer {
 	lex := new(Lexer)
 
-	lex.path = path
-	// beyond 8 being a small power of two, it's an arbitrary choice 
+	lex.SetKeepComments(false)
+	lex.SetSpaceWhitespace()
+
+	lex.Path = path
+	// beyond 8 being a small power of two, it's an arbitrary choice
 	const cap uint = 8
-	lex.SavedChar = stack.NewStack[int](cap) 
+	lex.SavedChar = stack.NewStack[int](cap)
+
+	lex.AffixIndexes = make([]int, 0, 8)
+	lex.Affixed = make([]int, 0, 8)
 
 	// generate source code write-to-lexer function
-	if _, ok := path.(standardInput); ok {
+	if _, ok := path.(source.StandardInput); ok {
 		lex.write = genWriteFromStdin()
+	} else if _, ok := source.AssertStringInput(path); ok {
+		lex.write = lexWrite_fromString
 	} else {
 		lex.write = lexWrite_fromPath
 	}
 
+	lex.keywords = make(map[string]token.Type, len(keywords))
+	maps.Copy(lex.keywords, keywords)
+
 	return lex
+}
+
+func (lex *Lexer) AddExtensionKey(x token.Token) bool {
+	v, found := lex.keywords[x.Value]
+	if found && v != token.ExtensionKey {
+		lex.error2(ExtensionOverwrite, x.Start, x.End)
+		return false
+	}
+	lex.keywords[x.Value] = token.ExtensionKey
+	return true
+}
+
+func (lex *Lexer) SetKeepComments(truthy bool) {
+	lex.keepComments = truthy
+}
+
+func (lex *Lexer) SetSpaceWhitespace() {
+	lex.illegalWhitespace = '\t'
+}
+
+func (lex *Lexer) SetTabWhitespace() {
+	lex.illegalWhitespace = ' '
 }
 
 // returns index position for given line from start (inclusive) to end (exclusive)
@@ -83,7 +120,7 @@ func (lexer *Lexer) LinePos(line int) (start, end int) {
 	if line > numLines || line < 1 {
 		panic("bug: illegal argument, line > number of lines or < 1")
 	}
-	
+
 	if line > 1 {
 		start = lexer.PositionRanges[line-2]
 	} // else start=0
@@ -99,8 +136,8 @@ func (lexer *Lexer) LinePos(line int) (start, end int) {
 // intended for debugging and fail messages for tests
 func (lex *Lexer) String() string {
 	return fmt.Sprintf(
-		"Lexer{path: %v, write: nil ? %t, Source: %v, Line: %d, Pos: %d, Tokens: %v, messages: %v}", 
-		lex.path, lex.write == nil, lex.Source, lex.Line, lex.Pos, lex.Tokens, lex.messages,
+		"Lexer{Path: %v, write: nil ? %t, Source: %s, Line: %d, Pos: %d, Tokens: %v, messages: %v}",
+		lex.Path, lex.write == nil, string(lex.Source), lex.Line, lex.Pos, lex.Tokens, lex.messages,
 	)
 }
 
@@ -157,7 +194,7 @@ func genWriteFromStdin() func(lex *Lexer) bool {
 
 // writes to source slice from input stream line-by-line--this allows calling lex.Write multiple times
 func genWriteFromStream(stream *os.File) func(lex *Lexer) bool {
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(stream)//bufio.NewReader(os.Stdin)
 	// closure on `reader`
 	return func(lex *Lexer) bool {
 		switch line, err := reader.ReadBytes('\n'); err {
@@ -179,6 +216,8 @@ func genWriteFromStream(stream *os.File) func(lex *Lexer) bool {
 
 // function writes contents of file to source slice in lexer, then prevents further writing
 func lexWrite_fromPath(lex *Lexer) bool {
+	lex.write = nil // prevent further writing
+
 	f := lex.openPath()
 	if f == nil {
 		return false
@@ -186,10 +225,16 @@ func lexWrite_fromPath(lex *Lexer) bool {
 
 	defer f.Close()
 
-	lex.Source, lex.PositionRanges = readSourceFile(f)
+	lex.Source, lex.PositionRanges = read(f)
 
+	return true
+}
+
+func lexWrite_fromString(lex *Lexer) bool {
 	lex.write = nil // prevent further writing
-
+	si, _ := source.AssertStringInput(lex.Path)
+	r := common.NewStringReader(si.GetInput())
+	lex.Source, lex.PositionRanges = read(r)
 	return true
 }
 
@@ -199,7 +244,7 @@ func lexWrite_fromPath(lex *Lexer) bool {
 //
 // on success, returns file opened
 func (lex *Lexer) openPath() *os.File {
-	path := lex.path.String()
+	path := lex.Path.Path()
 
 	f, err := os.Open(path)
 	if err == nil {
@@ -212,20 +257,38 @@ func (lex *Lexer) openPath() *os.File {
 	return nil
 }
 
-// reads entire source file, splitting input at newlines
-func readSourceFile(f *os.File) ([]byte, []int) {
+func read(r io.Reader) ([]byte, []int) {
 	buf := []byte{}
 	pos := []int{}
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(r)
+	scanner.Split(ScanLines)
 	tot := 0
 	for scanner.Scan() {
 		text := scanner.Text()
+
 		tot += len(text)
 		pos = append(pos, tot)
 		buf = append(buf, []byte(text)...)
 	}
 	return buf, pos
 }
+
+// reads entire source file, splitting input at newlines
+// func readSourceFile(f *os.File) ([]byte, []int) {
+// 	buf := []byte{}
+// 	pos := []int{}
+// 	scanner := bufio.NewScanner(f)
+// 	scanner.Split(ScanLines)
+// 	tot := 0
+// 	for scanner.Scan() {
+// 		text := scanner.Text()
+
+// 		tot += len(text)
+// 		pos = append(pos, tot)
+// 		buf = append(buf, []byte(text)...)
+// 	}
+// 	return buf, pos
+// }
 
 // reads input through byte `end` and returns it and true iff successful
 func (lex *Lexer) readThrough(end byte) (string, bool) {
