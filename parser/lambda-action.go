@@ -72,7 +72,7 @@ func abstractionAction(parser *Parser, data *actionData) (term termElem, ok bool
 		return
 	}
 
-	parser.decls.Increase()
+	parser.declarations.Increase()
 	lambda := Lambda{
 		Binders: make([]Ident, 0, 4),
 		Start:   tok.Start,
@@ -94,30 +94,13 @@ func abstractionAction(parser *Parser, data *actionData) (term termElem, ok bool
 	if ok {
 		term = termElem{lambda, termInfo{10, false, arity}}
 	}
-	
+
 	parser.shift(term)
 	parser.terms.Save()
 
 	term, ok = parser.terminalAction(data) // require something after '=>'
 	// resolution will finish lambda abstraction
 	return
-}
-
-func resolveLambdaAbstraction(parser *Parser, data *actionData) (term termElem, ok bool) {
-	// pop bound part first
-	bound, _ := parser.terms.Pop()
-	// pop lambda
-	term, _ = parser.terms.Pop()
-	lambda := term.Term.(Lambda)
-	// set lambda fields
-	lambda.Bound = bound.Term
-	_, lambda.End = bound.Pos()
-	term.Term = lambda
-	// remove local declarations
-	if _, ok = parser.decls.Decrease(); !ok {
-		panic("bug: could not remove local declarations")
-	}
-	return term, ok
 }
 
 // noop if binder with Name `name` is not found; else, updates shadowed binder and writes a warning

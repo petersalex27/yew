@@ -26,10 +26,10 @@ func (t AmbiguousTuple) Pos() (start, end int) {
 	return t.Start, t.End
 }
 
-func (Pairs) NodeType() NodeType {
+func (Tuple) NodeType() NodeType {
 	return pairsType
 }
 
-func (ps Pairs) Pos() (start, end int) {
+func (ps Tuple) Pos() (start, end int) {
 	return ps.Start, ps.End
 }

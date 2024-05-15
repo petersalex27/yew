@@ -7,7 +7,7 @@ package parser
 
 import "github.com/petersalex27/yew/types"
 
-func (id Ident) Translate() types.Term {
+func (id Ident) Translate(parser *Parser) types.Term {
 	return types.Constant(id.Name)
 }
 
@@ -15,55 +15,71 @@ func (id Ident) TranslateVar(boundSet *map[string]uint) types.Variable {
 	return types.VarWith(id.Name, *boundSet)
 }
 
-func (app Application) Translate() types.Term {
+func (im Implicit) Translate(parser *Parser) types.Term {
+	panic("TODO: implement")
+}
+
+func (app Application) Translate(parser *Parser) types.Term {
 	//types.Application
 	panic("TODO: implement")
 }
 
-func (FunctionType) Translate() types.Term {
+func (FunctionType) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (Lambda) Translate() types.Term {
+func (Lambda) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (StringConst) Translate() types.Term {
+func (StringConst) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (FloatConst) Translate() types.Term {
+func (FloatConst) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (CharConst) Translate() types.Term {
+func (CharConst) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (IntConst) Translate() types.Term {
+func (IntConst) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (AmbiguousTuple) Translate() types.Term {
+func (AmbiguousTuple) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (AmbiguousList) Translate() types.Term {
+func (AmbiguousList) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (Pairs) Translate() types.Term {
+func (Tuple) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (List) Translate() types.Term {
+func (List) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (Key) Translate() types.Term {
+func (Key) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
 }
 
-func (EnclosedTerm) Translate() types.Term {
+func (EnclosedTerm) Translate(parser *Parser) types.Term {
 	panic("TODO: implement")
+}
+
+func (Listing) Translate(parser *Parser) types.Term {
+	panic("TODO: implement")
+}
+
+func (ConstrainedType) Translate(parser *Parser) types.Term {
+	panic("TODO: implement")
+}
+
+func (Marker) Translate(parser *Parser) types.Term {
+	panic("bug: found marker, but this should've been removed from the parse stack")
 }

@@ -1,5 +1,10 @@
 package stack
 
+import (
+	"fmt"
+	"strings"
+)
+
 type SaveStack[T any] struct {
 	Stack[T]
 	bc          uint // base counter
@@ -23,6 +28,60 @@ func NewSaveStack[T any](cap uint, returnCap ...uint) *SaveStack[T] {
 
 func (stack *SaveStack[T]) Push(elem T) {
 	stack.Stack.Push(elem)
+}
+
+func elemStringSepHelper[T any](elems []T, encloseL, encloseR, sep string) string {
+	var b strings.Builder
+
+	if len(elems) == 0 {
+		return ""
+	}
+
+	b.WriteString(encloseL + fmt.Sprint(elems[0]) + encloseR)
+
+	for _, elem := range elems[1:] {
+		b.WriteString(sep)
+		b.WriteString(encloseL)
+		if st, ok := any(elem).(fmt.Stringer); ok && st != nil {
+			b.WriteString(st.String())
+		} else {
+			b.WriteString("_?_")
+		}
+		b.WriteString(encloseR)
+	}
+	return b.String()
+}
+
+func (s *SaveStack[T]) ElemStringSep(encloseL, encloseR, frameSep, sep string) string {
+	if s.GetFullCount() == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	bcCount := s.returnStack.GetCount()
+	bcs := s.returnStack.elems[:bcCount]
+	if once := bcCount == 0; once {
+		return elemStringSepHelper(s.elems[:s.sc], encloseL, encloseR, sep)
+	}
+
+	var prev, next uint = 0, bcs[0]
+	for i := 0; i < len(bcs); i++ {
+		prev = next
+		if len(bcs) == i+1 {
+			next = s.bc
+		} else {
+			next = bcs[i+1]
+		}
+
+		res := elemStringSepHelper(s.elems[prev:next], encloseL, encloseR, sep)
+		b.WriteString(res)
+		b.WriteString(frameSep)
+	}
+
+	res := elemStringSepHelper(s.elems[next:s.sc], encloseL, encloseR, sep)
+	b.WriteString(res)
+
+	return b.String()
 }
 
 func (stack *SaveStack[T]) Pop() (elem T, stat StackStatus) {

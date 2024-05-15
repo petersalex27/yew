@@ -2,6 +2,7 @@ package stack
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/petersalex27/yew/common/math"
 )
@@ -40,6 +41,23 @@ type Stack[T any] struct {
 
 // wraps fmt.Sprint(s.elems)
 func (s *Stack[T]) ElemString() string { return fmt.Sprint(s.elems[:s.sc]) }
+
+func (s *Stack[T]) ElemStringSep(encloseL, encloseR string, sep string) string {
+	var b strings.Builder
+	if s.GetCount() == 0 {
+		return ""
+	}
+
+	b.WriteString(encloseL + fmt.Sprint(s.elems[0]) + encloseR)
+
+	for _, elem := range s.elems[1:s.sc] {
+		b.WriteString(sep)
+		b.WriteString(encloseL)
+		b.WriteString(fmt.Sprint(elem))
+		b.WriteString(encloseR)
+	}
+	return b.String()
+}
 
 // stack with fixed size (i.e., stack cannot request more capacity)
 type StaticStack[T any] Stack[T]

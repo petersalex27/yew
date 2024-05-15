@@ -11,6 +11,53 @@ import (
 	"github.com/petersalex27/yew/token"
 )
 
+func expectedNodeMessage(ty NodeType) string {
+	switch ty {
+	case identType:
+		return ExpectedIdentifier
+	case wildcardType:
+		return ExpectedWildcard
+	case affixedType:
+		return ExpectedAffixedId
+	case intConstType:
+		return ExpectedIntLit
+	case charConstType:
+		return ExpectedCharLit
+	case floatConstType:
+		return ExpectedFloatLit
+	case stringConstType:
+		return ExpectedStringLit
+	case functionType:
+		return ExpectedFunctionType
+	case applicationType:
+		return ExpectedApplication
+	case lambdaType:
+		return ExpectedLambdaAbstraction
+	case bindingType:
+		return ExpectedBinding
+	case typingType:
+		return ExpectedTyping
+	case listType:
+		return ExpectedListType
+	case listExprType:
+		return ExpectedListExpr
+	case tupleType:
+		return ExpectedTuple
+	case tupleExprType:
+		return ExpectedTupleExpr
+	case pairsType:
+		return ExpectedPairings
+	case listingType:
+		return ExpectedListing
+	case constrainedTypeType:
+		return ExpectedConstraint
+	case syntaxExtensionType:
+		return ExpectedSyntaxExtension
+	default:
+		return UnexpectedSection
+	}
+}
+
 func expectedMessage(ty token.Type) string {
 	switch ty {
 	case token.Equal:
@@ -74,6 +121,24 @@ const (
 	ExpectedLParen            string = "expected '('"
 	ExpectedUint              string = "expected unsigned integer"
 	ExpectedUintRange1_9      string = "expected unsigned integer in the range 1 .. 9"
+	ExpectedConstraint        string = "expected constraint, e.g.,\n\t'(Trait a1, .., Trait aN) => ..', or\n\t'Trait a => ..'"
+	ExpectedWildcard          string = "expected wildcard"
+	ExpectedAffixedId         string = "expected affixed identifier"
+	ExpectedIntLit            string = "expected int literal"
+	ExpectedCharLit           string = "expected char literal"
+	ExpectedFloatLit          string = "expected float literal"
+	ExpectedStringLit         string = "expected string literal"
+	ExpectedFunctionType      string = "expected function type"
+	ExpectedApplication       string = "expected function application"
+	ExpectedLambdaAbstraction string = "expected lambda abstraction"
+	ExpectedListType          string = "expected list type"
+	ExpectedListExpr          string = "expected list expression"
+	ExpectedTuple             string = "expected tuple"
+	ExpectedTupleExpr         string = "expected tuple expression"
+	ExpectedPairings          string = "expected pairings"
+	ExpectedListing           string = "expected listing"
+	ExpectedSyntaxExtension   string = "expected syntax extension"
+	ExpectedTermAfter         string = "expected another syntactic sub-section following this one"
 
 	// = "illegal" ===================================================================================
 	IllegalApplication         string = "illegal application"
@@ -96,6 +161,9 @@ const (
 	IllegalTrait               string = "illegal location of trait definition occurrence"
 	IllegalInstance            string = "illegal location of instance definition"
 	IllegalDataType            string = "illegal location of data type definition"
+	IllegalDataTypeName        string = "illegal data type identifier, must be more than a character followed by numbers and/or single quotes"
+	IllegalConstraintPosition  string = "illegal constraint position, must appear before all constrained types"
+	IllegalExplicatedArgInType string = "illegal explicated argument, cannot appear in type"
 
 	MultiplyOccurringAffixedIdent string = "multiple occurrences of affixed form of identifier"
 
@@ -123,11 +191,24 @@ const (
 	UnexpectedIndent   string = "unexpected indentation"
 	UnexpectedRParen   string = "unexpected ')'"
 	UnexpectedMetaArgs string = "unexpected arguments in annotation"
+	UnexpectedSection  string = "unexpected syntactic section"
+
+	UnexpectedListing_Maybe_       string = "unexpected listing; did you mean to enclose it in "
+	UnexpectedListing_MaybeEnclose string = "unexpected listing; did you mean to enclose it in '(' listing ')'?"
 
 	NonBindingVariable_warn string = "variable has no bound occurrences; did you mean to use '_'?"
 
 	ReductionFailure string = "could not reduce further"
+
+	ExcessiveParens string = "excessive '(...)' grouping"
 )
+
+func UnexpectedListingMaybeEnclosed(term Term) string {
+	if term == nil {
+		return UnexpectedListing_MaybeEnclose
+	}
+	return fmt.Sprintf("%v'(%v)'?", UnexpectedListing_Maybe_, term)
+}
 
 const (
 	UndefinedName string = "undefined name"
@@ -191,22 +272,20 @@ func (parser *Parser) error2(msg string, startPos, endPos int) {
 	parser.addMessage(e)
 }
 
-// adds an error constructed using elem's position and the message string passed as an argument
-func (parser *Parser) errorOnElem(msg string, elem SyntacticElem) {
-	start, end := elem.Pos()
-	line1, line2, char1, char2 := parser.src.CalcLocationRange(start, end)
-	e := makeSyntaxError(msg, parser.src.Path, line1, line2, char1, char2)
-	e.Message = fmt.Sprintf("%s\n%s\n", e.Message, parser.src.PointedWindow(start, end))
-	parser.addMessage(e)
+// wrapper for `(*Parser).errorOn` using `ty` and `errorNodeMessage` to generate the error
+func (parser *Parser) expectedErrorOn(ty NodeType, p positioned) {
+	parser.errorOn(expectedNodeMessage(ty), p)
+}
+
+func (parser *Parser) errorOn(msg string, p positioned) {
+	start, end := p.Pos()
+	parser.error2(msg, start, end)
 }
 
 // adds an error constructed using parser's data and the message string passed as an argument
 func (parser *Parser) errorOnToken(msg string, tok token.Token) {
 	start, end := tok.Start, tok.End
-	line1, line2, char1, char2 := parser.src.CalcLocationRange(start, end)
-	e := makeSyntaxError(msg, parser.src.Path, line1, line2, char1, char2)
-	e.Message = fmt.Sprintf("%s\n%s\n", e.Message, parser.src.PointedWindow(start, end))
-	parser.addMessage(e)
+	parser.error2(msg, start, end)
 }
 
 // adds an error constructed using parser's data and the message string passed as an argument

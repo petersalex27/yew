@@ -4,6 +4,10 @@
 package parser
 
 import (
+	"fmt"
+
+	"github.com/petersalex27/yew/common/math"
+	"github.com/petersalex27/yew/common/table"
 	"github.com/petersalex27/yew/token"
 	"github.com/petersalex27/yew/types"
 )
@@ -28,7 +32,7 @@ import (
 // 	},
 // }
 
-//func (parser *Parser) parseConstraint() 
+//func (parser *Parser) parseConstraint()
 
 func makeIdent(t token.Token) Ident {
 	return Ident{t.Value, t.Start, t.End}
@@ -40,11 +44,11 @@ func (parser *Parser) makeInt(tok token.Token) IntConst {
 	if !ok {
 		panic("bug: could not parse integer")
 	}
- 
+
 	return IntConst{
-		int: i,
+		int:   i,
 		Start: tok.Start,
-		End: tok.End,
+		End:   tok.End,
 	}
 }
 
@@ -56,9 +60,9 @@ func (parser *Parser) makeChar(tok token.Token) CharConst {
 	}
 
 	return CharConst{
-		char: c,
+		char:  c,
 		Start: tok.Start,
-		End: tok.End,
+		End:   tok.End,
 	}
 }
 
@@ -72,7 +76,7 @@ func (parser *Parser) makeFloat(tok token.Token) FloatConst {
 	return FloatConst{
 		float: f,
 		Start: tok.Start,
-		End: tok.End,
+		End:   tok.End,
 	}
 }
 
@@ -85,78 +89,62 @@ func (parser *Parser) makeString(tok token.Token) StringConst {
 
 	return StringConst{
 		string: s,
-		Start: tok.Start,
-		End: tok.End,
+		Start:  tok.Start,
+		End:    tok.End,
 	}
 }
 
-// func (parser *Parser) shiftTypeTerm(tok token.Token) (ok bool) {
-// 	switch tok.Type {
-// 	case token.Id:
-// 		decl, found := parser.lookupTerm(tok)
-// 		if found {
-// 			prec, _ := decl.precedence, decl.rAssoc
-// 			parser.shift(decl.name)
-// 			parser.shiftAction(ApplyAction(prec))
-// 			return true
-// 		}
-// 		fallthrough
-// 	case token.ImplicitId:
-// 		parser.shift(makeIdent(tok))
-// 		return true 
-// 	case token.Affixed:
-// 		decl, found := parser.lookupTerm(tok)
-// 		if found {
-// 			prec, rAssoc := decl.precedence, decl.rAssoc
-// 			parser.shift(decl.name)
-// 			parser.shiftAction(InfixAction(prec, rAssoc))
-// 			return
-// 		}
-// 		ok = false
-// 		parser.error2(UnknownIdent, tok.Start, tok.End)
-// 		return
-// 	case token.CharValue:
-// 		ok = true
-// 		parser.shift(parser.makeChar(tok))
-// 	case token.IntValue:
-// 		ok = true
-// 		parser.shift(parser.makeInt(tok))
-// 	case token.FloatValue:
-// 		ok = true
-// 		parser.shift(parser.makeFloat(tok))
-// 	case token.StringValue:
-// 		ok = true
-// 		parser.shift(parser.makeString(tok))
-// 	default:
-// 		ok = false
-// 		parser.error2(UnexpectedToken, tok.Start, tok.End)
-// 	}
-// 	return
-// }
+// validator for processed constraints
+var pv_constraint = processedValidation{
+	[]NodeType{tupleType, applicationType, identType},
+	func(t Term) string {
+		if t.NodeType() == listingType {
+			return UnexpectedListingMaybeEnclosed(t)
+		}
+		return ExpectedConstraint
+	},
+}
 
 func (typ TypeElem) Parse(parser *Parser) (ok bool) {
-	// var prec uint8 = 0
-	// var rAssoc bool = false
-	// // TODO: parse constraint
-	// if len(typ.Type) == 0 {
-	// 	panic("bug: type has no associated tokens")
-	// }
+	guess := int(math.PowerOfTwoCeil(uint(len(typ.Type))) / 8) // TODO
+	parser.locals = table.MakeTable[fmt.Stringer, *Declaration](guess)
+	old := parser.parsingTypeSig
+	parser.parsingTypeSig = true
+	defer func() { parser.parsingTypeSig = old }()
 
-	// ok, prec, rAssoc = parser.shiftTypeTerm(typ.Type[0])
-	// if !ok {
-	// 	return
-	// }
+	// parse type
+	var ty termElem
+	if ty, ok = parser.Process(typingActions, typ.Type); !ok {
+		return
+	}
 
-	// parser.act()
+	var t Type
+	if t, ok = ty.Term.(Type); !ok {
+		parser.errorOn(ExpectedType, ty)
+		return
+	}
 
-	// for _, tok := range typ.Type[1:] {
-	// 	ok, prec, rAssoc = parser.shiftTypeTerm(tok)
-	// 	if !ok {
-	// 		return
-	// 	}
+	if len(typ.Constraint) == 0 {
+		// no constraint to parse, just return
+		parser.shift(ty)
+		return true
+	}
 
-		
-	// }
+	// parse constraint
+	var constraint termElem
+	constraint, ok = parser.ProcessAndValidate(constraintActions, typ.Constraint, pv_constraint)
+	if !ok {
+		return
+	}
+
+	var tup Tuple
+	if tup, ok = constraint.Term.(Tuple); !ok {
+		start, end := constraint.Pos()
+		tup = Tuple{[]Term{constraint.Term}, start, end}
+	}
+
+	term := termElem{ConstrainedType{tup, t}, ty.termInfo}
+	parser.shift(term)
 	return
 }
 
@@ -175,21 +163,20 @@ func (dec DeclarationElem) Parse(parser *Parser) (ok bool) {
 		return
 	}
 
-	typ, _ := parser.terms.Pop()
+	typ, _ := parser.terms.SaveStack.Pop()
 	setType(typ)
-	decl, _ := parser.lookupTerm(dec.Name)
-	return parser.env.Declare(ToTyping(decl))
+	return true
 }
 
-func (bind BindingElem) Parse(parser *Parser) (ok bool) {return}
+func (bind BindingElem) Parse(parser *Parser) (ok bool) { return }
 
-func (where WhereClause) Parse(parser *Parser) (ok bool) {return}
+func (where WhereClause) Parse(parser *Parser) (ok bool) { return }
 
-func (let LetBindingElem) Parse(parser *Parser) (ok bool) {return}
+func (let LetBindingElem) Parse(parser *Parser) (ok bool) { return }
 
-func (tok TokenElem) Parse(parser *Parser) (ok bool) {return}
+func (tok TokenElem) Parse(parser *Parser) (ok bool) { return }
 
-func (ee EnclosedElem) Parse(parser *Parser) (ok bool) {return}
+func (ee EnclosedElem) Parse(parser *Parser) (ok bool) { return }
 
 func (cons TypeConstructorElem) Parse(parser *Parser) (ok bool) {
 	// declare constructor
@@ -197,12 +184,12 @@ func (cons TypeConstructorElem) Parse(parser *Parser) (ok bool) {
 }
 
 func (data DataTypeElem) Parse(parser *Parser) (ok bool) {
-	return//ok = data.TypeConstructor.Parse(parser)
+	return //ok = data.TypeConstructor.Parse(parser)
 }
 
-func (trait TraitElem) Parse(parser *Parser) (ok bool) {return}
+func (trait TraitElem) Parse(parser *Parser) (ok bool) { return }
 
-func (inst InstanceElem) Parse(parser *Parser) (ok bool) {return}
+func (inst InstanceElem) Parse(parser *Parser) (ok bool) { return }
 
 func (a AnnotationElem) Parse(parser *Parser) (ok bool) {
 	panic("unimplemented")

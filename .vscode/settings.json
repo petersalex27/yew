@@ -2,6 +2,7 @@
   "cSpell.words": [
     "annots",
     "appc",
+    "builtins",
     "DEPFUNC",
     "Droppables",
     "fprivate",
@@ -22,5 +23,14 @@
   "files.associations": {
     "*.old": "json",
     "stdint.h": "c"
-  }
+  },
+
+  "gopls": {
+    "build.buildFlags": [
+        "-tags=debug"
+    ]
+  },
+  "go.testFlags": [
+    "-tags=debug"
+  ]
 }

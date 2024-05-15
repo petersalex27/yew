@@ -1276,13 +1276,13 @@ func (parser *Parser) parseMutualInner(actualOpen token.Type) (mut MutualBlockEl
 
 func (parser *Parser) illegalTraitErrors(ts []TraitElem) {
 	for _, t := range ts {
-		parser.errorOnElem(IllegalTrait, t)
+		parser.errorOn(IllegalTrait, t)
 	}
 }
 
 func (parser *Parser) illegalInstanceErrors(is []InstanceElem) {
 	for _, i := range is {
-		parser.errorOnElem(IllegalTrait, i)
+		parser.errorOn(IllegalTrait, i)
 	}
 }
 
@@ -1309,7 +1309,7 @@ func (parser *Parser) parseMutualWhere() (mut MutualBlockElem, ok bool) {
 		parser.illegalInstanceErrors(mut.Instances)
 		return
 	} else if ok = n != 0; !ok {
-		parser.errorOnElem(EmptyMutualBlock, mut)
+		parser.errorOn(EmptyMutualBlock, mut)
 		return
 	}
 	return mut, ok
@@ -1334,7 +1334,7 @@ func (parser *Parser) parseTopMutualHelper() (mut MutualBlockElem, ok bool) {
 	n := 0
 	mut.Types, mut.Traits, mut.Instances, mut.Declarations, mut.Bindings, n = parser.stackValues_recorded()
 	if ok = n != 0; !ok {
-		parser.errorOnElem(EmptyMutualBlock, mut)
+		parser.errorOn(EmptyMutualBlock, mut)
 		return
 	}
 	return

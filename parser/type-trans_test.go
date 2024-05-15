@@ -1,20 +1,21 @@
 package parser
 
 import (
-	"fmt"
-	"os"
 	"testing"
 
 	//"github.com/llir/llvm/ir/types"
+	"github.com/petersalex27/yew/errors"
 	"github.com/petersalex27/yew/source"
 	"github.com/petersalex27/yew/token"
 )
 
-func TestTranslateSimplyTypedType(t *testing.T) {
+// Test is kinda half-assed. Need to not just test against strings--need to test actual structures
+func TestStandardActions(t *testing.T) {
 	// 	Nat : * where
 	//		Zero
 	//		Succ Nat
 	p := Init(source.SourceCode{})
+
 	add_ := token.Affixed.MakeValued("_+_")
 	mul_ := token.Affixed.MakeValued("_*_")
 	pow_ := token.Affixed.MakeValued("_**_")
@@ -27,8 +28,8 @@ func TestTranslateSimplyTypedType(t *testing.T) {
 	y := token.ImplicitId.MakeValued("y")
 	z := token.ImplicitId.MakeValued("z")
 
-	bslash := token.Backslash.Make()
-	tarrow := token.ThickArrow.Make()
+	backslash := token.Backslash.Make()
+	thickArrow := token.ThickArrow.Make()
 	comma := token.Comma.Make()
 
 	lparen := token.LeftParen.Make()
@@ -39,7 +40,7 @@ func TestTranslateSimplyTypedType(t *testing.T) {
 		Right: FunctionType{Left: Int, Right: Int},
 	}
 	i2 := FunctionType{
-		Left: Int,
+		Left:  Int,
 		Right: Int,
 	}
 	setter, _ := p.declare(add_)
@@ -51,69 +52,118 @@ func TestTranslateSimplyTypedType(t *testing.T) {
 	setter, _ = p.declare(fun)
 	setter(i2, 10)
 
-	term, ok := p.Process(standardActions, []token.Token{x, add, y, mul, z})
-	if !ok {
-		t.Fatal(p.FlushMessages())
+	tests := []struct {
+		tokens   []token.Token
+		expected string
+	}{
+		{
+			[]token.Token{x, add, y, mul, z},
+			`+ x * y z`,
+		},
+		{
+			[]token.Token{x, pow, y, pow, z},
+			`** x ** y z`,
+		},
+		{
+			[]token.Token{x, add, y, add, z},
+			`+ + x y z`,
+		},
+		{
+			[]token.Token{fun, x, add, y, add, z},
+			`+ + fun x y z`,
+		},
+		{
+			[]token.Token{fun, lparen, x, add, y, rparen, add, z},
+			`+ fun (+ x y) z`,
+		},
+		{
+			[]token.Token{lparen, add, rparen, x, y},
+			`(+) x y`,
+		},
+		{
+			[]token.Token{backslash, x, thickArrow, x},
+			`\x => x`,
+		},
+		{
+			[]token.Token{lparen, backslash, x, thickArrow, x, rparen},
+			`(\x => x)`,
+		},
+		{
+			[]token.Token{backslash, x, thickArrow, x, add, x},
+			`\x => + x x`,
+		},
+		{
+			[]token.Token{backslash, x, comma, y, thickArrow, x},
+			`\x, y => x`,
+		}, 
+		{
+			[]token.Token{backslash, x, thickArrow, backslash, y, thickArrow, x},
+			`\x => \y => x`,
+		},
 	}
-	fmt.Fprintf(os.Stderr, "x + y * z :=> %v\n", term)
 
-	term, ok = p.Process(standardActions, []token.Token{x, pow, y, pow, z})
-	if !ok {
-		t.Fatal(p.FlushMessages())
-	}
-	fmt.Fprintf(os.Stderr, "x ** y ** z :=> %v\n", term)
+	for _, test := range tests {
+		term, ok := p.Process(standardActions, test.tokens)
+		if !ok {
+			errors.PrintErrors(p.FlushMessages())
+			t.Fatalf("parsing failed with above messages")
+		}
 
-	term, ok = p.Process(standardActions, []token.Token{x, add, y, add, z})
-	if !ok {
-		t.Fatal(p.FlushMessages())
+		actual := term.String()
+		if test.expected != actual {
+			t.Fatalf("expected:\n%s\ngot:\n%s", test.expected, actual)
+		}
 	}
-	fmt.Fprintf(os.Stderr, "x + y + z :=> %v\n", term)
+}
 
-	term, ok = p.Process(standardActions, []token.Token{fun, x, add, y, add, z})
-	if !ok {
-		t.Fatal(p.FlushMessages())
-	}
-	fmt.Fprintf(os.Stderr, "fun x + y + z :=> %v\n", term)
+// Test is kinda half-assed. Need to not just test against strings--need to test actual structures
+func TestTypeActions(t *testing.T) {
+	p := Init(source.SourceCode{})
 
-	term, ok = p.Process(standardActions, []token.Token{fun, lparen, x, add, y, rparen, add, z})
-	if !ok {
-		t.Fatal(p.FlushMessages())
-	}
-	fmt.Fprintf(os.Stderr, "fun (x + y) + z :=> %v\n", term)
+	arrow := token.Arrow.Make()
 
-	term, ok = p.Process(standardActions, []token.Token{lparen, add, rparen, x, y})
-	if !ok {
-		t.Fatal(p.FlushMessages())
-	}
-	fmt.Fprintf(os.Stderr, "(+) x y :=> %v\n", term)
+	x := token.ImplicitId.MakeValued("x")
+	a := token.ImplicitId.MakeValued("a")
+	b := token.ImplicitId.MakeValued("b")
+	Type := token.Id.MakeValued("Type")
 
-	term, ok = p.Process(standardActions, []token.Token{bslash, x, tarrow, x})
-	if !ok {
-		t.Fatal(p.FlushMessages())
-	}
-	fmt.Fprintf(os.Stderr, `\x => x :=> %v%s`, term, "\n")
+	//thickArrow := token.ThickArrow.Make()
+	//comma := token.Comma.Make()
+	colon := token.Colon.Make()
 
-	term, ok = p.Process(standardActions, []token.Token{lparen, bslash, x, tarrow, x, rparen})
-	if !ok {
-		t.Fatal(p.FlushMessages())
-	}
-	fmt.Fprintf(os.Stderr, `(\x => x) :=> %v%s`, term, "\n")
+	lparen := token.LeftParen.Make()
+	rparen := token.RightParen.Make()
 
-	term, ok = p.Process(standardActions, []token.Token{bslash, x, tarrow, x, add, x})
-	if !ok {
-		t.Fatal(p.FlushMessages())
+	tests := []struct {
+		tokens   []token.Token
+		expected string
+	}{
+		// {
+		// 	[]token.Token{a, arrow, b},
+		// 	`a -> b`,
+		// },
+		{
+			[]token.Token{lparen, x, colon, a, rparen, arrow, b},
+			`(x : a) -> b`,
+		},
+		{
+			[]token.Token{lparen, b, colon, Type, arrow, Type, rparen, b, a, arrow, a},
+			`(b : Type -> Type) -> b a -> a`,
+		},
 	}
-	fmt.Fprintf(os.Stderr, `(\x => x + x) :=> %v%s`, term, "\n")
 
-	term, ok = p.Process(standardActions, []token.Token{bslash, x, comma, y, tarrow, x})
-	if !ok {
-		t.Fatal(p.FlushMessages())
-	}
-	fmt.Fprintf(os.Stderr, `\x, y => x :=> %v%s`, term, "\n")
+	for _, test := range tests {
+		term, ok := p.Process(typingActions, test.tokens)
+		if !ok {
+			errors.PrintErrors(p.FlushMessages())
+			t.Fatalf("parsing failed with above messages")
+		}
 
-	term, ok = p.Process(standardActions, []token.Token{bslash, x, tarrow, bslash, y, tarrow, x})
-	if !ok {
-		t.Fatal(p.FlushMessages())
+		actual := term.String()
+		if test.expected != actual {
+			t.Fatalf("expected:\n%s\ngot:\n%s", test.expected, actual)
+		}
+
+		p.debug_incTestCounter()
 	}
-	fmt.Fprintf(os.Stderr, `\x => \y => x :=> %v%s`, term, "\n")
 }

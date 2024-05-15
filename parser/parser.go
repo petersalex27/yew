@@ -95,6 +95,7 @@ func (parser *Parser) PrintResult() {
 	}
 }
 
+// information related to the parser's first pass
 type firstPassInfo struct {
 	// parse-stack for indentation
 	indentation indentStack
@@ -103,6 +104,7 @@ type firstPassInfo struct {
 	saver    symbolSaver
 }
 
+// general info about the parser and what it's parsing
 type generalInfo struct {
 	// source code
 	src source.SourceCode
@@ -113,16 +115,17 @@ type generalInfo struct {
 	panicking bool
 }
 
+// a term with additional precedence, associativity, and arity information for parsing
 type termElem struct {
 	Term
 	termInfo
 }
 
-type stackInfo struct {
-	// parse-stack for terms
-	terms *stack.SaveStack[termElem]
-	// parse-stack for actions on the terms
-	//action *stack.Stack[Action]
+func (t termElem) String() string {
+	if t.Term == nil {
+		return "_?_"
+	}
+	return t.Term.String()
 }
 
 type annotationMacro struct {
@@ -139,22 +142,66 @@ const (
 
 // Structure for information used during parsing
 type Parser struct {
-	decls *table.MultiTable[fmt.Stringer, *Declaration]
+	// declarations, each table represents the scope of some binding (or collection of non-interfering
+	// bindings when possible)
+	declarations *declMultiTable
+	locals       *declTable
 	//declarations map[string]*Declaration
 	generalInfo
+	// information about tokens, input from lexer
 	tokenInfo
 	// imported modules/packages
 	imports ImportTable
-	// annotation map
-	annotations map[string]Term
-	visibility  *stack.Stack[Visibility]
+	// tracks scoped visibility modifier
+	visibility *stack.Stack[Visibility]
+	// environment for type checking
 	env         *types.Environment
 	mutualBlock *token.Token
+	// information for first pass
 	firstPassInfo
-	stackInfo
+	// parse (term) stack
+	terms termStack
+	// previous term, used to restore previous term on certain operations
 	termMemory *termElem
-	mod        *ir.Module
-	inTop      bool
+	// llvm-ir module: parser outputs data here
+	mod *ir.Module
+	// true iff in top level
+	inTop          bool
+	parsingTypeSig bool
+	debug_info_parser
+}
+
+func (parser *Parser) declareBuiltin(fromPath string) {
+	// TODO: actually use path
+	builtins := []Declaration{
+		{false, Ident{"Type", 0, 0}, Ident{"Type1", 0, 0}, termInfo{}},
+		{false, Ident{"Int", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
+		{false, Ident{"Uint", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
+		{false, Ident{"Float", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
+		{false, Ident{"Char", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
+		{false, Ident{"String", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
+	}
+	for _, decl := range builtins {
+		parser.declarations.Map(decl.name, &decl)
+	}
+}
+
+func (parser *Parser) findDeclAsTerm(key token.Token) (term termElem, found bool) {
+	var decl Declaration
+	if decl, found = parser.findInLocals(key); found {
+		return decl.makeTerm(), true
+	} else if decl, found = parser.lookupTerm(key); found {
+		return decl.makeTerm(), true
+	}
+	return
+}
+
+func (parser *Parser) findInLocals(key fmt.Stringer) (decl Declaration, found bool) {
+	var declPtr *Declaration
+	if declPtr, found = parser.locals.Find(key); found {
+		decl = *declPtr
+	}
+	return
 }
 
 func (parser *Parser) ExploringTopLevel() bool {
@@ -231,7 +278,7 @@ func Initialize(src source.SourceCode, saveComments bool) (parser *Parser) {
 	parser.messages = make([]errors.ErrorMessage, 0)
 	parser.src = src
 	//parser.action = stack.NewStack[Action](8)
-	parser.terms = stack.NewSaveStack[termElem](8)
+	parser.terms.SaveStack = stack.NewSaveStack[termElem](8)
 	parser.saver = initSaver()
 	parser.visibility = stack.NewStack[Visibility](2)
 	parser.saveComments = saveComments
@@ -242,7 +289,10 @@ func Initialize(src source.SourceCode, saveComments bool) (parser *Parser) {
 	parser.indentation = indentStack{stack.NewStack[int](8)}
 	parser.imports = make(map[string]Import)
 	parser.mod = ir.NewModule()
-	parser.decls = table.NewMultiTable[fmt.Stringer, *Declaration](8)
+	parser.declarations = table.NewMultiTable[fmt.Stringer, *Declaration](8)
+	parser.locals = table.MakeTable[fmt.Stringer, *Declaration](8)
+	builtinsPath := "prelude/builtin.yew" // TODO
+	parser.declareBuiltin(builtinsPath)
 	return
 }
 

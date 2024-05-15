@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"math"
 	"strings"
 
 	"github.com/petersalex27/yew/token"
@@ -10,8 +11,9 @@ type Definition struct {
 }
 
 type Declaration struct {
-	name   Ident
-	typing Term
+	implicit bool
+	name     Ident
+	typing   Term
 	termInfo
 }
 
@@ -63,7 +65,7 @@ func (dm *declare_meta) LoadMetaData(parser *Parser, start, end int, args ...Ter
 	case 0:
 		dm.bp = 1
 		dm.rAssoc = false
- 	}
+	}
 	return
 }
 
@@ -74,7 +76,7 @@ func (decl Declaration) makeTerm() termElem {
 	}
 }
 
-func (parser *Parser) fillInfo(decl *Declaration, prefixed bool, arity uint, bp uint8, rAssoc bool) {
+func fillInfo(decl *Declaration, prefixed bool, arity uint, bp int8, rAssoc bool) {
 	if arity == 0 {
 		decl.termInfo = termInfo{}
 		return
@@ -102,31 +104,14 @@ func createUseName(name string, start, end int) Ident {
 }
 
 type Str string
+
 func (s Str) String() string {
 	return string(s)
 }
 
-func (parser *Parser) declareHelper(name string, start, end int, linking bool) (setType func(Term, ...uint8), ok bool) {
-	unprocessed := name
-	if linking {
-		name = createUseName(name, start, end).Name
-	}
-
-	nm := Str(name)
-	if _, found := parser.decls.Find(nm); found {
-		parser.error2(IllegalRedeclaration, start, end)
-		ok = false
-		return
-	}
-
-	ok = true
-	decl := new(Declaration)
-	decl.name = Ident{Name: name, Start: start, End: end}
-
-	decl.termInfo = termInfo{} // set as default info for now
-	parser.decls.Map(nm, decl)
-	setType = func(typ Term, args ...uint8) {
-		prefixed := !strings.Contains(unprocessed, "_")
+func generate_setType(unprocessedName string, decl *Declaration) func(typ Term, args ...uint8) {
+	return func(typ Term, args ...uint8) {
+		prefixed := !strings.Contains(unprocessedName, "_")
 		decl.typing = typ
 		arity := calcArity(typ)
 		var bp uint8 = 0
@@ -137,8 +122,34 @@ func (parser *Parser) declareHelper(name string, start, end int, linking bool) (
 		if len(args) > 1 {
 			rAssoc = args[1] != 0
 		}
-		parser.fillInfo(decl, prefixed, arity, bp, rAssoc)
+
+		if bp > math.MaxInt8 {
+			panic("bug: illegal binding power, cap is 127 from an internal origin and 9 from a source-code origin")
+		}
+		fillInfo(decl, prefixed, arity, int8(bp), rAssoc)
 	}
+}
+
+func (parser *Parser) declareHelper(name string, start, end int, linking bool) (setType func(Term, ...uint8), ok bool) {
+	unprocessed := name
+	if linking {
+		name = createUseName(name, start, end).Name
+	}
+
+	nm := Str(name)
+	if _, found := parser.declarations.Find(nm); found {
+		parser.error2(IllegalRedeclaration, start, end)
+		ok = false
+		return
+	}
+
+	ok = true
+	decl := new(Declaration)
+	decl.name = Ident{Name: name, Start: start, End: end}
+
+	decl.termInfo = termInfo{} // set as default info for now
+	parser.declarations.Map(nm, decl)
+	setType = generate_setType(unprocessed, decl)
 	return
 }
 
@@ -348,12 +359,17 @@ func (parser *Parser) declare(name token.Token) (setType func(Term, ...uint8), o
 }
 
 func (parser *Parser) findTermInTop(name token.Token) (found bool) {
-	_, found = parser.decls.PeekFind(name)
+	_, found = parser.declarations.PeekFind(name)
 	return
 }
- 
+
+func (parser *Parser) lookupTermFromId(id Ident) (decl Declaration, found bool) {
+	tok := token.Id.MakeValued(id.Name)
+	return parser.lookupTerm(tok)
+}
+
 func (parser *Parser) lookupTerm(name token.Token) (decl Declaration, found bool) {
-	d, ok := parser.decls.Find(name)
+	d, ok := parser.declarations.Find(name)
 	found = ok
 	if !found {
 		return
