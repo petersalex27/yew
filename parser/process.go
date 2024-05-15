@@ -107,14 +107,9 @@ func (parser *Parser) rightTakesTopIteration(fun termElem, data *actionData) (_ 
 	// result of reduction
 	result := parser.top()
 
-	var nextTerm termElem
-	if nextTerm, ok = parser.terminalAction(data); !ok {
+	if ok = parser.shiftTerm(data); !ok {
 		return fun, false
 	}
-
-	if shouldHoldStack(fun, nextTerm) {
-		
-	} 
 
 	if !data.hasMoreInput() {
 		// reduce entire stack
