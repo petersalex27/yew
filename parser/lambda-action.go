@@ -4,6 +4,7 @@
 package parser
 
 import (
+	"os"
 	"strings"
 	"unicode"
 
@@ -78,6 +79,7 @@ func abstractionAction(parser *Parser, data *actionData) (term termElem, ok bool
 		Start:   tok.Start,
 	}
 
+	// parse abstraction binders
 	ok = parser.getAbstractionVar(&lambda, data)
 	arity := uint(0)
 	again := true
@@ -91,16 +93,21 @@ func abstractionAction(parser *Parser, data *actionData) (term termElem, ok bool
 		ok = parser.getAbstractionVar(&lambda, data)
 	}
 
-	if ok {
-		term = termElem{lambda, termInfo{10, false, arity}}
+	var body termElem
+	// process the bound expression (the part after '\ .. =>')
+	if body, ok = parser.process(-1, data); !ok {
+		return
 	}
 
-	parser.shift(term)
-	parser.terms.Save()
+	before := termElem{Term: lambda}
+	arity += calcArity(body.Term)   // incorporate arity of expression into arity of lambda
+	lambda.Bound = body.Term        // removes any attached information
+	_, lambda.End = body.Term.Pos() // get end of lambda position
+	term = termElem{lambda, termInfo{10, false, arity, false}}
 
-	term, ok = parser.terminalAction(data) // require something after '=>'
-	// resolution will finish lambda abstraction
-	return
+	debug_log_reduce(os.Stderr, before, body, term)
+
+	return term, true
 }
 
 // noop if binder with Name `name` is not found; else, updates shadowed binder and writes a warning

@@ -47,6 +47,8 @@ const (
 	Open
 	Automatic
 	Mutual
+	Erase
+	Once
 
 	LeftParen
 	RightParen

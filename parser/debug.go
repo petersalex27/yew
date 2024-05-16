@@ -22,8 +22,3 @@ func (dip *debug_info_parser) debug_resetCounter() { dip.testCounter = 0 }
 func debug_log_reduce(w io.Writer, a, b, result termElem) {
 	fmt.Fprintf(w, "red: (%v) (%v) = %v\n", a, b, result)
 }
-
-func debug_log_shift(w io.Writer, parser *Parser) {
-	elems := parser.terms.ElemStringSep("[", "]", " / ", "")
-	fmt.Fprintf(w, "shf: %s\n", elems)
-}

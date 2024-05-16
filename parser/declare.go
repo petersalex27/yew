@@ -76,31 +76,24 @@ func (decl Declaration) makeTerm() termElem {
 	}
 }
 
-func fillInfo(decl *Declaration, prefixed bool, arity uint, bp int8, rAssoc bool) {
+func fillInfo(decl *Declaration, infixed bool, arity uint, bp int8, rAssoc bool) {
 	if arity == 0 {
 		decl.termInfo = termInfo{}
 		return
 	}
 
-	if prefixed { // prefixed
-		decl.termInfo = termInfo{bp: 10, rAssoc: false, arity: arity} // TODO: need to get info from annotation if one exists
-		return
+	if !infixed {
+		rAssoc = false // regardless of truthiness, prefix IDs cannot be right associative--it doesn't make sense
 	}
 
-	if arity > 2 {
-		panic("TODO: allow affixed IDs with arity > 2?")
-	}
-	decl.termInfo = termInfo{bp: bp, rAssoc: rAssoc, arity: arity} // TODO: need to get info from annotation if one exists
+	decl.termInfo = termInfo{bp, rAssoc, arity, infixed}
 }
 
-func createUseName(name string, start, end int) Ident {
-	name = strings.TrimPrefix(name, "_")
-	name = strings.TrimSuffix(name, "_")
-	if strings.Contains(name, "_") {
-		panic("TODO: allow affixed IDs with arity > 2") // TODO
-	}
+func createUseName(name string, start, end int) string {
+	name = strings.TrimPrefix(name, "(")
+	name = strings.TrimSuffix(name, ")")
 
-	return Ident{Name: name, Start: start, End: end}
+	return name
 }
 
 type Str string
@@ -109,16 +102,18 @@ func (s Str) String() string {
 	return string(s)
 }
 
-func generate_setType(unprocessedName string, decl *Declaration) func(typ Term, args ...uint8) {
-	return func(typ Term, args ...uint8) {
-		prefixed := !strings.Contains(unprocessedName, "_")
+func generate_setType(decl *Declaration) func(typ Term, infixed bool, args ...uint8) {
+	return func(typ Term, infixed bool, args ...uint8) {
 		decl.typing = typ
 		arity := calcArity(typ)
 		var bp uint8 = 0
 		rAssoc := false
 		if len(args) > 0 {
 			bp = args[0]
+		} else if arity > 0 {
+			bp = 10
 		}
+		
 		if len(args) > 1 {
 			rAssoc = args[1] != 0
 		}
@@ -126,14 +121,13 @@ func generate_setType(unprocessedName string, decl *Declaration) func(typ Term, 
 		if bp > math.MaxInt8 {
 			panic("bug: illegal binding power, cap is 127 from an internal origin and 9 from a source-code origin")
 		}
-		fillInfo(decl, prefixed, arity, int8(bp), rAssoc)
+		fillInfo(decl, infixed, arity, int8(bp), rAssoc)
 	}
 }
 
-func (parser *Parser) declareHelper(name string, start, end int, linking bool) (setType func(Term, ...uint8), ok bool) {
-	unprocessed := name
+func (parser *Parser) declareHelper(name string, start, end int, linking bool) (setType func(Term, bool, ...uint8), ok bool) {
 	if linking {
-		name = createUseName(name, start, end).Name
+		name = createUseName(name, start, end)
 	}
 
 	nm := Str(name)
@@ -149,7 +143,7 @@ func (parser *Parser) declareHelper(name string, start, end int, linking bool) (
 
 	decl.termInfo = termInfo{} // set as default info for now
 	parser.declarations.Map(nm, decl)
-	setType = generate_setType(unprocessed, decl)
+	setType = generate_setType(decl)
 	return
 }
 
@@ -333,24 +327,30 @@ func (parser *Parser) makeExtension(pattern []extensionElem, expression []token.
 
 // func (parser *Parser) createExtension()
 
-func (parser *Parser) declare(name token.Token) (setType func(Term, ...uint8), ok bool) {
+type setTypeFunc = func(Term, bool, ...uint8)
+
+func (parser *Parser) declare(name token.Token) (setType setTypeFunc, ok bool) {
 	requireLink := name.Type == token.Affixed
-	var setTypeInit func(Term, ...uint8)
+	var setTypeInit setTypeFunc
 	setTypeInit, ok = parser.declareHelper(name.Value, name.Start, name.End, false)
 	if !ok {
 		return
 	}
 
 	if requireLink {
-		var setTypeSecond func(Term, ...uint8)
+		var setTypeSecond setTypeFunc
 		setTypeSecond, ok = parser.declareHelper(name.Value, name.Start, name.End, true)
 		if !ok {
 			return
 		}
 
-		setType = func(ty Term, args ...uint8) {
-			setTypeInit(ty, args...)   // call first function
-			setTypeSecond(ty, args...) // call function for linked name
+		setType = func(ty Term, infixed bool, args ...uint8) {
+			if requireLink && !infixed {
+				panic("bug: mismatch in fixedness identity (infix or prefix)")
+			}
+
+			setTypeInit(ty, infixed, args...)   // call first function
+			setTypeSecond(ty, infixed, args...) // call function for linked name
 		}
 	} else {
 		setType = setTypeInit

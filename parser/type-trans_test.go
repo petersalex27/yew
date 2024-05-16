@@ -16,9 +16,9 @@ func TestStandardActions(t *testing.T) {
 	//		Succ Nat
 	p := Init(source.SourceCode{})
 
-	add_ := token.Affixed.MakeValued("_+_")
-	mul_ := token.Affixed.MakeValued("_*_")
-	pow_ := token.Affixed.MakeValued("_**_")
+	add_ := token.Affixed.MakeValued("(+)")
+	mul_ := token.Affixed.MakeValued("(*)")
+	pow_ := token.Affixed.MakeValued("(**)")
 	add := token.Id.MakeValued("+")
 	mul := token.Id.MakeValued("*")
 	pow := token.Id.MakeValued("**")
@@ -44,25 +44,25 @@ func TestStandardActions(t *testing.T) {
 		Right: Int,
 	}
 	setter, _ := p.declare(add_)
-	setter(iii, 6)
+	setter(iii, true, 6)
 	setter, _ = p.declare(mul_)
-	setter(iii, 7)
+	setter(iii, true, 7)
 	setter, _ = p.declare(pow_)
-	setter(iii, 9, 1)
+	setter(iii, true, 9, 1)
 	setter, _ = p.declare(fun)
-	setter(i2, 10)
+	setter(i2, true, 10)
 
 	tests := []struct {
 		tokens   []token.Token
 		expected string
 	}{
 		{
-			[]token.Token{x, add, y, mul, z},
-			`+ x * y z`,
-		},
-		{
 			[]token.Token{x, pow, y, pow, z},
 			`** x ** y z`,
+		},
+		{
+			[]token.Token{x, add, y, mul, z},
+			`+ x * y z`,
 		},
 		{
 			[]token.Token{x, add, y, add, z},
@@ -73,6 +73,12 @@ func TestStandardActions(t *testing.T) {
 			`+ + fun x y z`,
 		},
 		{
+			// x + (y + z)
+			[]token.Token{x, add, lparen, y, add, z, rparen},
+			`+ x (+ y z)`,
+		},
+		{
+			// fun (x + y) + z
 			[]token.Token{fun, lparen, x, add, y, rparen, add, z},
 			`+ fun (+ x y) z`,
 		},
@@ -95,7 +101,7 @@ func TestStandardActions(t *testing.T) {
 		{
 			[]token.Token{backslash, x, comma, y, thickArrow, x},
 			`\x, y => x`,
-		}, 
+		},
 		{
 			[]token.Token{backslash, x, thickArrow, backslash, y, thickArrow, x},
 			`\x => \y => x`,
@@ -126,32 +132,46 @@ func TestTypeActions(t *testing.T) {
 	a := token.ImplicitId.MakeValued("a")
 	b := token.ImplicitId.MakeValued("b")
 	Type := token.Id.MakeValued("Type")
+	zero := token.IntValue.MakeValued("0")
+	one := token.IntValue.MakeValued("1")
+	eq := token.Equal.Make()
 
-	//thickArrow := token.ThickArrow.Make()
 	//comma := token.Comma.Make()
 	colon := token.Colon.Make()
 
 	lparen := token.LeftParen.Make()
 	rparen := token.RightParen.Make()
+	lbrace := token.LeftBrace.Make()
+	rbrace := token.RightBrace.Make()
 
 	tests := []struct {
 		tokens   []token.Token
 		expected string
 	}{
-		// {
-		// 	[]token.Token{a, arrow, b},
-		// 	`a -> b`,
-		// },
+		{
+			[]token.Token{a, arrow, b},
+			`a -> b`,
+		},
 		{
 			[]token.Token{lparen, x, colon, a, rparen, arrow, b},
 			`(x : a) -> b`,
 		},
 		{
-			[]token.Token{lparen, b, colon, Type, arrow, Type, rparen, b, a, arrow, a},
+			[]token.Token{lparen, b, colon, Type, arrow, Type, rparen, arrow, b, a, arrow, a},
 			`(b : Type -> Type) -> b a -> a`,
+		},
+		{
+			[]token.Token{zero, eq, one, arrow, a},
+			`= 0 1 -> a`,
+		},
+		{
+			// {x : a} -> x = x
+			[]token.Token{lbrace, x, colon, a, rbrace, arrow, x, eq, x},
+			`{x : a} -> = x x`,
 		},
 	}
 
+	p.parsingTypeSig = true
 	for _, test := range tests {
 		term, ok := p.Process(typingActions, test.tokens)
 		if !ok {

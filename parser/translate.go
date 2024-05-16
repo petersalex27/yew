@@ -83,3 +83,7 @@ func (ConstrainedType) Translate(parser *Parser) types.Term {
 func (Marker) Translate(parser *Parser) types.Term {
 	panic("bug: found marker, but this should've been removed from the parse stack")
 }
+
+func (Wildcard) Translate(parser *Parser) types.Term {
+	panic("TODO: implement")
+}

@@ -6,9 +6,9 @@ package types
 type Multiplicity byte
 
 const (
-	Erase Multiplicity = iota
+	Unrestricted Multiplicity = iota
+	Erase
 	Once
-	Unrestricted
 )
 
 type Variable struct {

@@ -482,6 +482,14 @@ func TestMatchKeyword(t *testing.T) {
 			source: `of`,
 			expect: token.Of,
 		},
+		{
+			source: `erase`,
+			expect: token.Erase,
+		},
+		{
+			source: `once`,
+			expect: token.Once,
+		},
 		// identifiers
 		{
 			source: `not`,
@@ -530,130 +538,6 @@ func TestCharNum(t *testing.T) {
 	}
 }
 
-func TestMatchId(t *testing.T) {
-	tests := []struct {
-		line           string
-		expectMatched  string
-		expectErrorMsg string
-		expectIllegal  bool
-	}{
-		{
-			line:           `_+__`,
-			expectMatched:  "_+_",
-			expectErrorMsg: "",
-		},
-		{
-			line:           `_+_`,
-			expectMatched:  "_+_",
-			expectErrorMsg: "",
-		},
-		{
-			line:           `if_then_else_`,
-			expectMatched:  "if_then_else_",
-			expectErrorMsg: "",
-		},
-		{
-			line:           `if_?_||_`,
-			expectMatched:  "if_",
-			expectErrorMsg: "",
-		},
-		{
-			line:           `_?_or_`,
-			expectMatched:  "_?_",
-			expectErrorMsg: "",
-		},
-		{
-			line:           `._+_`,
-			expectMatched:  "",
-			expectErrorMsg: InvalidCharacter,
-		},
-		{
-			line:           `a`,
-			expectMatched:  "a",
-			expectErrorMsg: "",
-		},
-		{
-			line:           `+`,
-			expectMatched:  "+",
-			expectErrorMsg: "",
-		},
-		{
-			line:           ``,
-			expectMatched:  "",
-			expectErrorMsg: "",
-			expectIllegal:  true,
-		},
-	}
-
-	for _, test := range tests {
-		actualMatched, actualErrorMsg, actualIllegal := matchId(test.line)
-		if test.expectMatched != actualMatched {
-			t.Errorf("unexpected matched (\"%s\"): got \"%s\"", test.expectMatched, actualMatched)
-		}
-		if test.expectErrorMsg != actualErrorMsg {
-			t.Errorf("unexpected error message (\"%s\"): got \"%s\"", test.expectErrorMsg, actualErrorMsg)
-		}
-		if test.expectIllegal != actualIllegal {
-			t.Errorf("unexpected error message (%v): got %v", test.expectIllegal, actualIllegal)
-		}
-
-		if t.Failed() {
-			t.FailNow()
-		}
-	}
-}
-
-func TestCheckAffixed(t *testing.T) {
-	tests := []struct {
-		line   string
-		id     string
-		expect string
-	}{
-		{
-			line:   `+__`,
-			id:     `+_`,
-			expect: InvalidAffixId,
-		},
-		{
-			line:   `_+__`,
-			id:     `_+_`,
-			expect: InvalidAffixId,
-		},
-		{
-			line:   `_+___`,
-			id:     `_+_`,
-			expect: InvalidAffixId,
-		},
-		{
-			line:   `abc d`,
-			id:     `abc`,
-			expect: "",
-		},
-		{
-			line:   `_+_: Num n => n -> n -> n`,
-			id:     `_+_`,
-			expect: "",
-		},
-		{
-			line:   `_+_ _`,
-			id:     `_+_`,
-			expect: "",
-		},
-		{
-			line:   `_+_`,
-			id:     `_+_`,
-			expect: "",
-		},
-	}
-
-	for _, test := range tests {
-		actual := checkAffixed(test.line, test.id)
-		if test.expect != actual {
-			t.Fatalf("unexpected error message (\"%s\"): got \"%s\"", test.expect, actual)
-		}
-	}
-}
-
 func TestAnalyzeIdentifier(t *testing.T) {
 	tests := []struct {
 		source string
@@ -671,18 +555,18 @@ func TestAnalyzeIdentifier(t *testing.T) {
 			source: `+=`,
 			expect: token.Token{Value: "+=", Type: token.Id, End: 2},
 		},
-		{
-			source: `_+_`,
-			expect: token.Token{Value: "_+_", Type: token.Affixed, End: 3},
-		},
-		{
-			source: `_>>=_`,
-			expect: token.Token{Value: "_>>=_", Type: token.Affixed, End: 5},
-		},
-		{
-			source: `_mod_`,
-			expect: token.Token{Value: "_mod_", Type: token.Affixed, End: 5},
-		},
+		// {
+		// 	source: `(+)`,
+		// 	expect: token.Token{Value: "(+)", Type: token.Affixed, End: 3},
+		// },
+		// {
+		// 	source: `(>>=)`,
+		// 	expect: token.Token{Value: "(>>=)", Type: token.Affixed, End: 5},
+		// },
+		// {
+		// 	source: `(mod)`,
+		// 	expect: token.Token{Value: "(mod)", Type: token.Affixed, End: 5},
+		// },
 		{
 			source: `mod`,
 			expect: token.Token{Value: "mod", Type: token.Id, End: 3},
@@ -695,18 +579,10 @@ func TestAnalyzeIdentifier(t *testing.T) {
 			source: `!`,
 			expect: token.Token{Value: "!", Type: token.Id, End: 1},
 		},
-		{
-			source: `_!`,
-			expect: token.Token{Value: "_!", Type: token.Affixed, End: 2},
-		},
-		{
-			source: `!_`,
-			expect: token.Token{Value: "!_", Type: token.Affixed, End: 2},
-		},
-		{
-			source: `if_then_else_`,
-			expect: token.Token{Value: "if_then_else_", Type: token.Affixed, End: 13},
-		},
+		// {
+		// 	source: `(!)`,
+		// 	expect: token.Token{Value: "(!)", Type: token.Affixed, End: 3},
+		// },
 		{
 			source: `a`,
 			expect: token.Token{Value: "a", Type: token.ImplicitId, End: 1},

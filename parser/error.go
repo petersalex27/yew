@@ -58,6 +58,10 @@ func expectedNodeMessage(ty NodeType) string {
 	}
 }
 
+func expectedSyntax(expected string) string {
+	return fmt.Sprintf("expected '%s'", expected)
+}
+
 func expectedMessage(ty token.Type) string {
 	switch ty {
 	case token.Equal:
@@ -139,6 +143,7 @@ const (
 	ExpectedListing           string = "expected listing"
 	ExpectedSyntaxExtension   string = "expected syntax extension"
 	ExpectedTermAfter         string = "expected another syntactic sub-section following this one"
+	ExpectedEndOfSection      string = "unexpected continued section"
 
 	// = "illegal" ===================================================================================
 	IllegalApplication         string = "illegal application"
@@ -164,6 +169,10 @@ const (
 	IllegalDataTypeName        string = "illegal data type identifier, must be more than a character followed by numbers and/or single quotes"
 	IllegalConstraintPosition  string = "illegal constraint position, must appear before all constrained types"
 	IllegalExplicatedArgInType string = "illegal explicated argument, cannot appear in type"
+	IllegalModalityLocation    string = "illegal modality location, must appear immediately to the left of a typing"
+	IllegalTypeConsList        string = "type constructors cannot be declared in list form"
+
+	UnexpectedModality string = "unexpected modality"
 
 	MultiplyOccurringAffixedIdent string = "multiple occurrences of affixed form of identifier"
 
@@ -171,6 +180,8 @@ const (
 
 	MalformedAffixAnnotation string = "malformed affix annotation"
 	BadIdent                 string = "malformed identifier"
+
+	NoGrammarExtensionFound string = "no applicable grammar extension found"
 
 	// = "invalid" ===================================================================================
 	InvalidListElementType      string = "invalid list type, no element type"
@@ -277,9 +288,36 @@ func (parser *Parser) expectedErrorOn(ty NodeType, p positioned) {
 	parser.errorOn(expectedNodeMessage(ty), p)
 }
 
+func (parser *Parser) errorEOI(tok token.Token) {
+	// position of final character of tok
+	finalStart := tok.End - 1
+	if tok.End <= 0 {
+		finalStart = 0
+	}
+
+	// write an error that points to final character of token
+	parser.error2(UnexpectedFinalTok, finalStart, tok.End)
+}
+
 func (parser *Parser) errorOn(msg string, p positioned) {
 	start, end := p.Pos()
 	parser.error2(msg, start, end)
+}
+
+func (parser *Parser) illegalModalityError(modality token.Token, term Term) {
+	msg := "illegal modality; did you mean '" + modality.Value + " _ : "
+
+	if id, ok := term.(Ident); ok {
+		msg = msg + id.Name
+	} else if w, ok := term.(Wildcard); ok {
+		msg = msg + w.String()
+	} else {
+		parser.errorOnToken(UnexpectedModality, modality)
+		return
+	}
+	msg = msg + "'?"
+	_, end := term.Pos()
+	parser.error2(msg, modality.Start, end)
 }
 
 // adds an error constructed using parser's data and the message string passed as an argument

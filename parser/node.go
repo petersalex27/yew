@@ -149,6 +149,7 @@ type (
 	// and
 	//	Refl : x = x
 	Typing struct {
+		multiplicity types.Multiplicity
 		Term
 		Type       Term
 		Start, End int
@@ -205,6 +206,8 @@ func (m Marker) String() string {
 func (m Marker) Pos() (int, int) {
 	return m.Start, m.End
 }
+
+func (Wildcard) String() string { return "_" }
 
 func calcArity(term Term) (arity uint) {
 	var f FunctionType
@@ -287,6 +290,7 @@ func (Listing) term_()         {}
 func (ConstrainedType) term_() {}
 func (Implicit) term_()        {}
 func (Marker) term_()          {}
+func (Wildcard) term_()        {}
 
 func stringJoinTerms[T Term](ts []T, sep string) string {
 	var b strings.Builder
@@ -305,7 +309,7 @@ func stringJoinTerms[T Term](ts []T, sep string) string {
 
 func String(t Term) string {
 	if t == nil {
-		return "?"
+		return "_?_"
 	}
 	return t.String()
 }

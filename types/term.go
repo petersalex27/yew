@@ -143,7 +143,7 @@ type (
 )
 
 func (c *IntConst) Parse(s string) (ok bool) {
-	c.X, ok = c.X.SetString(s, 10)
+	c.X, ok = new(big.Int).SetString(s, 10)
 	if c.X.BitLen() > 64 {
 		return false
 	}
@@ -164,7 +164,7 @@ func (c *IntConst) String() string {
 func (*FloatConst) Locate(v Variable) bool { return false }
 
 func (c *FloatConst) Parse(s string) (ok bool) {
-	c.X, ok = c.X.SetString(s)
+	c.X, ok = new(big.Float).SetString(s)
 	c.Typ = types.Double
 	return
 }

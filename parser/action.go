@@ -1,33 +1,222 @@
 package parser
 
 import (
+	"os"
+
 	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/types"
 )
 
-type actionFunc func(parser *Parser, data *actionData) (term termElem, ok bool)
+type (
+	// function that performs a parsing action
+	actionFunc func(parser *Parser, data *actionData) (term termElem, ok bool)
 
-type actionMapperId uint8
-type actionMapper struct {
-	actionMap
-	id actionMapperId
+	// an identifier for an actionMapper
+	// NOTE: two actionMappers are "equal" if they have the same actionMapperId
+	actionMapperId uint8
+
+	// a named map from token types to actions
+	actionMapper struct {
+		actionMap
+		id actionMapperId
+	}
+
+	// a map from token types to actions
+	actionMap map[token.Type]actionFunc
+
+	// data required for performing actions on tokens
+	actionData struct {
+		// current rule/action set
+		m actionMapper
+		// location in `tokens`
+		ptr uint
+		// token input to parse
+		tokens []token.Token
+		// the value the parser looks for to signal the end of a sub-section
+		end string
+	}
+)
+
+const (
+	constraintId actionMapperId = iota
+	standardId
+	argPosImplicitId
+	typePosImplicitId
+	typingId
+	dataTypeFollowId
+	dataTypeInitId
+)
+
+var (
+	// explicitly giving an argument to an implicit parameter, e.g.,
+	//	id {Int} x = x
+	argPositionImplicitAction actionMapper
+	// actions that cover most syntactic sections
+	standardActions actionMapper
+	// actions that parse constraints
+	constraintActions actionMapper
+	// actions for parsing implicit parameters, e.g.,
+	//	id : {a : Type} -> a -> a
+	typePositionImplicitAction actionMapper
+	// actions for parsing typings
+	typingActions actionMapper
+	// data type parsing after name is known
+	dataTypeFollowActions actionMapper
+	// initial data type parsing
+	dataTypeInitActions actionMapper
+)
+
+func init() {
+	constraintActions = actionMapper{
+		actionMap{
+			token.Id:          idAction,
+			token.ImplicitId:  idAction,
+			token.Underscore:  wildcardAction, // possible, i suppose, but useless // TODO: perhaps make it an error
+			token.Backslash:   abstractionAction,
+			token.Arrow:       productAction,
+			token.IntValue:    intAction,
+			token.CharValue:   charAction,
+			token.StringValue: stringAction,
+			token.FloatValue:  floatAction,
+			token.LeftParen:   parenAction,
+			token.Comma:       listingAction,
+		},
+		constraintId,
+	}
+
+	standardActions = actionMapper{
+		actionMap{
+			token.Id:         idAction,
+			token.ImplicitId: idAction,
+			token.Underscore: wildcardAction,
+			token.Backslash:  abstractionAction,
+			// why is this allowed?: functions from terms to types and functions from types to types, e.g.,
+			//	Dfun 0 = Int -> Int
+			//	FromInt t = Int -> t
+			token.Arrow:       productAction,
+			token.IntValue:    intAction,
+			token.CharValue:   charAction,
+			token.StringValue: stringAction,
+			token.FloatValue:  floatAction,
+			token.LeftParen:   parenAction,
+		},
+		standardId,
+	}
+
+	// explicit value given to implicit argument
+	argPositionImplicitAction = actionMapper{
+		actionMap{
+			token.Id:         idAction,
+			token.ImplicitId: idAction,
+		},
+		argPosImplicitId,
+	}
+
+	typePositionImplicitAction = actionMapper{
+		actionMap{
+			token.Id:         idAction,
+			token.ImplicitId: idAction,
+			token.Underscore: wildcardAction,
+			token.Colon:      labeledTypeAction,
+			token.Erase:      modalityAction,
+			token.Once:       modalityAction,
+		},
+		typePosImplicitId,
+	}
+
+	typingActions = actionMapper{
+		actionMap{
+			token.Id:          idAction,
+			token.ImplicitId:  idAction,
+			token.Equal:       toIdAction,
+			token.Underscore:  wildcardAction,
+			token.Backslash:   abstractionAction,
+			token.Arrow:       productAction,
+			token.ThickArrow:  errorActionGen(IllegalConstraintPosition),
+			token.IntValue:    intAction,
+			token.CharValue:   charAction,
+			token.StringValue: stringAction,
+			token.FloatValue:  floatAction,
+			token.LeftParen:   parenAction,
+			token.Colon:       labeledTypeAction,
+			token.LeftBrace:   implicitAction,
+		},
+		typingId,
+	}
+
+	dataTypeFollowActions = actionMapper{
+		actionMap{
+			token.Id:          idAction,
+			token.ImplicitId:  idAction,
+			token.Backslash:   abstractionAction,
+			token.Arrow:       productAction,
+			token.IntValue:    intAction,
+			token.CharValue:   charAction,
+			token.StringValue: stringAction,
+			token.FloatValue:  floatAction,
+			token.LeftParen:   parenAction,
+		},
+		dataTypeFollowId,
+	}
+
+	dataTypeInitActions = actionMapper{
+		actionMap{
+			token.Id:         idDataTypeAction,
+			token.ImplicitId: errorActionGen(IllegalDataTypeName),
+		},
+		dataTypeInitId,
+	}
 }
 
-type actionMap map[token.Type]actionFunc
+var modalityMap = map[token.Type]types.Multiplicity{
+	token.Erase: types.Erase,
+	token.Once:  types.Once,
+}
 
-type actionData struct {
-	m           actionMapper
-	resolutions resolutionMap
-	ptr         uint
-	tokens      []token.Token
+func (parser *Parser) setMultiplicity(mode token.Token, typing Typing) (_ Typing, ok bool) {
+	var mult types.Multiplicity
+	if mult, ok = modalityMap[mode.Type]; !ok {
+		// this should be impossible ...
+		parser.errorOnToken("yikes ... what mode is this ... ?", mode)
+		return typing, false
+	}
+	typing.multiplicity = mult
+	return typing, true
+}
+
+func modalityAction(parser *Parser, data *actionData) (term termElem, ok bool) {
+	var mode token.Token
+	if mode, ok = parser.nextToken(data); !ok {
+		return
+	}
+
+	if ok = parser.allowModality; !ok {
+		parser.errorOnToken(IllegalModalityLocation, mode)
+		return
+	}
+
+	parser.allowModality = false // only allow a single modality
+
+	if term, ok = parser.process(-1, data); !ok {
+		return
+	}
+
+	var typing Typing
+	if typing, ok = term.Term.(Typing); !ok {
+		parser.illegalModalityError(mode, term.Term)
+		return term, false
+	}
+
+	term.Term, ok = parser.setMultiplicity(mode, typing)
+	return
 }
 
 // constructs a new actionData and returns a pointer to it
-func newActionData(m actionMapper, r resolutionMap, toks []token.Token) *actionData {
+func newActionData(m actionMapper, toks []token.Token) *actionData {
 	return &actionData{
-		m:           m,
-		resolutions: r,
-		ptr:         0,
-		tokens:      toks,
+		m:      m,
+		ptr:    0,
+		tokens: toks,
 	}
 }
 
@@ -37,12 +226,12 @@ func newActionData(m actionMapper, r resolutionMap, toks []token.Token) *actionD
 // panics if offset is greater than the length of the supplied tokens--note, it's okay to give an
 // offset equal to the length of the tokens (this signifies that the actionData has reached the end
 // of its input)
-func newOffsetActionData(m actionMapper, r resolutionMap, toks []token.Token, offset uint) *actionData {
+func newOffsetActionData(m actionMapper, toks []token.Token, offset uint) *actionData {
 	if offset > uint(len(toks)) {
 		panic("bug: ptr offset is greater than the length of the supplied tokens")
 	}
 
-	data := newActionData(m, r, toks)
+	data := newActionData(m, toks)
 	data.ptr = offset
 	return data
 }
@@ -65,7 +254,7 @@ func (data *actionData) nextToken() (tok token.Token, ok bool) {
 
 func (parser *Parser) nextToken(data *actionData) (tok token.Token, ok bool) {
 	if tok, ok = data.nextToken(); !ok {
-		parser.error2(UnexpectedFinalTok, tok.Start, tok.End)
+		parser.errorEOI(tok)
 	}
 	return
 }
@@ -104,10 +293,14 @@ func (data *actionData) findAction(tokenType token.Type) (action actionFunc, fou
 	return action, found
 }
 
-func (parser *Parser) terminalAction(data *actionData) (term termElem, ok bool) {
-	if parser.termMemory != nil {
-		term = *parser.termMemory
-		parser.forget()
+// performs an action based on a terminal term (i.e., a token)
+//
+// actions are decided based on `data.m`
+//
+// on success, returns the parsed term and true; otherwise, returns ?, false
+func (parser *Parser) actOnTerminal(data *actionData) (term termElem, ok bool) {
+	if !parser.termMemory.Empty() {
+		term, _ = parser.termMemory.Pop()
 		return term, true
 	}
 	var tok token.Token
@@ -123,15 +316,45 @@ func (parser *Parser) terminalAction(data *actionData) (term termElem, ok bool) 
 	return action(parser, data)
 }
 
+// creates the term info for a function arrow
 func arrowInfo() termInfo {
-	return termInfo{bp: 1, rAssoc: true, arity: 2}
+	return termInfo{1, true, 2, true}
 }
 
+// creates an outline for a function type
 func makeFunctionType(tok token.Token) FunctionType {
 	return FunctionType{nil, nil, nil, tok.Start, tok.End}
 }
 
-// creates a function type
+func (parser *Parser) idActionHelper(tok token.Token) (term termElem, ok bool, found bool) {
+	// attempt to find declaration, converting it into a term if found
+	if term, found = parser.findDeclAsTerm(tok); found {
+		return term, true, true
+	}
+
+	return makeIdTermElem(tok), true, false
+}
+
+// converts any token into an identifier and attempts to find a declared version of it
+func toIdAction(parser *Parser, data *actionData) (term termElem, ok bool) {
+	var tok token.Token
+	if tok, ok = parser.nextToken(data); !ok {
+		return
+	}
+
+	res := token.Id.MakeValued(tok.Value)
+	res.Start = tok.Start
+	res.End = tok.End
+	var found bool
+	term, ok, found = parser.idActionHelper(res)
+	if ok && !found {
+		parser.errorOn(UndefinedName, term)
+		ok = false
+	}
+	return
+}
+
+// produces a function type constructor
 func productAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	var tok token.Token
 	if tok, ok = parser.nextToken(data); !ok {
@@ -143,6 +366,7 @@ func productAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	return
 }
 
+// produces a listing constructor
 func listingAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	var comma token.Token
 	if comma, ok = parser.nextToken(data); !ok {
@@ -150,15 +374,22 @@ func listingAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	}
 
 	listing := Listing{[]Term{}, comma.Start, comma.End}
-	term = termElem{listing, termInfo{bp: 0, rAssoc: true, arity: 2}}
+	term = termElem{listing, termInfo{0, true, 2, true}}
 	return term, true
 }
 
+// generates an action function that reports an error based on the token read
+//
+// `msg` is the message to report
+//
+// the generated function will always
+//
+//	return termElem{}, false
 func errorActionGen(msg string) func(parser *Parser, data *actionData) (term termElem, ok bool) {
-	return func(parser *Parser, data *actionData) (term termElem, ok bool) {
+	return func(parser *Parser, data *actionData) (termElem, bool) {
 		tok, _ := data.peek()
-		parser.error2(msg, tok.Start, tok.End)
-		return term, false
+		parser.errorOnToken(msg, tok)
+		return termElem{}, false
 	}
 }
 
@@ -184,26 +415,29 @@ func idDataTypeAction(parser *Parser, data *actionData) (term termElem, ok bool)
 	return term, true
 }
 
-func defaultIdTermMaker(tok token.Token) termElem {
+// makes an id term element from a token
+func makeIdTermElem(tok token.Token) termElem {
 	ident := makeIdent(tok)
 	term := termElem{ident, termInfo{}}
 	return term
 }
 
+// produces an identifier either from a previously declared id or a new, free identifier
+//
+// fails when `data` is out of input
 func idAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	var tok token.Token
 	if tok, ok = parser.nextToken(data); !ok {
 		return term, false
 	}
 
-	// attempt to find declaration, converting it into a term if found
-	if term, ok = parser.findDeclAsTerm(tok); ok {
-		return term, true
-	}
-
-	return defaultIdTermMaker(tok), true
+	term, ok, _ = parser.idActionHelper(tok)
+	return term, ok
 }
 
+// produces an integer literal
+//
+// fails when `data` is out of input
 func intAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	var tok token.Token
 	if tok, ok = parser.nextToken(data); !ok {
@@ -213,6 +447,9 @@ func intAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	return termElem{v, termInfo{}}, true
 }
 
+// produces an character literal
+//
+// fails when `data` is out of input
 func charAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	var tok token.Token
 	if tok, ok = parser.nextToken(data); !ok {
@@ -222,6 +459,9 @@ func charAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	return termElem{v, termInfo{}}, true
 }
 
+// produces a string literal
+//
+// fails when `data` is out of input
 func stringAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	var tok token.Token
 	if tok, ok = parser.nextToken(data); !ok {
@@ -231,6 +471,9 @@ func stringAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	return termElem{v, termInfo{}}, true
 }
 
+// produces an float literal
+//
+// fails when `data` is out of input
 func floatAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	var tok token.Token
 	if tok, ok = parser.nextToken(data); !ok {
@@ -240,42 +483,6 @@ func floatAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	return termElem{v, termInfo{}}, true
 }
 
-func closingImplicit(parser *Parser, term termElem, start, end int) (termElem, bool) {
-	switch term.Term.NodeType() {
-	case identType:
-		// assume this is a term of 'Type'
-		id, _ := term.Term.(Ident)
-		decl := new(Declaration)
-		decl.implicit = true
-		decl.name = id
-		decl.termInfo = termInfo{}
-		decl.typing = Ident{"Type", 0, 0}
-		// create new entry
-		parser.locals.Map(id, decl)
-	case typingType:
-		// this case updates existing locals, marking them as implicit
-
-		if term.Term.NodeType() != identType {
-			break
-		}
-
-		// entry should already exist
-		decl, found := parser.locals.Find(term.Term)
-		if !found {
-			break // ? dunno when this would happen
-		}
-		// mark as implicit
-		decl.implicit = true
-		parser.locals.Map(term.Term, decl) // update
-	default:
-		break
-	}
-
-	info := abstractInfo(term.termInfo)
-	term = termElem{Implicit{term.Term, start, end}, info}
-	return term, true
-}
-
 func wildcardAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 	panic("TODO: implement") // TODO: implement
 }
@@ -283,7 +490,7 @@ func wildcardAction(parser *Parser, data *actionData) (term termElem, ok bool) {
 // creates typing prototype--still requires a type
 func createTyping(colon token.Token) termElem {
 	typing := Typing{Start: colon.Start, End: colon.End}
-	info := termInfo{bp: 0, rAssoc: true, arity: 2}
+	info := termInfo{0, true, 2, true}
 	return termElem{typing, info}
 }
 
@@ -302,67 +509,164 @@ func labeledTypeAction(parser *Parser, data *actionData) (term termElem, ok bool
 	return
 }
 
-// begins parsing of an implicit argument or type
-func implicitAction(parser *Parser, data *actionData) (term termElem, ok bool) {
-	var openBrace token.Token
-	if openBrace, ok = parser.nextToken(data); !ok {
-		return
+// advances past token, reports error and returns false when end marker isn't found, otherwise just
+// returns true
+func (parser *Parser) readEnd(data *actionData) (tok token.Token, ok bool) {
+	tok, ok = parser.nextToken(data)
+	if !ok {
+		return tok, false
 	}
 
-	term = makeOpener(openBrace)
-	parser.shift(term)
+	if ok = tok.Value == data.end; !ok {
+		parser.errorOnToken(expectedSyntax(data.end), tok)
+	}
+	return tok, ok
+}
 
-	pushFirst := parser.terms.GetCount() > 0
-	parser.terms.Save()
+type extensionUpdater struct {
+	end   string
+	m     func(parser *Parser, data *actionData) (actionMapper, bool)
+	build func(parser *Parser, termPrev, termNew termElem, start, end int) (termElem, bool)
+}
 
-	// set parsing rules depending on the syntactic structure the implicit term is located in
-	// there should only be two possibilities, type and function arguments
+func _makeEnds_m_(*Parser, *actionData) (actionMapper, bool) { return standardActions, true }
+
+func _makeEnds_apply_(parser *Parser, termPrev, termNew termElem, start, end int) (termElem, bool) {
+	// TODO: cannot set start and end here :(
+	return parser.reduce(termPrev, termNew)
+}
+
+// makes default ends
+//
+// fn is underlying function results are applied to
+func makeEnds(ends ...string) []extensionUpdater {
+	out := make([]extensionUpdater, len(ends))
+	for i, end := range ends {
+		out[i] = extensionUpdater{end, _makeEnds_m_, _makeEnds_apply_}
+	}
+	return out
+}
+
+func extensionAction(first string, fn termElem, ends ...extensionUpdater) func(parser *Parser, data *actionData) (term termElem, ok bool) {
+	return func(parser *Parser, data *actionData) (term termElem, ok bool) {
+		// this shadows captured `fn` so the `fn` captured by the closure isn't overwritten. It actually
+		// doesn't matter logic-wise, but for printing debug info it does matter
+		fn := fn
+		old := data.m
+		oldEnd := data.end
+
+		defer func() {
+			data.end = oldEnd
+			data.m = old
+		}()
+
+		var open token.Token
+		if open, ok = parser.nextToken(data); !ok {
+			return
+		}
+		if open.Value != first {
+			parser.errorOnToken(expectedSyntax(first), open)
+			return term, false
+		}
+
+		for _, end := range ends {
+			// update map according to updater
+			data.m, ok = end.m(parser, data)
+			if !ok {
+				return
+			}
+
+			data.end = end.end
+
+			if term, ok = parser.process(-1, data); !ok {
+				return
+			}
+
+			var endTok token.Token
+			if endTok, ok = parser.readEnd(data); !ok {
+				return term, false
+			}
+			before := fn
+			fn, ok = end.build(parser, fn, term, open.Start, endTok.End)
+			if !ok {
+				return
+			}
+			debug_log_reduce(os.Stderr, before, term, fn)
+		}
+		return fn, ok
+	}
+}
+
+func implicitEndM(parser *Parser, data *actionData) (actionMapper, bool) {
 	switch data.m.id {
 	case typingId:
-		data.m = typePositionImplicitAction
+		return typePositionImplicitAction, true
 	case standardId:
-		data.m = argPositionImplicitAction
+		return argPositionImplicitAction, true
 	default:
-		panic("bug: unexpected action map")
+		var tok token.Token
+		var ok bool
+		if tok, ok = parser.peek(data); !ok {
+			return actionMapper{}, false
+		}
+		parser.errorOnToken(NoGrammarExtensionFound, tok)
+		return actionMapper{}, false
 	}
-
-	term, ok = parser.terminalAction(data)
-	if !ok {
-		return
-	} else if !pushFirst {
-		return
-	}
-
-	parser.shift(term)
-	return parser.terminalAction(data)
 }
 
-func makeOpener(tok token.Token) termElem {
-	return termElem{Key{tok.Value, tok.Start, tok.End}, termInfo{}}
+func implicitBuilder(parser *Parser, _ termElem, term termElem, start, end int) (termElem, bool) {
+	switch term.Term.NodeType() {
+	case identType:
+		if !parser.parsingTypeSig {
+			// exit switch, treat just as a term since implicit braces are being used in a function
+			// pattern/application
+			break
+		}
+
+		// assume this is a term of 'Type'
+		id, _ := term.Term.(Ident)
+		decl := new(Declaration)
+		decl.implicit = true
+		decl.name = id
+		decl.termInfo = termInfo{}
+		decl.typing = Ident{"Type", 0, 0} // TODO: use actual builtin
+		// create new entry
+		parser.locals.Map(id, decl) // shadows any previous declarations w/ the name of `id`
+	case typingType:
+		// this case updates existing locals, marking them as implicit
+		typing, _ := term.Term.(Typing)
+		if typing.Term.NodeType() != identType {
+			break
+		}
+
+		// entry should already exist
+		decl, found := parser.locals.Find(term.Term)
+		if !found {
+			break // ? dunno when this would happen
+		}
+		// mark as implicit
+		decl.implicit = true
+		parser.locals.Map(term.Term, decl) // update
+	default:
+		break
+	}
+
+	implicit := Implicit{term.Term, start, end}
+	info := abstractInfo(term.termInfo)
+	term = termElem{implicit, info}
+	return term, true
 }
 
-func parenAction(parser *Parser, data *actionData) (term termElem, ok bool) {
-	var tok token.Token
-	if tok, ok = parser.nextToken(data); !ok {
-		return
-	}
+var implicitAction = extensionAction("{", termElem{}, extensionUpdater{"}", implicitEndM, implicitBuilder})
 
-	term = makeOpener(tok)
+var parenAction = extensionAction("(", termElem{}, extensionUpdater{")", parenEndM, parenBuilder})
 
-	pushFirst := parser.terms.GetCount() > 0
+func parenEndM(_ *Parser, data *actionData) (actionMapper, bool) {
+	return data.m, true
+}
 
-	parser.shift(term)
-	parser.terms.Save()
-
-	term, ok = parser.terminalAction(data)
-	if !ok {
-		return
-	} else if !pushFirst {
-		return
-	}
-
-	parser.shift(term)
-	return parser.terminalAction(data) // TODO: what happens on the following "fun (+) y"?
+func parenBuilder(parser *Parser, _ termElem, term termElem, start, end int) (termElem, bool) {
+	return standardParenCloser(parser, term, start, end)
 }
 
 // when a term is enclosed by parens, it's information is lost and becomes a more abstract function
@@ -373,159 +677,6 @@ func abstractInfo(info termInfo) termInfo {
 		info.bp = 10
 		info.rAssoc = false
 	}
+	info.infixed = false
 	return info
-}
-
-type parenClosingFunc = func(*Parser, termElem, int, int) (termElem, bool)
-
-func closeAction(parser *Parser, data *actionData) (term termElem, ok bool) {
-	var tok token.Token
-	if tok, ok = parser.nextToken(data); !ok {
-		return
-	}
-
-	var m Marker = Marker{Start: tok.Start, End: tok.End}
-	info := termInfo{11, false, 1}
-	switch tok.Type {
-	case token.RightParen:
-		m.nodeType = closeParenType
-	case token.RightBracket:
-		m.nodeType = closeBracketType
-	case token.RightBrace:
-		m.nodeType = closeBraceType
-	default:
-		parser.errorOnToken(UnexpectedToken, tok)
-		return term, false
-	}
-	term = termElem{m, info}
-	return term, true
-}
-
-const (
-	constraintId actionMapperId = iota
-	standardId
-	argPosImplicitId
-	typePosImplicitId
-	typingId
-	dataTypeFollowId
-	dataTypeInitId
-)
-
-var (
-	argPositionImplicitAction  actionMapper
-	standardActions            actionMapper
-	constraintActions          actionMapper
-	typePositionImplicitAction actionMapper
-	typingActions              actionMapper
-	// data type parsing after name is known
-	dataTypeFollowActions actionMapper
-	// initial data type parsing
-	dataTypeInitActions actionMapper
-)
-
-func init() {
-	constraintActions = actionMapper{
-		actionMap{
-			token.Id:          idAction,
-			token.ImplicitId:  idAction,
-			token.Underscore:  wildcardAction, // possible, i suppose, but useless // TODO: perhaps make it an error
-			token.Backslash:   abstractionAction,
-			token.Arrow:       productAction,
-			token.IntValue:    intAction,
-			token.CharValue:   charAction,
-			token.StringValue: stringAction,
-			token.FloatValue:  floatAction,
-			token.LeftParen:   parenAction,
-			token.RightParen:  closeAction,
-			token.Comma:       listingAction,
-		},
-		constraintId,
-	}
-
-	standardActions = actionMapper{
-		actionMap{
-			token.Id:         idAction,
-			token.ImplicitId: idAction,
-			token.Underscore: wildcardAction,
-			token.Backslash:  abstractionAction,
-			// why is this allowed?: functions from terms to types and functions from types to types, e.g.,
-			//	Dfun 0 = Int -> Int
-			//	FromInt t = Int -> t
-			token.Arrow:       productAction,
-			token.IntValue:    intAction,
-			token.CharValue:   charAction,
-			token.StringValue: stringAction,
-			token.FloatValue:  floatAction,
-			token.LeftParen:   parenAction,
-			token.RightParen:  closeAction,
-			token.RightBrace:  closeAction,
-		},
-		standardId,
-	}
-
-	// explicit value given to implicit argument
-	argPositionImplicitAction = actionMapper{
-		actionMap{
-			token.Id:         idAction,
-			token.ImplicitId: idAction,
-			token.RightBrace: closeAction,
-		},
-		argPosImplicitId,
-	}
-
-	typePositionImplicitAction = actionMapper{
-		actionMap{
-			token.Id:         idAction,
-			token.ImplicitId: idAction,
-			token.Underscore: wildcardAction,
-			token.Colon:      labeledTypeAction,
-			token.RightBrace: closeAction,
-		},
-		typePosImplicitId,
-	}
-
-	typingActions = actionMapper{
-		actionMap{
-			token.Id:          idAction,
-			token.ImplicitId:  idAction,
-			token.Underscore:  wildcardAction,
-			token.Backslash:   abstractionAction,
-			token.Arrow:       productAction,
-			token.ThickArrow:  errorActionGen(IllegalConstraintPosition),
-			token.IntValue:    intAction,
-			token.CharValue:   charAction,
-			token.StringValue: stringAction,
-			token.FloatValue:  floatAction,
-			token.LeftParen:   parenAction,
-			token.RightParen:  closeAction,
-			token.Colon:       labeledTypeAction,
-			token.LeftBrace:   implicitAction,
-			token.RightBrace:  closeAction,
-		},
-		typingId,
-	}
-
-	dataTypeFollowActions = actionMapper{
-		actionMap{
-			token.Id:          idAction,
-			token.ImplicitId:  idAction,
-			token.Backslash:   abstractionAction,
-			token.Arrow:       productAction,
-			token.IntValue:    intAction,
-			token.CharValue:   charAction,
-			token.StringValue: stringAction,
-			token.FloatValue:  floatAction,
-			token.LeftParen:   parenAction,
-			token.RightParen:  closeAction,
-		},
-		dataTypeFollowId,
-	}
-
-	dataTypeInitActions = actionMapper{
-		actionMap{
-			token.Id:         idDataTypeAction,
-			token.ImplicitId: errorActionGen(IllegalDataTypeName),
-		},
-		dataTypeInitId,
-	}
 }

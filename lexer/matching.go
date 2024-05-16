@@ -50,7 +50,7 @@ var (
 	//	`not_`
 	//	`_mod_`
 	//	`zipWith`
-	affixedIdRegex = regexp.MustCompile(affixedRegexGen(idRegexClassRaw + `*`))
+	affixedIdRegex   = regexp.MustCompile(affixedRegexGen(idRegexClassRaw + `*`))
 	camelCaseIdRegex = regexp.MustCompile(idRegexClassRaw + `*`)
 )
 
@@ -65,7 +65,6 @@ func matchRegex(r *regexp.Regexp, s string) string {
 	}
 	return s[:loc[1]]
 }
-
 
 func camelCase(s string) bool {
 	sLen := len(s)
@@ -90,7 +89,9 @@ var keywords = map[string]token.Type{
 	"public":    token.Public,
 	"open":      token.Open,
 	"automatic": token.Automatic,
-	"mutual": token.Mutual,
+	"mutual":    token.Mutual,
+	"erase":     token.Erase,
+	"once":      token.Once,
 	"(":         token.LeftParen,
 	")":         token.RightParen,
 	"[":         token.LeftBracket,

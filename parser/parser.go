@@ -51,6 +51,12 @@ func (parser *Parser) writeDecl(decl DeclarationElem) {
 	parser.saver.elems.Push(decl)
 }
 
+func (parser *Parser) writeDecls(decls []DeclarationElem) {
+	for _, decl := range decls {
+		parser.writeDecl(decl)
+	}
+}
+
 func (parser *Parser) writeBinding(binding BindingElem) {
 	// if !parser.allow(FuncClass) {
 	// 	parser.errorOnElem(IllegalBinding, binding)
@@ -160,14 +166,15 @@ type Parser struct {
 	// information for first pass
 	firstPassInfo
 	// parse (term) stack
-	terms termStack
+	//terms termStack
 	// previous term, used to restore previous term on certain operations
-	termMemory *termElem
+	termMemory *stack.Stack[termElem]
 	// llvm-ir module: parser outputs data here
 	mod *ir.Module
 	// true iff in top level
 	inTop          bool
 	parsingTypeSig bool
+	allowModality  bool
 	debug_info_parser
 }
 
@@ -180,6 +187,7 @@ func (parser *Parser) declareBuiltin(fromPath string) {
 		{false, Ident{"Float", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
 		{false, Ident{"Char", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
 		{false, Ident{"String", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
+		{false, Ident{"=", 0, 0}, FunctionType{Ident{"a", 0, 0}, FunctionType{Ident{"b", 0, 0}, Ident{"Type", 0, 0}, nil, 0, 0}, nil, 0, 0}, termInfo{1, true, 2, true}},
 	}
 	for _, decl := range builtins {
 		parser.declarations.Map(decl.name, &decl)
@@ -278,13 +286,14 @@ func Initialize(src source.SourceCode, saveComments bool) (parser *Parser) {
 	parser.messages = make([]errors.ErrorMessage, 0)
 	parser.src = src
 	//parser.action = stack.NewStack[Action](8)
-	parser.terms.SaveStack = stack.NewSaveStack[termElem](8)
+	//parser.terms.SaveStack = stack.NewSaveStack[termElem](8)
 	parser.saver = initSaver()
 	parser.visibility = stack.NewStack[Visibility](2)
 	parser.saveComments = saveComments
 	if saveComments {
 		parser.comments = make([]token.Token, 0, 32)
 	}
+	parser.termMemory = stack.NewStack[termElem](4)
 	parser.env = types.NewEnvironment()
 	parser.indentation = indentStack{stack.NewStack[int](8)}
 	parser.imports = make(map[string]Import)

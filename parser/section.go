@@ -18,12 +18,6 @@ func (c sectionHelper) Clean() {
 	}
 }
 
-// true iff the next token is one which can be used as the name of something declarable
-func declarationValidator(parser *Parser) bool {
-	ty := parser.Peek().Type
-	return ty == token.Id || ty == token.Affixed
-}
-
 // returns true iff the block marker `marker` requires an indent to follow it
 func indentRequired(marker token.Type, newlinesDropped int) bool {
 	// `where` and mutual always require a succeeding indent; other tokens only require it if a
@@ -42,13 +36,10 @@ func (parser *Parser) maybeReportErrorWhenNoIndentFound(marker token.Token, newl
 // tries to open a new syntactic section
 //
 // check if an error occurred with parser.Panicking()
-func (parser *Parser) openSection(validator func(*Parser) bool) (openedFrom token.Token, c sectionHelper, validated bool) {
-	if validated = validator(parser); !validated {
+func (parser *Parser) openSection(validator func(*Parser) (token.Token, bool)) (openedFrom token.Token, c sectionHelper, validated bool) {
+	if openedFrom, validated = validator(parser); !validated {
 		return
 	}
-
-	// token that opens the section
-	openedFrom = parser.Advance()
 
 	// drop anything droppable following keyword
 	newlinesDropped := parser.drop()
@@ -94,7 +85,11 @@ func (parser *Parser) openMutualWhereSection() (openedFrom token.Token, c sectio
 		// inline where, should be:
 		//	mutual where
 		//		...
-		_, c, validated = parser.openSection(func(p *Parser) bool { return p.Peek().Type == token.Where })
+		_, c, validated = parser.openSection(
+			func(p *Parser) (token.Token, bool) {
+				out := p.Advance()
+				return out, out.Type == token.Where
+			})
 		if !validated {
 			parser.error(ExpectedWhere)
 			return
@@ -118,7 +113,11 @@ func (parser *Parser) openMutualWhereSection() (openedFrom token.Token, c sectio
 
 	// now do where block validation
 	var cWhere sectionHelper
-	_, cWhere, validated = parser.openSection(func(p *Parser) bool { return p.Peek().Type == token.Where })
+	_, cWhere, validated = parser.openSection(
+		func(p *Parser) (token.Token, bool) {
+			out := p.Advance()
+			return out, out.Type == token.Where
+		})
 	if !validated {
 		parser.error(ExpectedWhere)
 		return
@@ -170,7 +169,11 @@ func (parser *Parser) runSection(atMostOnce bool, action func(*Parser) (ok bool)
 
 func (parser *Parser) parseSection2(action func(*Parser) (ok bool), againCondition func(*Parser, int) bool) (ok bool, openedFrom token.Token) {
 	// create a new context and make sure it's removed when this function returns
-	openedFrom, cleaner, _ := parser.openSection(func(*Parser) bool { return true }) // will always validate as true
+	openedFrom, cleaner, _ := parser.openSection(
+		func(p *Parser) (token.Token, bool) {
+			out := p.Advance()
+			return out, true
+		}) // will always validate as true
 	defer cleaner.Clean()
 
 	return parser.runSection(!cleaner.SectionOpened(), action, againCondition), openedFrom

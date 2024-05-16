@@ -492,7 +492,7 @@ func (parser *Parser) parseTyping() (typ TypeElem, ok bool) {
 
 func parseDeclarationMaybeType(parser *Parser) (ok bool) {
 	// create a new context and make sure it's removed when this function returns
-	declaredName, cleaner, validated := parser.openSection(declarationValidator)
+	declaredName, cleaner, validated := parser.openSection((*Parser).getDeclarableId)
 	defer cleaner.Clean()
 
 	if ok = !parser.panicking; !ok {
@@ -501,14 +501,14 @@ func parseDeclarationMaybeType(parser *Parser) (ok bool) {
 		panic("bug: declarable name not found at parser's current token")
 	}
 
-	var dec DeclarationElem
-	dec, ok = parser.parseDeclaration_shared(declaredName)
+	var decls []DeclarationElem
+	decls, ok = parser.parseDeclaration_shared(declaredName)
 	if !ok {
 		return
 	}
 
 	if test := parser.dropAndAdvanceGreaterIndent(); !test {
-		parser.writeDecl(dec)
+		parser.writeDecls(decls)
 		return
 	}
 
@@ -516,6 +516,14 @@ func parseDeclarationMaybeType(parser *Parser) (ok bool) {
 		parser.error(ExpectedWhere)
 		return
 	}
+
+	if len(decls) > 1 {
+		parser.errorOn(IllegalTypeConsList, decls[1])
+		return false
+	}
+
+	// get declared type constructor
+	dec := decls[0]
 
 	var typ DataTypeElem
 	typ.TypeConstructor.Name = dec.Name
@@ -531,7 +539,7 @@ func parseDeclarationMaybeType(parser *Parser) (ok bool) {
 // assumes some kind of identifier has already been seen
 func parseDeclaration(parser *Parser) (ok bool) {
 	// create a new context and make sure it's removed when this function returns
-	declaredName, cleaner, validated := parser.openSection(declarationValidator)
+	declaredName, cleaner, validated := parser.openSection((*Parser).getDeclarableId)
 	defer cleaner.Clean()
 
 	if ok = !parser.panicking; !ok {
@@ -540,17 +548,48 @@ func parseDeclaration(parser *Parser) (ok bool) {
 		panic("bug: declarable name not found at parser's current token")
 	}
 
-	var dec DeclarationElem
-	dec, ok = parser.parseDeclaration_shared(declaredName)
+	var decls []DeclarationElem
+	decls, ok = parser.parseDeclaration_shared(declaredName)
 	if ok {
-		parser.writeDecl(dec)
+		parser.writeDecls(decls)
 	}
 	return
 }
 
-func (parser *Parser) parseDeclaration_shared(declaredName token.Token) (dec DeclarationElem, ok bool) {
+func (parser *Parser) parseDeclHeadList(declaredName token.Token) (decls []DeclarationElem, ok bool) {
+	decls = make([]DeclarationElem, 1, 4)
+	decls[0] = DeclarationElem{Name: declaredName, Start: declaredName.Start}
+
+	for parser.Peek().Type == token.Comma {
+		_ = parser.Advance()
+		if ok = parser.dropAndAdvanceGreaterIndent(); !ok {
+			parser.error(ExpectedGreaterIndent)
+			return
+		}
+		
+		// get next name to declare
+		declaredName, ok = parser.getDeclarableId()
+		if !ok {
+			parser.error(ExpectedIdentifier)
+			return
+		}
+		decls = append(decls, DeclarationElem{Name: declaredName, Start: declaredName.Start})
+
+		if ok = parser.dropAndAdvanceGreaterIndent(); !ok {
+			parser.error(ExpectedGreaterIndent)
+			return
+		}
+	}
+	return decls, true
+}
+
+func (parser *Parser) parseDeclaration_shared(declaredName token.Token) (decls []DeclarationElem, ok bool) {
 	if ok = parser.dropAndAdvanceGreaterIndent(); !ok {
 		parser.error(ExpectedGreaterIndent)
+		return
+	}
+
+	if decls, ok = parser.parseDeclHeadList(declaredName); !ok {
 		return
 	}
 
@@ -560,9 +599,17 @@ func (parser *Parser) parseDeclaration_shared(declaredName token.Token) (dec Dec
 		return
 	}
 
-	dec.Name = declaredName
-	dec.Start = declaredName.Start
-	dec.Typing, ok = parser.parseTyping()
+	// now parse (shared if multiple decls) typing
+	var typing TypeElem
+	if typing, ok = parser.parseTyping(); !ok {
+		return
+	}
+
+	// give type to decls
+	for i, decl := range decls {
+		decl.Typing = typing
+		decls[i] = decl
+	}
 	return
 }
 
@@ -680,7 +727,7 @@ func (parser *Parser) parseTrait() (ok bool) {
 
 func (parser *Parser) parseDeclaration() (ok bool) {
 	switch parser.Peek().Type {
-	case token.Id, token.Affixed:
+	case token.Id:
 		return parseDeclaration(parser)
 	default:
 		panic("bug: current token in stream not validated")
@@ -793,9 +840,14 @@ func (parser *Parser) saveStacks() (clean func()) {
 	}
 }
 
+func whereValidator(p *Parser) (token.Token, bool) {
+	out := p.Advance()
+	return out, out.Type == token.Where
+}
+
 func (parser *Parser) whereClause() (whereToken token.Token, ok bool) {
 	var tok token.Token
-	tok, cleaner, validated := parser.openSection(func(p *Parser) bool { return p.Peek().Type == token.Where })
+	tok, cleaner, validated := parser.openSection(whereValidator)
 	whereToken = tok
 	defer cleaner.Clean()
 
@@ -828,11 +880,16 @@ func (parser *Parser) parseWhere() (where WhereClause, ok bool) {
 	return where, ok
 }
 
+func letValidator(parser *Parser) (token.Token, bool) {
+	out := parser.Advance()
+	return out, out.Type == token.Let
+}
+
 func (parser *Parser) parseLet() (let LetBindingElem, ok bool) {
 	returns := parser.saveStacks()
 	defer returns()
 
-	letToken, cleaner, validated := parser.openSection(func(p *Parser) bool { return p.Peek().Type == token.Let })
+	letToken, cleaner, validated := parser.openSection(letValidator)
 	defer cleaner.Clean()
 
 	if ok = !parser.panicking; !ok {
@@ -1127,11 +1184,70 @@ func (parser *Parser) parseDefinition() (ok bool) {
 	return parser.runSection(true, parseScrutinee, againCondition)
 }
 
+func (parser *Parser) getDeclarableId() (token.Token, bool) {
+	// check if just an id or possibly an infix id
+	first := parser.Peek()
+	if first.Type != token.LeftParen {
+		if first.Type == token.Id {
+			return parser.Advance(), true
+		}
+		return first, false
+	}
+
+	// get remaining infix tokens
+
+	// get id
+	name := parser.Peek()
+	if name.Type != token.Id {
+		return first, false
+	}
+	_ = parser.Advance()
+
+	// get right paren
+	end := parser.Peek()
+	if end.Type != token.RightParen {
+		return first, false
+	}
+	_ = parser.Advance()
+
+	// create infix id
+	// TODO: test what happens when an infixed id is used for a term with 0 arity
+	res := token.Affixed.MakeValued("(" + name.Value + ")")
+	res.Start = first.Start
+	res.End = first.End
+	return res, true
+}
+
+func (parser *Parser) nextIsEnclosed(first token.Token) (_ token.Token, ok bool) {
+	next := parser.Peek()
+	if next.Type != token.Id {
+		return first, false
+	}
+
+	out := next
+	_ = parser.Advance()
+	next = parser.Peek()
+	if next.Type != token.RightParen {
+		return out, false
+	}
+	_ = parser.Advance()
+	return out, true
+}
+
 func (parser *Parser) parseDeclarationOrDefinition() (ok bool) {
 	before := parser.tokenPos
 	first := parser.Peek()
 
 	_ = parser.Advance()
+
+	var isEnclosed bool
+	if first.Type == token.LeftParen {
+		if first, isEnclosed = parser.nextIsEnclosed(first); !isEnclosed {
+			parser.tokenPos = before
+			return parser.parseDefinition()
+		}
+	}
+	
 	if !parser.dropAndAdvanceGreaterIndent() {
 		parser.error(ExpectedGreaterIndent)
 		return false
@@ -1140,7 +1256,7 @@ func (parser *Parser) parseDeclarationOrDefinition() (ok bool) {
 	parser.tokenPos = before // rewind
 
 	switch next.Type {
-	case token.Colon:
+	case token.Colon, token.Comma:
 		if validTypeIdent(first.Value) {
 			return parser.parseDeclarationMaybeType()
 		}
@@ -1263,7 +1379,11 @@ func (parser *Parser) mutualInnerHelper(atMostOnce bool, mutToken token.Token) (
 }
 
 func (parser *Parser) parseMutualInner(actualOpen token.Type) (mut MutualBlockElem, ok bool) {
-	mutToken, cleaner, validated := parser.openSection(func(p *Parser) bool { return p.Peek().Type == actualOpen })
+	mutToken, cleaner, validated := parser.openSection(
+		func(p *Parser) (token.Token, bool) {
+			out := p.Advance()
+			return out, out.Type == actualOpen
+		})
 	defer cleaner.Clean()
 
 	if ok = !parser.panicking; !ok {
@@ -1366,7 +1486,7 @@ func (parser *Parser) firstPass() (ok bool) {
 			panic("TODO: implement 'alias'")
 		case token.Trait:
 			ok = parser.parseTrait()
-		case token.Id, token.Affixed:
+		case token.Id, token.LeftParen:
 			ok = parser.parseDeclarationOrDefinition()
 		case token.ImplicitId:
 			// this should parse the definition for some affixed identifier

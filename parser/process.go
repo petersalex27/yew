@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"os"
-
 	"github.com/petersalex27/yew/common"
 	"github.com/petersalex27/yew/token"
 )
@@ -17,238 +15,154 @@ func getTermsPos(a, b Term) (start, end int) {
 	return
 }
 
-// like `(*Parser).grabNext()` but also reports an error with when the grabbed term
-// does not have the type `ty`
-//
-// on success, returns grabbed term of type `ty` and true
-//
-// on failure, returns ?, false
-func (parser *Parser) grabTermOf(ty NodeType) (term termElem, ok bool) {
-	if term, ok = parser.grabNext(); !ok {
-		return
-	}
-
-	// test type
-	if ok = term.NodeType() == ty; !ok {
-		parser.expectedErrorOn(ty, term)
-	}
-	return
-}
-
-// grabs the top term of the term stack, reports errors if they occur and returns the grabbed term
-// and whether this was successful (ok=true iff successful)
-func (parser *Parser) grabNext() (term termElem, ok bool) {
-	term = parser.grab()
-	ok = !parser.panicking
-	return
-}
-
-// grabs the top term of the term stack and returns it, reports errors if they occur
-//
-// An error occurred if parser.Panicking() returns false before calling `grab` but true after
-// calling
-func (parser *Parser) grab() termElem {
-	term, stat := parser.terms.SaveStack.Pop()
-	if stat.NotOk() {
-		parser.reportUnresolved()
-	}
-	return term
-}
-
-// pushes a term onto the term stack--uses the name 'shift' to align w/ 'shift-reduce' parser
-func (parser *Parser) shift(term termElem) {
-	parser.terms.Push(term)
-	debug_log_shift(os.Stderr, parser) // noop if not -tags=debug
-}
-
-// performs a terminal action and immediately shifts the result if the terminal action was
-// successful
-//
-// returns true iff terminal action was successful
-func (parser *Parser) shiftTerm(data *actionData) (ok bool) {
-	var term termElem
-	// get and push term
-	if term, ok = parser.terminalAction(data); ok {
-		parser.shift(term)
-	}
-	return
-}
-
-func (parser *Parser) postReductionShift(data *actionData) (reductionResult termElem, ok bool) {
-	reductionResult = parser.top()
-
-	var term termElem
-	// get and push term
-	if term, ok = parser.terminalAction(data); ok {
-		parser.shift(term)
-	}
-	return
-}
-
 // stores the argument in the parser's "term-memory"
-func (parser *Parser) remember(term termElem) { parser.termMemory = &term }
+func (parser *Parser) remember(term termElem) {
+	parser.termMemory.Push(term)
+}
 
 // forgets the term the parser is remembering
-func (parser *Parser) forget() { parser.termMemory = nil }
-
-func (parser *Parser) rightTakesTopIteration(fun termElem, data *actionData) (_ termElem, again bool) {
-	var ok bool
-	// reduce by applying left term to infix function on the right
-	if ok = parser.reduceTop(fun); !ok {
-		return fun, false
-	}
-
-	// return top (just reduced) term if out of input
-	if !data.hasMoreInput() {
-		term, _ := parser.reduceStack()
-		return term, false
-	}
-
-	// result of reduction
-	result := parser.top()
-
-	var nextTerm termElem
-	if nextTerm, ok = parser.terminalAction(data); !ok {
-		return fun, false
-	}
-
-	if shouldHoldStack(fun, nextTerm) {
-		
-	} 
-
-	if !data.hasMoreInput() {
-		// reduce entire stack
-		term, _ := parser.reduceStack() 
-		return term, false
-	}
-
-	// get term to the right of the term gotten above (this term might be an infix function)
-	fun, ok = parser.terminalAction(data)
-	parser.remember(fun)
-	// should right infix function take the term on the top of the stack?
-	//	- decision made based on result of previous reduction
-	again = ok && shouldHoldStack(result, fun)
-	if !again {
-		// TODO?
-		res, _ := parser.reduceStack()
-		return res, false
-	}
-	parser.forget()
-	return fun, again
-}
-
-func (parser *Parser) rightTakesTop(fun termElem, data *actionData) (_ termElem, ok bool) {
-	for again := true; again; {
-		fun, again = parser.rightTakesTopIteration(fun, data)
-	}
-	return fun, !parser.Panicking()
-}
-
-func (parser *Parser) innerProcess(data *actionData) (term termElem, ok bool) {
-	// check if nothing to parse
-	if ok = parser.terms.GetCount() == 1 && !data.hasMoreInput(); ok {
-		term = parser.grab()
+func (parser *Parser) forget() {
+	if parser.termMemory.Empty() {
 		return
 	}
 
-	var rightOp termElem
-	rightOp, ok = parser.terminalAction(data)
+	_, _ = parser.termMemory.Pop()
+}
+
+func (parser *Parser) terminalPeek(data *actionData) (termElem, bool) {
+	t, ok := parser.actOnTerminal(data)
 	if !ok {
+		return termElem{}, false
+	}
+
+	parser.remember(t)
+	return t, true
+}
+
+func (term termElem) strongerThan(bp int8) bool {
+	if term.rAssoc {
+		return bp <= term.bp
+	}
+	return bp < term.bp
+}
+
+func (parser *Parser) earlyExit(data *actionData) bool {
+	if !parser.termMemory.Empty() {
+		return false
+	}
+	res, _ := parser.peek(data)
+	return res.String() == data.end
+}
+
+func (parser *Parser) application(bp int8, left termElem, data *actionData) (term termElem, ok bool) {
+	if !left.strongerThan(bp) {
+		return left, true // bp of left is too low to bind to anything
+	}
+
+	for parser.keepProcessing(data) && left.arity != 0 {
+		var right termElem
+		if right, ok = parser.process(left.bp, data); !ok {
+			return left, false
+		}
+
+		if left, ok = parser.reduce(left, right); !ok {
+			return right, false
+		}
+	}
+
+	return left, true
+}
+
+func (parser *Parser) terminalsLeft(data *actionData) bool {
+	return data.hasMoreInput() || !parser.termMemory.Empty()
+}
+
+func (parser *Parser) peekAtInfix(data *actionData) (term termElem, ok bool) {
+	if term, ok = parser.terminalPeek(data); !ok {
 		return
 	}
 
-	if parser.terms.GetCount() == 0 {
-		return rightOp, true
-	}
+	return term, term.infixed
+}
 
-	if shouldHoldStack(parser.top(), rightOp) {
-		// apply left to right (infix application)
-		return parser.rightTakesTop(rightOp, data)
-	}
-
-	// apply right to left (normal application)
-	term = parser.grab()
-	if ok = !parser.panicking; !ok {
+func (parser *Parser) prefix(bp int8, data *actionData) (left termElem, ok bool) {
+	if left, ok = parser.actOnTerminal(data); !ok {
+		return
+	} else if left, ok = parser.application(bp, left, data); !ok {
 		return
 	}
-	return parser.reduce(term, rightOp)
+
+	return left, ok
 }
 
-func (parser *Parser) processing(data *actionData) (term termElem, ok bool) {
-	// require at least one iteration through processing loop
-	if parser.terms.Empty() {
-		panic("bug: term must be on the parse stack before calling `(*Parser) process`")
+// use parser.Panicking() to check for errors
+func (parser *Parser) infix(bp int8, left termElem, data *actionData) (_ termElem, again bool) {
+	// check if infix is next
+	var right termElem
+	if right, again = parser.peekAtInfix(data); !again {
+		// okay: not an infixed function
+		return left, false
+	} else if parser.earlyExit(data) {
+		// okay: exiting early
+		return left, false
 	}
 
-	// processing loop
-	for again := true; again && !parser.terms.Empty(); {
-		term, ok = parser.innerProcess(data)
-		again = ok
-		if ok && data.hasMoreInput() {
-			parser.shift(term) // signals that loop should happen again
-		}
+	if !right.strongerThan(bp) {
+		// okay: binding power of `right` is too weak to be used right now
+		return left, false
 	}
-	return term, ok
+
+	// guaranteed to succeed, get remembered infix operator
+	right, _ = parser.actOnTerminal(data)
+	// swap order of infix operator and argument, then reduce
+	if left, again = parser.reduce(right, left); !again {
+		return // error: failed to reduce left and right
+	}
+
+	// now, treat infix operator as regular function (with a non-10 valued bp)
+	return parser.application(bp, left, data)
 }
 
-func (parser *Parser) topTermType() NodeType {
-	term, stat := parser.terms.Peek()
-	if stat.NotOk() {
-		panic("bug: an unknown parse rule created an empty stack frame")
-	}
-
-	return term.NodeType()
+func (parser *Parser) keepProcessing(data *actionData) bool {
+	return parser.terminalsLeft(data) && !parser.earlyExit(data)
 }
 
-// reports errors based on whatever is left on the term stack
-func (parser *Parser) reportUnresolved() {
-	reported := 0
-	for {
-		n := parser.terms.GetCount()
-		elems, stat := parser.terms.MultiPop(n)
-		if !stat.IsOk() {
-			break // done reporting
-		}
-
-		for _, elem := range elems {
-			start, end := elem.Pos()
-			parser.error2(ReductionFailure, start, end)
-			reported++
-		}
-
-		if !parser.terms.Return().IsOk() {
-			break // done reporting
-		}
+// processes a function (possibly w/ 0 args) then a possible sequence of expressions sequenced by 
+// infix operators with enough binding power to bind stronger than `bp` 
+func (parser *Parser) process(bp int8, data *actionData) (term termElem, ok bool) {
+	var left termElem
+	if left, ok = parser.prefix(bp, data); !ok {
+		return
 	}
 
-	if reported == 0 {
-		panic("unknown error caused parser to fail")
+	for again := true; again && parser.keepProcessing(data); {
+		left, again = parser.infix(bp, left, data)
 	}
-
-	parser.panicking = true
+	return left, !parser.panicking
 }
 
-// DO NOT CALL THIS FUNCTION RECURSIVELY!!! Specifically, `rightTakesTop` cannot be called recursively
+func (parser *Parser) reportProcessErrors(data *actionData) {
+	if !parser.termMemory.Empty() {
+		t, _ := parser.actOnTerminal(data)
+		parser.errorOn(ExpectedEndOfSection, t)
+		return
+	}
+	t, _ := parser.peek(data)
+	parser.errorOnToken(UnexpectedToken, t)
+}
+
 func (parser *Parser) Process(a actionMapper, tokens []token.Token) (term termElem, ok bool) {
 	// create an action data struct for tokens and map
-	data := newActionData(a, resolutionActions, tokens)
-	// shift, requiring at least one term
-	if ok = parser.shiftTerm(data); !ok {
+	data := newActionData(a, tokens)
+	if term, ok = parser.process(-1, data); !ok {
 		return
 	}
-
-	// loop until stack is empty and there are no resolutions
-	for again := true; again && ok; {
-		// process data
-		term, ok = parser.processing(data)
-		if ok {
-			// resolve anything that needs resolution
-			if term, again, ok = parser.resolving(data, term); !ok {
-				break
-			}
-		}
+	if !parser.terminalsLeft(data) {
+		return term, ok
 	}
-	return
+
+	parser.reportProcessErrors(data)
+	return term, false
 }
 
 type processedValidation struct {

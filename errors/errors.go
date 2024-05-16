@@ -216,7 +216,7 @@ func unchecked_LogMessage(w io.Writer, mt MessageType, messages []ErrorMessage) 
 		// true if `mt` and `e.messageType` are the same or either is `AnyType`
 		if e.messageType ^ mt == 0 {
 			n++
-			fmt.Fprintf(w, "%s\n", e.Error())
+			fmt.Fprintf(w, "%s", e.Error())
 		}
 	}
 	return

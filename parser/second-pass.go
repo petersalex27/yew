@@ -126,7 +126,7 @@ func (typ TypeElem) Parse(parser *Parser) (ok bool) {
 
 	if len(typ.Constraint) == 0 {
 		// no constraint to parse, just return
-		parser.shift(ty)
+		//parser.shift(ty)
 		return true
 	}
 
@@ -143,8 +143,8 @@ func (typ TypeElem) Parse(parser *Parser) (ok bool) {
 		tup = Tuple{[]Term{constraint.Term}, start, end}
 	}
 
-	term := termElem{ConstrainedType{tup, t}, ty.termInfo}
-	parser.shift(term)
+	/*term*/_ = termElem{ConstrainedType{tup, t}, ty.termInfo}
+	//parser.shift(term)
 	return
 }
 
@@ -156,15 +156,20 @@ func ToTyping(decl Declaration) (ty types.Typing) {
 }
 
 func (dec DeclarationElem) Parse(parser *Parser) (ok bool) {
-	var setType func(Term, ...uint8)
+	var setType setTypeFunc
+	infixed := dec.Name.Type == token.Affixed
 	setType, ok = parser.declare(dec.Name)
+	old := parser.parsingTypeSig
+	parser.parsingTypeSig = true
 	ok = ok && dec.Typing.Parse(parser)
+	parser.parsingTypeSig = old
 	if !ok {
 		return
 	}
 
-	typ, _ := parser.terms.SaveStack.Pop()
-	setType(typ)
+	typ := termElem{}
+	//typ, _ := parser.terms.SaveStack.Pop()
+	setType(typ, infixed) // TODO: use annotations to get other stuff
 	return true
 }
 

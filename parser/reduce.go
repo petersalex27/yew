@@ -9,27 +9,17 @@ package parser
 
 import (
 	"os"
-
-	"github.com/petersalex27/yew/token"
 )
 
 type reduceFunction func(parser *Parser, a, b termElem) (termElem, bool)
 
 var reduceTable map[NodeType]reduceFunction
 
-var _reduceParens = closingReduction(standardParenCloser, token.LeftParen)
-
-// var _reduceBrackets =  //closingReduction()
-var _reduceBraces = closingReduction(closingImplicit, token.LeftBrace)
-
 func init() {
 	reduceTable = map[NodeType]reduceFunction{
 		functionType:     reduceFuncType,
 		listingType:      reduceListing,
 		typingType:       reduceTyping,
-		closeParenType:   reduceParens,
-		closeBracketType: reduceBrackets,
-		closeBraceType:   reduceBraces,
 	}
 }
 
@@ -37,7 +27,7 @@ func defaultReduce(parser *Parser, a, b termElem) (termElem, bool) {
 	newInfo, decd := a.termInfo.decrementArity()
 	start, end := getTermsPos(a, b)
 	term := termElem{Application{a.Term, b.Term, start, end}, newInfo}
-	
+
 	if !decd {
 		parser.error2(IllegalApplication, start, end)
 		return termElem{}, false
@@ -45,11 +35,14 @@ func defaultReduce(parser *Parser, a, b termElem) (termElem, bool) {
 	return term, true
 }
 
-func (parser *Parser) declareIdFromTyping(typing Typing, b termElem) {
-	if !parser.parsingTypeSig {
-		return
+func rAssoc(t termElem) uint8 {
+	if t.rAssoc {
+		return 1
 	}
+	return 0
+}
 
+func (parser *Parser) declareIdFromTyping(typing Typing, b termElem) {
 	id, isId := typing.Term.(Ident)
 	if !isId {
 		return
@@ -57,20 +50,8 @@ func (parser *Parser) declareIdFromTyping(typing Typing, b termElem) {
 
 	decl := new(Declaration)
 	decl.name = id
-	generate_setType(id.Name, decl)(b.Term)
+	generate_setType(decl)(b.Term, b.infixed)
 	parser.locals.Map(id, decl) // will overwrite any names shadowed here
-}
-
-func reduceParens(parser *Parser, paren, term termElem) (termElem, bool) {
-	return _reduceParens(parser, paren, term)
-}
-
-func reduceBrackets(parser *Parser, bracket, term termElem) (termElem, bool) {
-	panic("TODO: implement")
-}
-
-func reduceBraces(parser *Parser, brace, term termElem) (termElem, bool) {
-	return _reduceBraces(parser, brace, term)
 }
 
 func reduceTyping(parser *Parser, a, b termElem) (termElem, bool) {
@@ -84,13 +65,11 @@ func reduceTyping(parser *Parser, a, b termElem) (termElem, bool) {
 	// if arity after decrementing it is 0, then a type is being declared for the term
 	// 	- otherwise, the term is being given
 	typingTerm := tyi.arity == 0
-	if typingTerm {
-		parser.declareIdFromTyping(typing, b)
-	}
 
 	typing.Start, typing.End = getTermsPos(typing, b)
 	if typingTerm {
 		typing.Type = b.Term
+		parser.declareIdFromTyping(typing, b)
 	} else {
 		typing.Term = b.Term
 	}
@@ -168,105 +147,6 @@ func (parser *Parser) reduce(a, b termElem) (termElem, bool) {
 	debug_log_reduce(os.Stderr, a, b, term)
 
 	return term, ok
-}
-
-// predicate, checks if reduction should happen after calling this function
-func shouldHoldStack(left termElem, right termElem) bool {
-	// if !right.infixed {
-
-	// }
-	if right.termInfo.AssociatesRight() {
-		return right.Bp() >= left.Bp()
-	}
-	return right.Bp() > left.Bp()
-}
-
-// applies top element of stack to `fun`, i.e.,
-//
-//	push stack ((\e => fun e) stack.top)
-func (parser *Parser) reduceTop(fun termElem) (ok bool) {
-	term := parser.grab()
-	if ok = !parser.panicking; !ok {
-		return
-	}
-	if term, ok = parser.reduce(fun, term); ok {
-		parser.shift(term)
-	}
-	return
-}
-
-func (parser *Parser) reduceStack() (_ termElem, ok bool) {
-	// empty stack via reduction
-	term := parser.grab()
-	if ok = !parser.panicking; !ok {
-		return termElem{}, false
-	} else if parser.terms.Empty() {
-		return term, true
-	}
-
-	fun := parser.grab()
-	for {
-		term, ok = parser.reduce(fun, term)
-		if !ok || parser.terms.Empty() {
-			break
-		}
-		fun = parser.grab()
-	}
-	return term, ok
-}
-
-func closingReduction(closer parenClosingFunc, opened token.Type) reduceFunction {
-	return func(parser *Parser, marker, b termElem) (_ termElem, ok bool) {
-
-		var lp, term termElem
-		// loop reducing anything that needs to be reduced
-		for {
-			if term, ok = parser.reduceStack(); !ok {
-				return
-			}
-			if ok = !parser.terms.FullEmpty(); !ok {
-				parser.errorOn(UnexpectedRParen, marker) // TODO: this shouldn't be 'UnexpectedRParen'
-				return
-			}
-
-			parser.terms.Return() // return stack
-			if ok = parser.terms.GetCount() != 0; !ok {
-				// error: size of stack frame is 0
-				parser.errorOn(UnexpectedRParen, marker) // TODO: this shouldn't be 'UnexpectedRParen'
-				return
-			}
-
-			lp, _ = parser.terms.Peek()
-			if lp.NodeType() != lambdaType {
-				break
-			}
-
-			// push reduced bound expression
-			parser.shift(term)
-			// resolve lambda abstraction
-			term, ok = resolveLambdaAbstraction(parser)
-			if !ok {
-				return
-			}
-			parser.shift(term) // push result, try again
-		}
-
-		// at this point, lp should be a left paren
-		start, end := lp.Pos()
-		isOpened := lp.Term.NodeType() == syntaxExtensionType && lp.Term.String() == opened.Make().Value
-		if ok = isOpened; !ok {
-			parser.error2(expectedMessage(opened), start, end)
-			return
-		}
-
-		// remove left paren
-		_, _ = parser.terms.SaveStack.Pop()
-
-		_, end = marker.Pos() // end of right paren
-
-		// create enclosed term
-		return closer(parser, term, start, end)
-	}
 }
 
 func closeTuple(term termElem, start, end int) (termElem, bool) {

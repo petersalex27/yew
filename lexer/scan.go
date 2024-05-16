@@ -37,11 +37,11 @@ func isSymbol(c byte) bool {
 // if a lexical error occurs, `error_class` is returned and an error is added to lex's `messages`
 func (lex *Lexer) reclassifyUnderscore() (class symbolClass) {
 	c, eof := lex.peek()
-	r := rune(c)
-	classifyAsSymbol := !eof && (unicode.IsLetter(r) || unicode.IsSymbol(r))
-	if classifyAsSymbol {
-		return symbol_class
-	}
+	// r := rune(c)
+	// classifyAsSymbol := !eof && (unicode.IsLetter(r) || unicode.IsSymbol(r))
+	// if classifyAsSymbol {
+	// 	return symbol_class
+	// }
 
 	start := lex.Pos
 	errorMessage, _ := validateUnderscoreNextChar(c, eof, lex.Pos)
@@ -85,7 +85,7 @@ func (lex *Lexer) classify(c byte) (class symbolClass) {
 	} else if c == '"' {
 		class = string_class
 	} else if c == '_' {
-		class = lex.reclassifyUnderscore()
+		class = underscore_class//lex.reclassifyUnderscore()
 	} else if c == '-' {
 		class = lex.classifyMinus()
 	} else if c == '%' {
@@ -961,10 +961,10 @@ func (lex *Lexer) getId() (tok token.Token, ok bool) {
 	}
 
 	// track affixed identifiers
-	if ty == token.Affixed {
-		loc := len(lex.Tokens)
-		lex.Affixed = append(lex.Affixed, loc)
-	}
+	// if ty == token.Affixed {
+	// 	loc := len(lex.Tokens)
+	// 	lex.Affixed = append(lex.Affixed, loc)
+	// }
 
 	// add token
 	offs := len(id) // this works b/c id is copied from `line` (not modified)
