@@ -8,17 +8,16 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/petersalex27/yew/common/stack"
 	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/types"
 )
 
-func badLambdaBinder(s string) bool {
-	if len(s) == 0 {
-		return true
-	}
-	return unicode.IsLower(rune(s[0]))
+func goodLambdaBinder(s string) bool {
+	return len(s) != 0 && unicode.IsLower(rune(s[0]))
 }
 
-func (parser *Parser) getAfterAbstractionVar(lambda *Lambda, data *actionData) (ok, again bool) {
+func (parser *Parser) getAfterAbstractionVar(data *actionData) (end int, ok, again bool) {
 	var tok token.Token
 	if tok, ok = parser.nextToken(data); !ok {
 		return
@@ -28,12 +27,29 @@ func (parser *Parser) getAfterAbstractionVar(lambda *Lambda, data *actionData) (
 	if ok = again || tok.Type == token.ThickArrow; !ok {
 		parser.error2(ExpectedCommaOrThickArrow, tok.Start, tok.End)
 	} else {
-		lambda.End = tok.End // keep updating end point so errors can use this value if needed
+		end = tok.End // keep updating end point so errors can use this value if needed
 	}
 	return
 }
 
-func (parser *Parser) getAbstractionVar(lambda *Lambda, data *actionData) (ok bool) {
+/*
+// (?a : ?A) -> (?b : ?B)
+	var intro types.PiIntro
+	kA := types.GetKind(&x.A)
+	intro, ok = parser.env.Prod(types.Wildcard(), x.A, kA)
+ 	if !ok {
+		parser.transferEnvErrors()
+		return
+	}
+
+	P, _, yes := intro(B, B.A)
+	if ok = yes; !ok {
+		parser.transferEnvErrors()
+		return
+	}
+*/
+
+func (parser *Parser) getAbstractionVar(data *actionData) (derive types.AbsSecondFunc, x types.Variable, ok bool) {
 	var tok token.Token
 	if tok, ok = parser.nextToken(data); !ok {
 		return
@@ -43,7 +59,7 @@ func (parser *Parser) getAbstractionVar(lambda *Lambda, data *actionData) (ok bo
 	case token.Underscore:
 		break // this is okay: wildcard
 	case token.Id, token.ImplicitId:
-		ok = strings.ToLower(tok.Value) == tok.Value && badLambdaBinder(tok.Value)
+		ok = strings.ToLower(tok.Value) == tok.Value && goodLambdaBinder(tok.Value)
 		if !ok {
 			parser.error2(BadIdent, tok.Start, tok.End)
 			return
@@ -54,14 +70,17 @@ func (parser *Parser) getAbstractionVar(lambda *Lambda, data *actionData) (ok bo
 		return
 	}
 
-	id := makeIdent(tok)
+	//id := makeIdent(tok)
 	found := parser.findTermInTop(tok)
 	if found {
 		// okay, convert shadowed name to wildcard and throw a warning
-		parser.warnShadowedLambdaBinder(lambda, id.Name)
+		//parser.warnShadowedLambdaBinder(lambda, id.Name)
 	}
-	lambda.Binders = append(lambda.Binders, id)
-	return true
+	x = types.Var(tok)
+	A := types.GetKind(&x)
+
+	derive = parser.env.Abs(x, A)
+	return
 }
 
 // creates a lambda abstraction
@@ -73,24 +92,41 @@ func abstractionAction(parser *Parser, data *actionData) (term termElem, ok bool
 		return
 	}
 
-	parser.declarations.Increase()
-	lambda := Lambda{
-		Binders: make([]Ident, 0, 4),
-		Start:   tok.Start,
+	//parser.declarations.Increase()
+	type deriveData struct {
+		derive types.AbsSecondFunc
+		x      types.Variable
 	}
 
 	// parse abstraction binders
-	ok = parser.getAbstractionVar(&lambda, data)
-	arity := uint(0)
+	var d deriveData
+
+	d.derive, d.x, ok = parser.getAbstractionVar(data)
+	deriveStack := stack.NewStack[deriveData](4)
+	if ok {
+		deriveStack.Push(d)
+	} else {
+		return termElem{}, false
+	}
+
+	arity := uint32(0)
 	again := true
+	var end int
 	for again && ok {
 		// if loop makes it to this point, increase number of arguments lambda takes
 		arity++
-		ok, again = parser.getAfterAbstractionVar(&lambda, data)
+		end, ok, again = parser.getAfterAbstractionVar(data)
 		if !ok || !again {
 			break
 		}
-		ok = parser.getAbstractionVar(&lambda, data)
+		d.derive, d.x, ok = parser.getAbstractionVar(data)
+		if ok {
+			deriveStack.Push(d)
+		}
+	}
+
+	if !ok {
+		return termElem{}, false
 	}
 
 	var body termElem
@@ -99,29 +135,46 @@ func abstractionAction(parser *Parser, data *actionData) (term termElem, ok bool
 		return
 	}
 
-	before := termElem{Term: lambda}
-	arity += calcArity(body.Term)   // incorporate arity of expression into arity of lambda
-	lambda.Bound = body.Term        // removes any attached information
-	_, lambda.End = body.Term.Pos() // get end of lambda position
-	term = termElem{lambda, termInfo{10, false, arity, false}}
+	// create lambda abstraction
+	var b types.Term = body.Term
+	B := types.GetKind(&b)
+	var lambda types.Lambda
+	for !deriveStack.Empty() {
+		d, _ = deriveStack.Pop()
+		
+		// (?a : ?A) -> (?b : ?B)
+		var intro types.PiIntro
+		{
+			A := types.AsTyping(d.x.Kind)
+			intro, ok = parser.env.Prod_NoGeneralization(A)
+			if !ok {
+				parser.transferEnvErrors()
+				return
+			}
+		}
 
-	debug_log_reduce(os.Stderr, before, body, term)
+		var P types.Pi
+		if P, ok = intro(B); !ok {
+			parser.transferEnvErrors()
+			return
+		}
 
-	return term, true
-}
-
-// noop if binder with Name `name` is not found; else, updates shadowed binder and writes a warning
-func (parser *Parser) warnShadowedLambdaBinder(lambda *Lambda, name string) {
-	var id *Ident = nil
-	for i, v := range lambda.Binders {
-		if v.Name == name {
-			lambda.Binders[i].Name = "_"
-			id = &v
-			break
+		b, B, ok = d.derive(b, B)(P)
+		if !ok {
+			parser.transferEnvErrors()
+			return
 		}
 	}
 
-	if id != nil {
-		parser.warning2(NonBindingVariable_warn, id.Start, id.End)
+	arity += types.CalcArity(body.Term)   // incorporate arity of expression into arity of lambda 
+	if ok = types.SetKind(&b, B); !ok {
+		parser.transferEnvErrors()
+		return
 	}
+	lambda = b.(types.Lambda)
+	term = termElem{lambdaType, lambda, termInfo{10, false, arity, false}, tok.Start, end}
+
+	debug_log_reduce(os.Stderr, termElem{}, body, term)
+
+	return term, true
 }

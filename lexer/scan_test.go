@@ -272,8 +272,8 @@ func TestFixAnnotation(t *testing.T) {
 			expect: token.Token{Value: "Annotation", Type: token.Percent},
 		},
 		{
-			source:         token.Token{Value: "annotation_a", Type: token.Affixed},
-			expect:         token.Token{Value: "annotation_a", Type: token.Affixed},
+			source:         token.Token{Value: "annotation_a", Type: token.Infix},
+			expect:         token.Token{Value: "annotation_a", Type: token.Infix},
 			expectErrorMsg: InvalidAnnotation,
 		},
 	}

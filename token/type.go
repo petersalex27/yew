@@ -24,7 +24,7 @@ const (
 
 	Id
 	ImplicitId
-	Affixed
+	Infix
 	Hole
 
 	// keywords start
@@ -65,6 +65,7 @@ const (
 	Bar
 	Equal
 	Backslash
+	ColonEqual
 	// keywords end
 	_keywords_end_ // ==============================
 
@@ -97,8 +98,8 @@ func (ty Type) String() string {
 		return "Id"
 	case ImplicitId:
 		return "ImplicitId"
-	case Affixed:
-		return "Affixed"
+	case Infix:
+		return "Infix"
 	case Hole:
 		return "Hole"
 	case Alias:
@@ -137,6 +138,12 @@ func (ty Type) String() string {
 		return "Automatic"
 	case Mutual:
 		return "Mutual"
+	case Erase:
+		return "Erase"
+	case Once:
+		return "Once"
+	case ColonEqual:
+		return "ColonEqual"
 	case LeftParen:
 		return "LeftParen"
 	case RightParen:

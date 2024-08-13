@@ -2,11 +2,19 @@ package table
 
 import (
 	"fmt"
+
+	"github.com/petersalex27/yew/common/math"
 )
 
 type MultiTable[T fmt.Stringer, U any] struct {
 	tabs []Table[T, U]
 	i    int
+}
+
+func (table *MultiTable[T, U]) Walk(f func(T, U)) {
+	for i := table.i; i >= 0; i-- {
+		table.tabs[i].Walk(f)
+	}
 }
 
 // finds the value v mapped to by `k` and calls f(v) and then maps the return value to `k`
@@ -27,6 +35,21 @@ func (table *MultiTable[T, U]) Decrease() (_ Table[T, U], ok bool) {
 	return out, true
 }
 
+// increase the number of tables by 1 using at least `cap` as the initial capacity of the new table
+func (table *MultiTable[T, U]) IncreaseN(cap int) {
+	if len(table.tabs) > 0 {
+		table.i++
+	}
+
+	initialCap := math.PowerOfTwoCeil(cap)
+
+	if table.tabs == nil {
+		table.tabs = make([]Table[T, U], 0, initialCap)
+	}
+	table.tabs = append(table.tabs, *MakeTable[T, U](initialCap))
+}
+
+// increase the number of tables by 1
 func (table *MultiTable[T, U]) Increase() {
 	if len(table.tabs) > 0 {
 		table.i++
@@ -36,6 +59,17 @@ func (table *MultiTable[T, U]) Increase() {
 		table.tabs = make([]Table[T, U], 0, 8)
 	}
 	table.tabs = append(table.tabs, *MakeTable[T, U](8))
+}
+
+func (table *MultiTable[T, U]) IncreaseWith(t Table[T, U]) {
+	if len(table.tabs) > 0 {
+		table.i++
+	}
+
+	if table.tabs == nil {
+		table.tabs = make([]Table[T, U], 0, 8)
+	}
+	table.tabs = append(table.tabs, t)
 }
 
 // remove element key-value pair found at `k` from the table
@@ -51,9 +85,10 @@ func (table *MultiTable[T, U]) Delete(k T) {
 func (table *MultiTable[T, U]) Find(k T) (value U, found bool) {
 	for i := table.i; i >= 0; i-- {
 		if value, found = table.tabs[i].Find(k); found {
-			return
+			break
 		}
 	}
+	
 	return
 }
 

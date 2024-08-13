@@ -102,6 +102,7 @@ var keywords = map[string]token.Type{
 	".":         token.Dot,
 	"..":        token.DotDot,
 	":":         token.Colon,
+	":=":        token.ColonEqual,
 	"=>":        token.ThickArrow,
 	"->":        token.Arrow,
 	"|":         token.Bar,

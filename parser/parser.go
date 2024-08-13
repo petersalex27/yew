@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 
 	"github.com/llir/llvm/ir"
 	"github.com/petersalex27/yew/common/stack"
@@ -41,56 +40,69 @@ type symbolSaver struct {
 	elems    *stack.SaveStack[SymbolicElem]
 }
 
-//func (parser *Parser) allow(c SyntaxClass) bool { return parser.saver.cls&c != 0 }
-
-func (parser *Parser) writeDecl(decl DeclarationElem) {
-	// if !parser.allow(DeclClass) {
-	// 	parser.errorOnElem(IllegalDeclaration, decl)
-	// }
-	parser.saver.decls.Push(decl)
-	parser.saver.elems.Push(decl)
-}
-
-func (parser *Parser) writeDecls(decls []DeclarationElem) {
+func (parser *Parser) writeDecls(decls []DeclarationElem) bool {
 	for _, decl := range decls {
-		parser.writeDecl(decl)
+		if !parser.write(decl) {
+			return false
+		}
 	}
+	return true
 }
 
-func (parser *Parser) writeBinding(binding BindingElem) {
-	// if !parser.allow(FuncClass) {
-	// 	parser.errorOnElem(IllegalBinding, binding)
-	// }
-	parser.saver.bindings.Push(binding)
-	parser.saver.elems.Push(binding)
+func annotate[T SyntacticElem](parser *Parser, elem T) bool {
+	for _, annotation := range parser.annotations {
+		if !annotation(parser, &elem) {
+			return false
+		}
+	}
+	return true
 }
 
-func (parser *Parser) writeDataType(data DataTypeElem) {
-	// if !parser.allow(TypeClass) {
-	// 	parser.errorOnElem(IllegalDataType, data)
-	// }
-	parser.saver.types.Push(data)
-	parser.saver.elems.Push(data)
-}
+// annotations are applied here
+func (parser *Parser) write(elem SyntacticElem) (ok bool) {
+	switch elem := elem.(type) {
+	case DeclarationElem:
+		if ok = annotate(parser, elem); ok {
+			parser.saver.decls.Push(elem)
+		}
+	case BindingElem:
+		if ok = annotate(parser, elem); ok {
+			parser.saver.bindings.Push(elem)
+		}
+	case DataTypeElem:
+		if ok = annotate(parser, elem); ok {
+			parser.saver.types.Push(elem)
+		}
+	case TraitElem:
+		if ok = annotate(parser, elem); ok {
+			parser.saver.traits.Push(elem)
+		}
+	case InstanceElem:
+		if ok = annotate(parser, elem); ok {
+			parser.saver.inst.Push(elem)
+		}
+	case TypeElem:
+		if ok = annotate(parser, elem); ok {
+			parser.saver.typings.Push(elem)
+		}
+		return ok
+	case SymbolicElem: // SymbolicElem is a catch-all for all other cases
+		if ok = annotate(parser, elem); !ok {
+			parser.saver.elems.Push(elem)
+		}
+		return ok
+	default:
+		panic(fmt.Sprintf("bug: unhandled case, %v", elem))
+	}
 
-func (parser *Parser) writeTyping(typ TypeElem) {
-	parser.saver.typings.Push(typ)
-}
-
-func (parser *Parser) writeTrait(trait TraitElem) {
-	// if !parser.allow(TraitClass) {
-	// 	parser.errorOnElem(IllegalTrait, trait)
-	// }
-	parser.saver.traits.Push(trait)
-	parser.saver.elems.Push(trait)
-}
-
-func (parser *Parser) writeInstance(inst InstanceElem) {
-	// if !parser.allow(InstanceClass) {
-	// 	parser.errorOnElem(IllegalInstance, inst)
-	// }
-	parser.saver.inst.Push(inst)
-	parser.saver.elems.Push(inst)
+	if !ok {
+		return
+	} else if s, ok := elem.(SymbolicElem); ok {
+		parser.saver.elems.Push(s)
+	} else {
+		panic("bug: unhandled case, non-SymbolicElem escaped switch")
+	}
+	return ok
 }
 
 func (parser *Parser) PrintResult() {
@@ -123,15 +135,66 @@ type generalInfo struct {
 
 // a term with additional precedence, associativity, and arity information for parsing
 type termElem struct {
-	Term
+	NodeType
+	types.Term
+	//Kind types.Type
 	termInfo
+	Start, End int
+}
+
+func (t termElem) Pos() (int, int) {
+	return t.Start, t.End
 }
 
 func (t termElem) String() string {
-	if t.Term == nil {
-		return "_?_"
+	isNil := t.Term == nil
+	switch t.NodeType {
+	case identType, applicationType, intConstType, charConstType, floatConstType, stringConstType, lambdaType, listExprType, tupleType, tupleExprType, pairsType, listingType:
+		if isNil {
+			return "?"
+		}
+		return fmt.Sprintf("%v", t.Term)
+	case implicitType:
+		if isNil {
+			return "?"
+		}
+		if t.arity == 0 {
+			return fmt.Sprintf("{%v : %v}", t.Term, types.GetKind(&t.Term))
+		} else {
+			return fmt.Sprintf("{%v : ?}", t.Term)
+		}
+	case functionType:
+		if isNil {
+			return "? -> ?"
+		}
+		if t.arity == 0 {
+			return fmt.Sprintf("%v", t.Term)
+		} else {
+			return fmt.Sprintf("%v -> ?", t.Term)
+		} 
+	case labeledFunctionType, implicitFunctionType:
+		if isNil {
+			return "? -> ?"
+		}
+		if t.arity == 0 {
+			return fmt.Sprintf("%v", t.Term)
+		} else if t.NodeType == labeledFunctionType {
+			return fmt.Sprintf("(%v) -> ?", types.TypingString(t.Term))
+		} else {
+			return fmt.Sprintf("{%v} -> ?", types.TypingString(t.Term))
+		}
+	case typingType:
+		if isNil {
+			return "?"
+		}
+		if t.arity == 0 {
+			return fmt.Sprintf("%v : %v", t.Term, types.GetKind(&t.Term))
+		} else {
+			return fmt.Sprintf("%v : ?", t.Term)
+		}
+	default:
+		panic("bug: unhandled case")
 	}
-	return t.Term.String()
 }
 
 type annotationMacro struct {
@@ -151,7 +214,14 @@ type Parser struct {
 	// declarations, each table represents the scope of some binding (or collection of non-interfering
 	// bindings when possible)
 	declarations *declMultiTable
-	locals       *declTable
+	defining     *stack.Stack[definitionParent]
+	// TODO:
+	// 	- need to allow for polymorphism--not just from traits
+	// 	- need to allow multiple definitions of the same function, matching different patterns
+	// 	- the order of the definitions _must_ be preserved
+	definitions     map[string]definitionParent
+	classifications map[string][]SyntacticElem
+	//locals          *declMultiTable
 	//declarations map[string]*Declaration
 	generalInfo
 	// information about tokens, input from lexer
@@ -165,52 +235,53 @@ type Parser struct {
 	mutualBlock *token.Token
 	// information for first pass
 	firstPassInfo
-	// parse (term) stack
-	//terms termStack
+	// for passing between calls to (Term) Parse(..)
+	termPasser *stack.Stack[termElem]
 	// previous term, used to restore previous term on certain operations
 	termMemory *stack.Stack[termElem]
 	// llvm-ir module: parser outputs data here
 	mod *ir.Module
 	// true iff in top level
 	inTop          bool
+	inParent       string
 	parsingTypeSig bool
 	allowModality  bool
+	annotations    []func(*Parser, any) bool
 	debug_info_parser
 }
 
-func (parser *Parser) declareBuiltin(fromPath string) {
-	// TODO: actually use path
-	builtins := []Declaration{
-		{false, Ident{"Type", 0, 0}, Ident{"Type1", 0, 0}, termInfo{}},
-		{false, Ident{"Int", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
-		{false, Ident{"Uint", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
-		{false, Ident{"Float", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
-		{false, Ident{"Char", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
-		{false, Ident{"String", 0, 0}, Ident{"Type", 0, 0}, termInfo{}},
-		{false, Ident{"=", 0, 0}, FunctionType{Ident{"a", 0, 0}, FunctionType{Ident{"b", 0, 0}, Ident{"Type", 0, 0}, nil, 0, 0}, nil, 0, 0}, termInfo{1, true, 2, true}},
-	}
-	for _, decl := range builtins {
-		parser.declarations.Map(decl.name, &decl)
+
+// signal that parser is not in top level, parsing local symbols
+func (parser *Parser) parsingLocal(name string) func(*Parser) {
+	old := parser.inParent
+	parser.inParent = old + "_" + name
+	return func(p *Parser) {
+		p.inParent = old
 	}
 }
 
-func (parser *Parser) findDeclAsTerm(key token.Token) (term termElem, found bool) {
-	var decl Declaration
-	if decl, found = parser.findInLocals(key); found {
-		return decl.makeTerm(), true
-	} else if decl, found = parser.lookupTerm(key); found {
-		return decl.makeTerm(), true
+func (parser *Parser) findDeclAsTerm(key stringPos) (term termElem, found bool) {
+	declp, ok := parser.declarations.Find(key)
+	found = ok
+	if !found {
+		return
 	}
-	return
+
+	term.termInfo = *declp.termInfo
+	term.Term, _, found = parser.env.Get(key)
+	// change value to current occurrence, leaving one in map the same
+	term.Start, term.End = key.Pos()
+	term.NodeType = identType
+	return term, true
 }
 
-func (parser *Parser) findInLocals(key fmt.Stringer) (decl Declaration, found bool) {
-	var declPtr *Declaration
-	if declPtr, found = parser.locals.Find(key); found {
-		decl = *declPtr
-	}
-	return
-}
+// func (parser *Parser) findInLocals(key fmt.Stringer) (decl Declaration, found bool) {
+// 	var declPtr *Declaration
+// 	if declPtr, found = parser.locals.Find(key); found {
+// 		decl = *declPtr
+// 	}
+// 	return
+// }
 
 func (parser *Parser) ExploringTopLevel() bool {
 	return parser.inTop
@@ -282,6 +353,8 @@ func initSaver() (saver symbolSaver) {
 
 func Initialize(src source.SourceCode, saveComments bool) (parser *Parser) {
 	parser = new(Parser)
+	parser.defining = stack.NewStack[definitionParent](8)
+	parser.inParent = "" // top level, no module known yet even
 	parser.inTop = true
 	parser.messages = make([]errors.ErrorMessage, 0)
 	parser.src = src
@@ -293,13 +366,20 @@ func Initialize(src source.SourceCode, saveComments bool) (parser *Parser) {
 	if saveComments {
 		parser.comments = make([]token.Token, 0, 32)
 	}
+	parser.annotations = make([]func(*Parser, any) bool, 0, 8)
+	parser.definitions = make(map[string]definitionParent)
+	// initialize annotation classifiers
+	parser.classifications = make(map[string][]SyntacticElem)
+	// initialize test classification
+	parser.classifications["test"] = make([]SyntacticElem, 0)
+	parser.termPasser = stack.NewStack[termElem](4)
 	parser.termMemory = stack.NewStack[termElem](4)
 	parser.env = types.NewEnvironment()
 	parser.indentation = indentStack{stack.NewStack[int](8)}
 	parser.imports = make(map[string]Import)
 	parser.mod = ir.NewModule()
-	parser.declarations = table.NewMultiTable[fmt.Stringer, *Declaration](8)
-	parser.locals = table.MakeTable[fmt.Stringer, *Declaration](8)
+	parser.declarations = table.NewMultiTable[fmt.Stringer, *declaration](8)
+	//parser.locals = table.NewMultiTable[fmt.Stringer, termInfo](8)
 	builtinsPath := "prelude/builtin.yew" // TODO
 	parser.declareBuiltin(builtinsPath)
 	return
@@ -426,51 +506,6 @@ func (parser *tokenInfo) getTok_breakable(i int, ty token.Type, eatBreaks bool) 
 		return
 	}
 	iNew++
-	return
-}
-
-// assumes types have already been validated
-func pullData(id, leftRightNone, power token.Token) (name string, right bool, bp uint8, errorMessage string) {
-	//@affix <name> <right> <bp>
-	name = id.Value
-
-	switch leftRightNone.Value {
-	case "Right":
-		right = true
-	case "None":
-		fallthrough
-	case "Left":
-		right = false
-	default:
-		errorMessage = ExpectedLRN
-		return
-	}
-
-	res, e := strconv.ParseUint(power.Value, 0, 4)
-	if e != nil {
-		if e == strconv.ErrRange {
-			errorMessage = ExpectedInteger0to10
-		} else {
-			errorMessage = ExpectedInteger
-		}
-		return
-	}
-	if res > 10 {
-		errorMessage = ExpectedInteger0to10
-		return
-	}
-
-	bp = uint8(res)
-	return
-}
-
-func (parser *tokenInfo) pull(i int, allowBreaks bool) (id, leftRightNone, power token.Token, errorMessage string) {
-	id, i = parser.getTok_breakable(i, token.Id, allowBreaks)
-	leftRightNone, i = parser.getTok_breakable(i, token.Id, allowBreaks)
-	power, i = parser.getTok_breakable(i, token.IntValue, allowBreaks)
-	if i < 0 {
-		errorMessage = MalformedAffixAnnotation
-	}
 	return
 }
 

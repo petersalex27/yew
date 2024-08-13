@@ -9,11 +9,10 @@ func Test_CompileTime_ImplementSyntacticElem(*testing.T) {
 	var _ SyntacticElem = BindingElem{}
 	var _ SyntacticElem = WhereClause{}
 	var _ SyntacticElem = LetBindingElem{}
-	var _ SyntacticElem = TokenElem{}
+	var _ SyntacticElem = TokensElem{}
 	var _ SyntacticElem = TypeConstructorElem{}
 	var _ SyntacticElem = DataTypeElem{}
 	var _ SyntacticElem = TraitElem{}
 	var _ SyntacticElem = InstanceElem{}
-	var _ SyntacticElem = EnclosedElem{}
 	var _ SyntacticElem = AnnotationElem{}
 }

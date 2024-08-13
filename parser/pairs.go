@@ -2,10 +2,6 @@ package parser
 
 // ListType, List, TupleType, Tuple, Pairs
 
-func (AmbiguousList) NodeType() NodeType {
-	return listType
-}
-
 func (ls AmbiguousList) Pos() (start, end int) {
 	return ls.Start, ls.End
 }

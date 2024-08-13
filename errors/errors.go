@@ -14,6 +14,7 @@ const (
 	ErrorType MessageType = 'e'
 	WarningType MessageType = 'w'
 	LogType MessageType = 'l'
+	TodoType MessageType = 't'
 )
 
 // error message to be printed
@@ -172,6 +173,7 @@ const (
 	errorMsgType   string = "Error"
 	warningMsgType string = "Warning"
 	logMsgType     string = "Log"
+	todoMsgType    string = "Todo"
 )
 
 // creates a fatal error
@@ -199,6 +201,13 @@ func MakeLog(subType string, msg string, line_start_end ...int) ErrorMessage {
 	return log
 }
 
+func MakeTodo(subType string, msg string, line_start_end ...int) ErrorMessage {
+	msg = header("Todo", subType) + validateMessageString(msg)
+	todo := message(msg, line_start_end...)
+	todo.messageType = TodoType
+	return todo
+}
+
 // writes all messages belonging to `mt` in `es` to `w`, returning number of messages belonging to `mt` in `es`
 //
 // panics if message type `mt` is not one of `AnyMessage`, `ErrorType`, `WarningType`, or `LogType`
@@ -222,12 +231,71 @@ func unchecked_LogMessage(w io.Writer, mt MessageType, messages []ErrorMessage) 
 	return
 }
 
+type ordering byte
+const (
+	First ordering = iota
+	Second
+	Third
+	Fourth
+	fifth
+	Exclude
+)
+
+func PrintOrdered(es []ErrorMessage, errors, warnings, logs, todos ordering) (n int) {
+	ors := []ordering{errors, warnings, logs, todos}
+	ms := []MessageType{ErrorType, WarningType, LogType, TodoType}
+	m := map[ordering]MessageType{}
+	m_inverted := map[MessageType]ordering{}
+	for i, o := range ors {
+		if o == Exclude {
+			continue
+		}
+		_, found := m[o]
+		if found {
+			panic("PrintOrdered: no two arguments can be the same")
+		}
+		m[o] = ms[i]
+		m_inverted[ms[i]] = o
+	}
+	m_inverted[AnyMessage] = fifth
+
+	bins := make([][]ErrorMessage, 5)
+	for _, e := range es {
+		o, found := m_inverted[e.messageType]
+		if !found || o == Exclude {
+			continue
+		}
+
+		bins[o] = append(bins[o], e)
+	}
+
+	// now print the bins in order
+	for i, bin := range bins {
+		if len(bin) == 0 {
+			continue
+		}
+
+		n += LogMessage(os.Stderr, m[ordering(i)], bin)
+	}
+	return n
+}
+
 // writes all errors in `es` to `os.Stderr`, returning number of errors occurring in `es`
 func PrintErrors(es []ErrorMessage) (n int) {
 	return unchecked_LogMessage(os.Stderr, ErrorType, es)
 }
 
-// writes all errors in `es` to `w`, returning number of errors occurring in `es`
-func LogErrors(w io.Writer, es []ErrorMessage) (n int) {
-	return unchecked_LogMessage(w, ErrorType, es)
+// writes all warnings in `es` to `os.Stderr`, returning number of warnings occurring in `es`
+func PrintWarnings(es []ErrorMessage) (n int) {
+	return unchecked_LogMessage(os.Stderr, WarningType, es)
+}
+
+// writes all logs in `es` to `os.Stderr`, returning number of logs occurring in `es`
+func PrintLogs(es []ErrorMessage) (n int) {
+	return unchecked_LogMessage(os.Stderr, LogType, es)
+}
+
+// writes all todos in `es` to `os.Stderr`, returning number of todos occurring in `es`
+func PrintTodos(es []ErrorMessage) (n int) {
+	return unchecked_LogMessage(os.Stderr, TodoType, es)
 }

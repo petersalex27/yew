@@ -1,89 +1,77 @@
 package types
 
 import (
-	"fmt"
 	"testing"
 )
+
+type named string
+
+func (n named) Pos() (start, end int) {
+	return 0, 0
+}
+
+func (n named) String() string {
+	return string(n)
+}
 
 func TestTypes(t *testing.T) {
 	t.Cleanup(_clearUidCounter)
 
-	A := Var("A")
-	B := Var("B")
-	x := Var("x")
+	A := MakeVar(named("A"), nextEnvUid(), Unrestricted, nil)
 	u := Type1
-	expected := Pi{
-		binderVar:  x,
-		binderType: A,
-		dependent:  B,
-		kind:       u,
-	}
+	x := typingChain(named("x"), Unrestricted, A, u)
+	B := typingChain(named("B"), Unrestricted, u)
+	B.Kind = u
+	expected := Pi{false, x, B, u, 0, 0}
 	env := NewEnvironment()
-	env.assume(A, Type1)
-	env.assume(B, Type1)
 
-	f, ok := env.Prod(x, A, u)
+	intro, ok := env.Prod(x)
 	if !ok {
 		t.Fatal("Prod rule failed")
 	}
-	pi, c, pass := f(B, u)
+	pi, pass := intro(B)
 	if !pass {
 		t.Fatal("Prod rule failed on second judgment")
 	}
 	if !Equals(pi, expected) {
 		t.Fatalf("not equal (%v): got %v", expected, pi)
 	}
-	if !Equals(c, u) {
-		t.Fatalf("not equal (%v): got %v", u, c)
-	}
-	fmt.Printf("type: %v\n", pi)
 }
 
 func TestApp(t *testing.T) {
 	t.Cleanup(_clearUidCounter)
 
-	A := Var("A")
-	B := Var("B")
-	x := Var("x")
+	A := MakeVar(named("A"), nextEnvUid(), Unrestricted, nil)
 	u := Type0
-	expected := Pi{
-		binderVar:  x,
-		binderType: A,
-		dependent:  B,
-		kind:       u,
-	}
+	x := typingChain(named("x"), Unrestricted, A, u)
+	x0 := typingChain(named("x0"), Unrestricted, A, u)
+	B := typingChain(named("B"), Unrestricted, u)
+	expected := Pi{false, x0, B, u, 0, 0}
 
 	env := NewEnvironment()
-	env.assume(A, u)
-	env.assume(B, u)
-	createProd, ok := env.Prod(x, A, u)
+	intro, ok := env.Prod(x)
 	if !ok {
 		t.Fatal("Prod rule failed")
 	}
-	pi, c, pass := createProd(B, u)
+	pi, pass := intro(B)
 	if !pass {
 		t.Fatal("Prod rule failed on second judgment")
 	}
 	if !Equals(pi, expected) {
 		t.Fatalf("not equal (%v): got %v", expected, pi)
 	}
-	if !Equals(c, u) {
-		t.Fatalf("not equal (%v): got %v", u, c)
-	}
-	fmt.Printf("type: %v\n", pi)
 
-	f := Var("f")
-	b := Constant("b")
+	f := DummyVar("f")
+	b := DummyVar("b")
 
 	var lam Lambda
 
-	defineFunc := env.Abs(f, A, pi)
-	lam, pi, ok = defineFunc(b, B)
+	lam, pi, ok = env.Abs(f, A)(b, B)(pi)
 	if !ok {
 		t.Fatal("Abstraction failed")
 	}
 
-	res, ty, applied := env.App(lam, pi, x, A)
+	res, ty, applied := env.App(lam, pi, x)
 	if !applied {
 		t.Fatal("Application failed")
 	}
@@ -101,7 +89,7 @@ func TestRefl(t *testing.T) {
 	// Equal := Constant("Equal")
 	// //Refl := Constant("Refl")
 	// env := NewEnvironment()
-	
+
 	// // create constructor for Equal
 	// {
 	// 	B := Var("b")
@@ -166,7 +154,7 @@ func TestRefl(t *testing.T) {
 	// 	createProd1, ok1 := env.ProdImplicit(x, a, Type0)
 	// 	if !ok1 {
 	// 		t.Fatal("Prod rule failed!")
-	// 	}	
+	// 	}
 	// }
 }
 

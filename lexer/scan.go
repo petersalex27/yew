@@ -85,7 +85,7 @@ func (lex *Lexer) classify(c byte) (class symbolClass) {
 	} else if c == '"' {
 		class = string_class
 	} else if c == '_' {
-		class = underscore_class//lex.reclassifyUnderscore()
+		class = underscore_class //lex.reclassifyUnderscore()
 	} else if c == '-' {
 		class = lex.classifyMinus()
 	} else if c == '%' {
@@ -558,6 +558,7 @@ func (lex *Lexer) analyzeAnnotation() (ok, eof bool) {
 	}
 
 	var tok token.Token
+	// type of token doesn't actually matter; getId is just called to get the identifier
 	tok, ok = lex.getId()
 	if !ok {
 		return
@@ -567,10 +568,6 @@ func (lex *Lexer) analyzeAnnotation() (ok, eof bool) {
 	if ok = errorMessage == ""; !ok {
 		lex.error(errorMessage)
 		return
-	}
-	if tok.Value == "affix" {
-		loc := len(lex.Tokens)
-		lex.AffixIndexes = append(lex.AffixIndexes, loc)
 	}
 	lex.add(tok)
 	return
@@ -869,7 +866,7 @@ func matchNonCapId(line string) (id string, ty token.Type, errorMessage string) 
 	}
 
 	if strings.ContainsRune(id, '_') {
-		ty = token.Affixed
+		ty = token.Infix
 		errorMessage = checkAffixed(line, id)
 	} else {
 		ty = matchKeyword(id, token.Id) // id or some keyword
@@ -888,7 +885,7 @@ func (lex *Lexer) getIdType(line, id string) (ty token.Type, errorMessage string
 	ty = token.Id
 
 	if strings.ContainsRune(id, '_') {
-		ty = token.Affixed
+		ty = token.Infix
 		errorMessage = checkAffixed(line, id)
 	} else if key, yes := lex.isKeyword(id); yes {
 		ty = key

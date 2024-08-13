@@ -6,12 +6,12 @@ type termInfo struct {
 	// associates right?
 	rAssoc bool
 	// arity
-	arity uint
+	arity uint32
 	// infixed
 	infixed bool
 }
 
-func (i termInfo) Arity() uint { return i.arity }
+func (i termInfo) Arity() uint32 { return i.arity }
 
 func (i termInfo) AssociatesRight() bool { return i.rAssoc }
 

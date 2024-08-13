@@ -8,6 +8,10 @@ type Token struct {
 	Start, End int
 }
 
+func (token Token) Pos() (int, int) {
+	return token.Start, token.End
+}
+
 func (a Token) Equals(b Token) bool {
 	return a.Value == b.Value &&
 		a.Type == b.Type &&

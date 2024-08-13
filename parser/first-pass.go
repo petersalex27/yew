@@ -35,6 +35,7 @@ type (
 
 	ExpressionElem interface {
 		SyntacticElem
+		parseExpressionPart(*Parser, *actionData) (end, ok bool)
 		_e_()
 	}
 )
@@ -65,10 +66,10 @@ func (v Visibility) String() string {
 
 type (
 	ModuleElem struct {
-		Name          token.Token
-		Imports       ImportTable
-		TopLevelDecls map[string]SyntacticElem
-		Start, End    int
+		Name       token.Token
+		Imports    ImportTable
+		Elems      []SyntacticElem
+		Start, End int
 	}
 
 	TypeElem struct {
@@ -77,20 +78,36 @@ type (
 		Start, End int
 	}
 
+	declarationFlags uint8
+
+	localDefinition struct {
+		Expression []ExpressionElem
+		Clause     ClauseElem
+		Start, End  int
+	}
+
 	DeclarationElem struct {
-		annotation AnnotationElem
-		Vis        Visibility
-		Name       token.Token
-		Typing     TypeElem
+		Vis    Visibility
+		flags  declarationFlags
+		Name   token.Token
+		rAssoc bool
+		bp     int8
+		Typing TypeElem
+		// non-nil if binding is the special case of let-binding that allows both declaration and
+		// associated binding in same language construct
+		//
+		// Example:
+		//	thisIsThree : 3 = 3
+		//	threeIsThree = let x : 3 = 3 := Refl in x
+		*localDefinition
 		Start, End int
 	}
 
 	BindingElem struct {
-		Head       []token.Token
-		Expression []ExpressionElem
-		Clause     ClauseElem
-		Start      int
-		// End is the same as Where.End
+		Head []token.Token
+		Start int
+		localDefinition
+		// End = localDefinition.End
 	}
 
 	WhereClause struct {
@@ -180,12 +197,7 @@ type (
 		// Start = TraitName.Start
 	}
 
-	EnclosedElem struct {
-		Expression []ExpressionElem
-		Start, End int
-	}
-
-	TokenElem token.Token
+	TokensElem []token.Token
 
 	ExtensionElem struct {
 		// TODO: implement
@@ -194,16 +206,44 @@ type (
 
 	AnnotationElem struct {
 		Name token.Token
-		Args EnclosedElem
+		Args []token.Token
+		End  int
 	}
 )
 
-func (TokenElem) _e_()      {}
+const (
+	// flags for DeclarationElem
+	implicitDecl declarationFlags = 1 << iota
+	isPure
+	noInline
+	suggestInline
+	isBuiltin
+	isExternal
+	isDataConstructor
+	isTest
+)
+
+func (TokensElem) _e_()     {}
 func (LetBindingElem) _e_() {}
-func (EnclosedElem) _e_()   {}
 
 func (WhereClause) _c_()     {}
 func (MutualBlockElem) _c_() {}
+
+func (m ModuleElem) Pos() (start, end int) {
+	return m.Start, m.End
+}
+
+func (m ModuleElem) String() string {
+	return fmt.Sprintf("module %s", m.Name.Value)
+}
+
+func (s ExtensionElem) Pos() (start, end int) {
+	return s.Start, s.End
+}
+
+func (s ExtensionElem) String() string {
+	return "_extension_" // TODO
+}
 
 func (decl DeclarationElem) GetSyntaxClass() SyntaxClass {
 	return DeclClass
@@ -272,15 +312,34 @@ func (dec DeclarationElem) Pos() (start, end int) {
 }
 
 func (dec DeclarationElem) String() string {
-	var annot, vis string
-	annot = dec.annotation.String()
-	if annot != "" {
-		annot = annot + " "
-	}
+	var vis string
 	if dec.Vis != Private {
 		vis = dec.Vis.String() + " "
 	}
-	return fmt.Sprintf("%s%s%s : %s", vis, annot, dec.Name.Value, dec.Typing.String())
+	start := fmt.Sprintf("%s%s : %s", vis, dec.Name.Value, dec.Typing.String())
+	if dec.localDefinition != nil {
+		return start + dec.localDefinition.String()
+	}
+	return start
+}
+
+func (typ HaskellStyleDataConstructors) Pos() (start, end int) {
+	return typ.Start, typ.End
+}
+
+func (typ HaskellStyleDataConstructors) String() string {
+	if len(typ.Params) > 0 {
+		return fmt.Sprintf("%s %s %s : Type", typ.Vis.String(), typ.Name.Value, joinElemsStringed(typ.Params, " "))
+	}
+	return fmt.Sprintf("%s %s : Type", typ.Vis.String(), typ.Name.Value)
+}
+
+func (typ HaskellStyleDataTypeElem) Pos() (start, end int) {
+	return typ.TypeConstructorElem.Start, typ.End
+}
+
+func (typ HaskellStyleDataTypeElem) String() string {
+	return fmt.Sprintf("%s where {%s}", typ.TypeConstructorElem.String(), joinElemsStringed(typ.DataConstructors, "; "))
 }
 
 func (typ TypeElem) Pos() (start, end int) {
@@ -294,9 +353,24 @@ func (typ TypeElem) String() string {
 	return joinTokensStringed(typ.Type, " ")
 }
 
+func (local localDefinition) Pos() (start, end int) {
+	return local.Start, local.End
+}
+
+func (local localDefinition) String() string {
+	if len(local.Expression) == 0 {
+		return ""
+	}
+	start := fmt.Sprintf(" := %s", joinElemsStringed(local.Expression, " "))
+	clause := local.Clause.String()
+	if len(clause) != 0 {
+		return start + " " + clause
+	}
+	return start
+}
+
 func (bind BindingElem) Pos() (start, end int) {
-	_, end = bind.Clause.Pos()
-	return bind.Start, end
+	return bind.Start, bind.End
 }
 
 func (bind BindingElem) String() string {
@@ -340,20 +414,15 @@ func (let LetBindingElem) String() string {
 	return fmt.Sprintf("let %s in", joinElemsStringed(let.Elems, "; "))
 }
 
-func (tok TokenElem) Pos() (start, end int) {
-	return tok.Start, tok.End
+func (tok TokensElem) Pos() (start, end int) {
+	if len(tok) == 0 {
+		return 0, 0
+	}
+	return tok[0].Start, tok[len(tok)-1].End
 }
 
-func (tok TokenElem) String() string {
-	return tok.Value
-}
-
-func (ee EnclosedElem) Pos() (start, end int) {
-	return ee.Start, ee.End
-}
-
-func (ee EnclosedElem) String() string {
-	return "(" + joinElemsStringed(ee.Expression, " ") + ")"
+func (tok TokensElem) String() string {
+	return joinTokensStringed(tok, " ")
 }
 
 func (cons TypeConstructorElem) Pos() (start, end int) {
@@ -399,7 +468,7 @@ func (inst InstanceElem) String() string {
 }
 
 func (a AnnotationElem) Pos() (start int, end int) {
-	return a.Name.Start, a.Args.End
+	return a.Name.Start, a.End
 }
 
 func (a AnnotationElem) String() string {
@@ -407,11 +476,12 @@ func (a AnnotationElem) String() string {
 		return ""
 	}
 
-	if len(a.Args.Expression) == 0 {
+	if len(a.Args) == 0 {
 		return "%" + a.Name.Value
 	}
-	// %annotation(args..)
-	return fmt.Sprintf("%%%s%s", a.Name.Value, a.Args.String())
+	args := joinTokensStringed(a.Args, " ")
+	// %annotation tok0 tok1 .. tokN
+	return fmt.Sprintf("%%%s%s", a.Name.Value, args)
 }
 
 func (parser *Parser) appendTokenAndAdvance(tokens *[]token.Token, next token.Token) (ok bool) {
@@ -438,7 +508,7 @@ func (parser *Parser) endSection() bool {
 	return end
 }
 
-func (parser *Parser) parseTyping() (typ TypeElem, ok bool) {
+func (parser *Parser) parseTyping() (typ TypeElem, localDef, ok bool) {
 	const initialCap int = 32
 
 	// collect either type constraint or type
@@ -452,7 +522,7 @@ func (parser *Parser) parseTyping() (typ TypeElem, ok bool) {
 	end := false
 	if !parser.dropAndAdvanceGreaterIndent() {
 		parser.error(ExpectedType)
-		return typ, false
+		return typ, false, false
 	}
 
 	for !end {
@@ -464,6 +534,9 @@ func (parser *Parser) parseTyping() (typ TypeElem, ok bool) {
 		// next = parser.Peek()
 		switch next.Type {
 		case token.EndOfTokens:
+			end = true
+		case token.ColonEqual:
+			localDef = true
 			end = true
 		case token.ThickArrow:
 			lastConstraintArrowEnd = i + 1
@@ -480,14 +553,14 @@ func (parser *Parser) parseTyping() (typ TypeElem, ok bool) {
 
 	if len(tokens) == 0 {
 		parser.error(ExpectedType)
-		return typ, false
+		return typ, localDef, false
 	}
 
 	typ.Constraint = tokens[:lastConstraintArrowEnd]
 	typ.Type = tokens[lastConstraintArrowEnd:i]
 	typ.Start = tokens[0].Start
 	typ.End = tokens[i-1].End
-	return typ, true
+	return typ, localDef, true
 }
 
 func parseDeclarationMaybeType(parser *Parser) (ok bool) {
@@ -508,8 +581,7 @@ func parseDeclarationMaybeType(parser *Parser) (ok bool) {
 	}
 
 	if test := parser.dropAndAdvanceGreaterIndent(); !test {
-		parser.writeDecls(decls)
-		return
+		return parser.writeDecls(decls)
 	}
 
 	if parser.Peek().Type != token.Where {
@@ -532,8 +604,7 @@ func parseDeclarationMaybeType(parser *Parser) (ok bool) {
 	if !ok {
 		return
 	}
-	parser.writeDataType(typ)
-	return
+	return parser.write(typ)
 }
 
 // assumes some kind of identifier has already been seen
@@ -551,9 +622,76 @@ func parseDeclaration(parser *Parser) (ok bool) {
 	var decls []DeclarationElem
 	decls, ok = parser.parseDeclaration_shared(declaredName)
 	if ok {
-		parser.writeDecls(decls)
+		return parser.writeDecls(decls)
 	}
 	return
+}
+
+func (parser *Parser) parseLocalDefinitionIteration() (local *localDefinition, ok bool) {
+	local = new(localDefinition)
+	*local, ok = parser.parseBindRHS(endForLocalDef)
+	return
+}
+
+// parses a comma surrounded by optional newlines and greater-indents
+//
+// rule, with indent state [.., n]:
+//
+//	comma ::= { indent>=n } `,` { indent>=n }
+//
+// errorIfNone is true iff an error is reported when the comma grammar rule above is not satisfied
+func (parser *Parser) parseComma(errorIfNone bool) (comma token.Token, found, ok bool) {
+	// if no comma is found, still return okay
+	okIfNone := !errorIfNone
+	// original position
+	before := parser.tokenPos
+
+	// allow valid newlines and indents before ','
+	if ok = parser.dropAndAdvanceGreaterIndent(); !ok {
+		parser.conditionalError(errorIfNone, before, ExpectedGreaterIndent)
+		return comma, false, okIfNone
+	}
+	// get comma
+	if comma, ok = parser.get(token.Comma); !ok {
+		parser.conditionalError(errorIfNone, before, ExpectedComma)
+		return comma, false, okIfNone
+	}
+	// allow valid newlines and indents after ','
+	if ok = parser.dropAndAdvanceGreaterIndent(); !ok {
+		parser.conditionalError(errorIfNone, before, ExpectedGreaterIndent)
+		return comma, false, okIfNone
+	}
+	return comma, true, true
+}
+
+func (parser *Parser) parseLocalDefinition(decls []DeclarationElem) (_ []DeclarationElem, ok bool) {
+	if len(decls) == 0 {
+		panic("bug: no declarations to associate with local definition")
+	}
+
+	// allow valid newlines and indents after ':='
+	if ok = parser.dropAndAdvanceGreaterIndent(); !ok {
+		parser.error(ExpectedGreaterIndent)
+		return decls, false
+	}
+
+	decls[0].localDefinition, ok = parser.parseLocalDefinitionIteration()
+	if !ok || len(decls) == 1 {
+		return decls, false
+	}
+
+	for i := range decls[1:] {
+		if _, _, ok = parser.parseComma(true); !ok {
+			return decls, false
+		}
+
+		decls[i+1].localDefinition, ok = parser.parseLocalDefinitionIteration()
+		if !ok {
+			return decls, false
+		}
+	}
+
+	return decls, true
 }
 
 func (parser *Parser) parseDeclHeadList(declaredName token.Token) (decls []DeclarationElem, ok bool) {
@@ -566,7 +704,7 @@ func (parser *Parser) parseDeclHeadList(declaredName token.Token) (decls []Decla
 			parser.error(ExpectedGreaterIndent)
 			return
 		}
-		
+
 		// get next name to declare
 		declaredName, ok = parser.getDeclarableId()
 		if !ok {
@@ -601,7 +739,8 @@ func (parser *Parser) parseDeclaration_shared(declaredName token.Token) (decls [
 
 	// now parse (shared if multiple decls) typing
 	var typing TypeElem
-	if typing, ok = parser.parseTyping(); !ok {
+	var localDef bool
+	if typing, localDef, ok = parser.parseTyping(); !ok {
 		return
 	}
 
@@ -609,6 +748,14 @@ func (parser *Parser) parseDeclaration_shared(declaredName token.Token) (decls [
 	for i, decl := range decls {
 		decl.Typing = typing
 		decls[i] = decl
+	}
+	// each declaration must be associated with a local definition if ':=' was found
+	//
+	// each definition is separated by a ','
+	if localDef {
+		if decls, ok = parser.parseLocalDefinition(decls); !ok {
+			return
+		}
 	}
 	return
 }
@@ -712,7 +859,7 @@ func parseTrait(parser *Parser) (ok bool) {
 	var trait TraitElem
 	if trait, ok = parser.parseTraitHelper(); ok {
 		// add trait
-		parser.writeTrait(trait)
+		return parser.write(trait)
 	}
 	return
 }
@@ -727,7 +874,7 @@ func (parser *Parser) parseTrait() (ok bool) {
 
 func (parser *Parser) parseDeclaration() (ok bool) {
 	switch parser.Peek().Type {
-	case token.Id:
+	case token.Id, token.Infix:
 		return parseDeclaration(parser)
 	default:
 		panic("bug: current token in stream not validated")
@@ -736,7 +883,7 @@ func (parser *Parser) parseDeclaration() (ok bool) {
 
 func (parser *Parser) parseDeclarationMaybeType() (ok bool) {
 	switch parser.Peek().Type {
-	case token.Id, token.Affixed:
+	case token.Id, token.Infix:
 		again := func(p *Parser, i int) bool { return p.equalIndent(i) }
 		return parser.parseSection(parseDeclarationMaybeType, again)
 	default:
@@ -937,7 +1084,7 @@ func (parser *Parser) parseDataConstructors(typeCons TypeConstructorElem) (ok bo
 	var data DataTypeElem
 	data.TypeConstructor = typeCons
 	if data.DataConstructors, ok = parser.parseJustDecls(); ok {
-		parser.writeDataType(data)
+		return parser.write(data)
 	}
 	return ok
 }
@@ -945,8 +1092,7 @@ func (parser *Parser) parseDataConstructors(typeCons TypeConstructorElem) (ok bo
 func (parser *Parser) writeHigherOrderFunctionDecl(typeCons TypeConstructorElem) (ok bool) {
 	// higher order function, push result
 	higherOrderDecl := typeCons.DeclarationElem
-	parser.writeDecl(higherOrderDecl)
-	return true
+	return parser.write(higherOrderDecl)
 }
 
 // parses a data type (Haskell-like style or declaration style) or higher order function declaration
@@ -968,10 +1114,14 @@ func (parser *Parser) parseDataType(scrutinee []token.Token) (ok bool) {
 	}
 
 	var typeCons TypeConstructorElem
+	var localDef bool
 	typeCons.Name = scrutinee[0]
-	typeCons.Typing, ok = parser.parseTyping()
+	typeCons.Typing, localDef, ok = parser.parseTyping()
 	if !ok {
 		return
+	} else if localDef {
+		parser.errorOn(IllegalTypeConsLocalDef, typeCons)
+		return false
 	}
 
 	ok = parser.dropAndAdvanceGreaterIndent()
@@ -1008,34 +1158,17 @@ func (parser *Parser) prepareNextExpressionIteration() (next token.Token, end bo
 	return
 }
 
-// assumes input is at left paren
-func (parser *Parser) parseEnclosed() (ee EnclosedElem, ok bool) {
-	tmp := parser.Advance() // move past left paren
-	ee.Start = tmp.Start
-	ee.Expression, _, ok = parser.parseExpression2(endOnRParen)
-	if !ok {
-		return
-	}
-
-	rparen := parser.Advance()
-	if ok = rparen.Type == token.RightParen; !ok {
-		parser.error(ExpectedRParen)
-		return
-	}
-
-	ee.End = rparen.End
-	return
-}
-
 var endOnWhere = map[token.Type]bool{
 	token.Where:  true,
 	token.Mutual: true,
 	token.In:     true,
 }
 
-var endOnRParen = map[token.Type]bool{
-	token.RightParen: true,
-	// 'where' tokens, and any other illegal tokens, will be caught as unexpected tokens inside of paren enclosed expressions
+var endForLocalDef = map[token.Type]bool{
+	token.Where:  true,
+	token.Mutual: true,
+	token.In:     true,
+	token.Comma:  true,
 }
 
 func (parser *Parser) parseExpression() (exprs []ExpressionElem, clause ClauseElem, ok bool) {
@@ -1044,7 +1177,8 @@ func (parser *Parser) parseExpression() (exprs []ExpressionElem, clause ClauseEl
 
 func (parser *Parser) parseExpression2(endMap map[token.Type]bool) (exprs []ExpressionElem, clause ClauseElem, ok bool) {
 	const initialCap = 32
-	exprs = make([]ExpressionElem, 0, initialCap)
+	toks := make([]token.Token, 0, initialCap)
+	exprs = make([]ExpressionElem, 0, 8)
 	i := 0
 
 	if !parser.dropAndAdvanceGreaterIndent() {
@@ -1055,34 +1189,57 @@ func (parser *Parser) parseExpression2(endMap map[token.Type]bool) (exprs []Expr
 	next := parser.Peek()
 
 	// loop until endType or a exiting-indent is found
-	for !endMap[next.Type] {
+	isLet := false
+	end := false
+	for !end {
+		for !endMap[next.Type] {
+			var tok token.Token
+			if next.Type == token.EndOfTokens {
+				break // this counts as an "exiting-indent"
+			} else if isLet = next.Type == token.Let; isLet {
+				break
+			} else if next.Type == token.Case {
+				panic("TODO: implement case expressions")
+			} else {
+				tok = next
+			}
+
+			i++
+			toks = append(toks, tok)
+
+			next, end, ok = parser.prepareNextExpressionIteration()
+			if !ok {
+				return
+			} else if end {
+				break
+			}
+		}
+
 		var expr ExpressionElem
-		if next.Type == token.EndOfTokens {
-			break // this counts as an "exiting-indent"
-		} else if next.Type == token.Let {
+		// add expression to list
+		if ok && i != 0 {
+			expr = TokensElem(toks[:i])
+			exprs = append(exprs, expr)
+			// reset tokens
+			toks = make([]token.Token, 0, initialCap)
+			i = 0
+		}
+
+		// check if parsing stopped because of `let`
+		if isLet {
+			// parse let-binding expression
+			isLet = false
 			if expr, ok = parser.parseLet(); !ok {
 				return exprs, clause, false
 			}
-		} else if next.Type == token.Case {
-			panic("TODO: implement case expressions")
-		} else if next.Type == token.LeftParen {
-			expr, ok = parser.parseEnclosed()
+			// add let-binding expression to list
+			exprs = append(exprs, expr)
+			next, end, ok = parser.prepareNextExpressionIteration()
 			if !ok {
-				return exprs, clause, false
+				return
+			} else if end {
+				break
 			}
-		} else {
-			expr = TokenElem(next)
-		}
-
-		i++
-		exprs = append(exprs, expr)
-
-		var end bool
-		next, end, ok = parser.prepareNextExpressionIteration()
-		if !ok {
-			return
-		} else if end {
-			break
 		}
 	}
 
@@ -1107,7 +1264,7 @@ func (parser *Parser) parseExpression2(endMap map[token.Type]bool) (exprs []Expr
 	return exprs[:i], clause, ok
 }
 
-func (parser *Parser) parseScrutinee(endOfScrutinee token.Type) (scrutinee []token.Token, scrutinizingDataType, ok bool) {
+func (parser *Parser) parseScrutinee(endOfScrutinee map[token.Type]bool) (scrutinee []token.Token, scrutinizingDataType, ok bool) {
 	const initialCap int = 32 // TODO: larger initial cap?
 
 	// collect either type constraint or type
@@ -1122,13 +1279,39 @@ func (parser *Parser) parseScrutinee(endOfScrutinee token.Type) (scrutinee []tok
 
 	next := parser.Peek()
 
-	// loop until `=` is found
-	for next.Type != endOfScrutinee {
+	secondCond := func(bool, int) bool { return false }
+	eqEnds := endOfScrutinee[token.Equal]
+	if eqEnds {
+		secondCond = func(foundEq bool, i int) bool { return foundEq && i > 0 }
+	}
+	openParens := 0
+	var firstOpen token.Token
+	var eqEnclosed bool = false
+
+	for !endOfScrutinee[next.Type] || secondCond(eqEnclosed, openParens) {
 		if next.Type == token.EndOfTokens {
 			parser.error(UnexpectedEOF)
 			return scrutinee, false, false
 		} else if scrutinizingDataType = next.Type == token.Colon; scrutinizingDataType {
 			return
+		} else if next.Type == token.LeftParen {
+			if openParens == 0 {
+				firstOpen = next // first not yet closed paren
+			}
+			openParens++
+		} else if next.Type == token.RightParen {
+			openParens--
+			if ok = !(openParens >= 0); !ok {
+				parser.error(UnexpectedRParen)
+				return
+			} else if openParens == 0 {
+				eqEnclosed = false // reset (regardless of whether the enclosed term contained `=`)
+			}
+		} else if next.Type == token.Equal && eqEnds {
+			eqEnclosed = openParens != 0 // `=` is the type `= : x -> y -> Type`
+			if !eqEnclosed {
+				panic("bug: `=` didn't break loop, but it should've")
+			}
 		}
 
 		expressionIndex++
@@ -1144,8 +1327,15 @@ func (parser *Parser) parseScrutinee(endOfScrutinee token.Type) (scrutinee []tok
 		next = parser.Peek()
 	}
 
-	if ok = next.Type == endOfScrutinee; !ok {
-		parser.error(expectedMessage(endOfScrutinee))
+	if ok = openParens == 0; !ok {
+		// must have at least one open paren
+		parser.errorOn(UnmatchedLParen, firstOpen)
+		return
+	}
+
+	if ok = endOfScrutinee[next.Type]; !ok {
+		msg := expectedMessageMulti(endOfScrutinee)
+		parser.error(msg)
 		return
 	} else if ok = len(scrutinee) != 0; !ok {
 		parser.error(ExpectedScrutinee)
@@ -1156,21 +1346,45 @@ func (parser *Parser) parseScrutinee(endOfScrutinee token.Type) (scrutinee []tok
 	return
 }
 
+func (parser *Parser) parseBindRHS(endMap map[token.Type]bool) (local localDefinition, ok bool) {
+	local.Expression, local.Clause, ok = parser.parseExpression2(endMap)
+	if ok && len(local.Expression) == 0 {
+		ok = false
+		parser.error(ExpectedExpression)
+		return
+	} else if ok {
+		local.Start, _ = local.Expression[0].Pos()
+		if local.Clause != nil {
+			_, local.End = local.Clause.Pos()
+		} else {
+			_, local.End = local.Expression[len(local.Expression)-1].Pos()
+		}
+	} // else !ok, error already reported
+	return
+}
+
 func (parser *Parser) defineScrutinee(scrutinee []token.Token) (ok bool) {
 	var binding BindingElem
+	if len(scrutinee) == 0 {
+		panic("bug: no scrutinee to define")
+	}
 	binding.Head = scrutinee
 	binding.Start = binding.Head[0].Start // guaranteed to have at least one element in result
-	binding.Expression, binding.Clause, ok = parser.parseExpression()
+	binding.localDefinition, ok = parser.parseBindRHS(endOnWhere)
 	if ok {
-		parser.writeBinding(binding) // save result
+		parser.write(binding) // save result
 	}
 	return ok
+}
+
+var scrutineeEnd = map[token.Type]bool{
+	token.Equal: true,
 }
 
 func parseScrutinee(parser *Parser) (ok bool) {
 	var scrutinee []token.Token
 	var scrutinizingDataType bool
-	scrutinee, scrutinizingDataType, ok = parser.parseScrutinee(token.Equal)
+	scrutinee, scrutinizingDataType, ok = parser.parseScrutinee(scrutineeEnd)
 	if !ok {
 		return
 	} else if scrutinizingDataType {
@@ -1212,25 +1426,43 @@ func (parser *Parser) getDeclarableId() (token.Token, bool) {
 
 	// create infix id
 	// TODO: test what happens when an infixed id is used for a term with 0 arity
-	res := token.Affixed.MakeValued("(" + name.Value + ")")
+	res := token.Infix.MakeValued("(" + name.Value + ")")
 	res.Start = first.Start
 	res.End = first.End
 	return res, true
 }
 
 func (parser *Parser) nextIsEnclosed(first token.Token) (_ token.Token, ok bool) {
+	numLeftParens := 1
 	next := parser.Peek()
+	for ; next.Type == token.LeftParen; numLeftParens++ {
+		_ = parser.Advance()
+		next = parser.Peek()
+	}
+
+	// check if identifier
 	if next.Type != token.Id {
+		// not an id => not enclosed
 		return first, false
 	}
 
+	// get id
 	out := next
 	_ = parser.Advance()
+	// if the same number of right parens are found, then it's an enclosed id
 	next = parser.Peek()
-	if next.Type != token.RightParen {
-		return out, false
+	for ; numLeftParens > 0; numLeftParens-- {
+		if next.Type != token.RightParen {
+			// number of right parens doesn't _immediately_ match, might still match later, but not an
+			// enclosed id
+			return out, false
+		}
+		_ = parser.Advance()
+		next = parser.Peek()
 	}
 	_ = parser.Advance()
+	// number of right parens matches, so it's an enclosed id
+	// 	((..(myId)..))
 	return out, true
 }
 
@@ -1247,7 +1479,7 @@ func (parser *Parser) parseDeclarationOrDefinition() (ok bool) {
 			return parser.parseDefinition()
 		}
 	}
-	
+
 	if !parser.dropAndAdvanceGreaterIndent() {
 		parser.error(ExpectedGreaterIndent)
 		return false
@@ -1272,7 +1504,7 @@ func mutualClause(parser *Parser) (ok bool) {
 		panic("TODO: implement 'alias'")
 	case token.Trait:
 		ok = parser.parseTrait()
-	case token.Id, token.Affixed:
+	case token.Id, token.Infix:
 		ok = parser.parseDeclarationOrDefinition()
 	case token.ImplicitId:
 		ok = parser.parseDefinition()
@@ -1287,7 +1519,7 @@ func mutualClause(parser *Parser) (ok bool) {
 
 func clauseIteration(parser *Parser, endException token.Type) (ok bool) {
 	switch next := parser.Peek(); next.Type {
-	case token.Id, token.Affixed:
+	case token.LeftParen, token.Id, token.Infix:
 		ok = parser.parseDeclarationOrDefinition()
 	case token.ImplicitId:
 		ok = parser.parseDefinition()
@@ -1342,7 +1574,23 @@ func (parser *Parser) parseVisibility(visType token.Type, vis Visibility) (ok bo
 }
 
 func (parser *Parser) parseAnnotation() (ok bool) {
-	// annot := parser.Advance()
+	annot := parser.Advance()
+	switch annot.Value {
+	case "builtin":
+	case "error":
+	case "warn":
+	case "deprecated":
+	case "todo":
+	case "external":
+	case "inline":
+	case "noInline":
+	case "specialize":
+	case "noAlias":
+	case "pure":
+	case "noGc":
+	case "infixl", "infixr":
+	case "infix":
+	}
 	// if parser.Peek().Type != token.LeftParen {
 	// 	// TODO
 	// 	return ok
@@ -1438,7 +1686,7 @@ func (parser *Parser) parseMutualWhere() (mut MutualBlockElem, ok bool) {
 func (parser *Parser) parseTopMutual() (ok bool) {
 	var mut MutualBlockElem
 	if mut, ok = parser.parseTopMutualHelper(); ok {
-		parser.saver.elems.Push(mut)
+		return parser.write(mut)
 	}
 	return
 }

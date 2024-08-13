@@ -6,6 +6,7 @@ package parser
 import (
 	"fmt"
 	"io"
+	"github.com/petersalex27/yew/types"
 )
 
 // information for debugging, embed inside parser
@@ -21,4 +22,8 @@ func (dip *debug_info_parser) debug_resetCounter() { dip.testCounter = 0 }
 
 func debug_log_reduce(w io.Writer, a, b, result termElem) {
 	fmt.Fprintf(w, "red: (%v) (%v) = %v\n", a, b, result)
+}
+
+func debug_log_builtin(w io.Writer, name fmt.Stringer, term, typ types.Term) {
+	fmt.Fprintf(w, "init builtin %s, %s : %s\n", name, term, typ)
 }

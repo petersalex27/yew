@@ -1,0 +1,33 @@
+open Type : %universe(0)
+
+open Int : Type where
+  %builtin
+
+open Uint : Type where
+  %builtin
+
+open Char : Type where
+  %builtin
+
+open String : Type where
+  %builtin
+
+open %infixr(1) (=) : a -> b -> Type where
+  Refl : {x : a} -> x = x
+
+public TypeOf : {a : Type} -> (erase _ : a) -> Type
+TypeOf _ = a
+
+public List : Type -> Uint -> Type where
+  Nil : List a 0
+  public %infixr(5) (::) : a -> List a n -> List a (Succ n)
+
+Listing : Type -> Uint -> Type where
+  public %infixr(0) (,) : (x : a) -> (y : b) -> Listing x y
+
+-- can I actually make this work???
+open %infixl(1) (|) : Type -> Type -> Type where
+  {Inl} : a -> {_ : b} -> a | b
+  {Inr} : {_ : a} -> b -> a | b
+  
+public extension "[" "]" = Nil

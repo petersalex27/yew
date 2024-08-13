@@ -48,6 +48,12 @@ func (table *Table[T, U]) Find(k T) (value U, found bool) {
 	return
 }
 
+func (table *Table[T, U]) Walk(f func(T, U)) {
+	for _, v := range table.All() {
+		f(v.Key, v.Value)
+	}
+}
+
 // return number of pairs in table
 func (table *Table[T, U]) Len() int {
 	return len(table.internal)

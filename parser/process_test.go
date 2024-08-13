@@ -3,7 +3,6 @@ package parser
 import (
 	"testing"
 
-	//"github.com/llir/llvm/ir/types"
 	"github.com/petersalex27/yew/errors"
 	"github.com/petersalex27/yew/source"
 	"github.com/petersalex27/yew/token"
@@ -16,9 +15,9 @@ func TestStandardActions(t *testing.T) {
 	//		Succ Nat
 	p := Init(source.SourceCode{})
 
-	add_ := token.Affixed.MakeValued("(+)")
-	mul_ := token.Affixed.MakeValued("(*)")
-	pow_ := token.Affixed.MakeValued("(**)")
+	add_ := token.Infix.MakeValued("(+)")
+	mul_ := token.Infix.MakeValued("(*)")
+	pow_ := token.Infix.MakeValued("(**)")
 	add := token.Id.MakeValued("+")
 	mul := token.Id.MakeValued("*")
 	pow := token.Id.MakeValued("**")
@@ -34,23 +33,66 @@ func TestStandardActions(t *testing.T) {
 
 	lparen := token.LeftParen.Make()
 	rparen := token.RightParen.Make()
-	Int := Ident{Name: "Int"}
-	iii := FunctionType{
-		Left:  Int,
-		Right: FunctionType{Left: Int, Right: Int},
+
+	Int := token.Id.MakeValued("Int")
+
+	arrow := token.Arrow.Make()
+
+	// .. : Int -> Int
+	var IntToInt TypeElem = TypeElem{
+		Type: []token.Token{Int, arrow, Int},
 	}
-	i2 := FunctionType{
-		Left:  Int,
-		Right: Int,
+	// .. : Int -> Int -> Int
+	var IntToIntToInt TypeElem = TypeElem{
+		Type: []token.Token{Int, arrow, Int, arrow, Int},
 	}
-	setter, _ := p.declare(add_)
-	setter(iii, true, 6)
-	setter, _ = p.declare(mul_)
-	setter(iii, true, 7)
-	setter, _ = p.declare(pow_)
-	setter(iii, true, 9, 1)
-	setter, _ = p.declare(fun)
-	setter(i2, true, 10)
+
+	// (+) : Int -> Int -> Int
+	addDec := DeclarationElem{
+		Vis: Open,
+		Name: add_,
+		rAssoc: false,
+		bp: 6,
+		Typing: IntToIntToInt,
+	}
+	if !addDec.Parse(p) {
+		t.Fatalf("failed to declare (+)")
+	}
+
+	// (*) : Int -> Int -> Int
+	mulDec := DeclarationElem{
+		Vis: Open,
+		Name: mul_,
+		rAssoc: false,
+		bp: 7,
+		Typing: IntToIntToInt,
+	}
+	if !mulDec.Parse(p) {
+		t.Fatalf("failed to declare (*)")
+	}
+
+	// (**) : Int -> Int -> Int
+	powDec := DeclarationElem{
+		Vis: Open,
+		Name: pow_,
+		rAssoc: true,
+		bp: 9,
+		Typing: IntToIntToInt,
+	}
+	if !powDec.Parse(p) {
+		t.Fatalf("failed to declare (**)")
+	}
+
+	funDec := DeclarationElem{
+		Vis: Open,
+		Name: fun,
+		rAssoc: false,
+		bp: 10,
+		Typing: IntToInt,
+	}
+	if !funDec.Parse(p) {
+		t.Fatalf("failed to declare fun")
+	}
 
 	tests := []struct {
 		tokens   []token.Token
@@ -58,29 +100,29 @@ func TestStandardActions(t *testing.T) {
 	}{
 		{
 			[]token.Token{x, pow, y, pow, z},
-			`** x ** y z`,
+			`(**) x (**) y z`,
 		},
 		{
 			[]token.Token{x, add, y, mul, z},
-			`+ x * y z`,
+			`(+) x (*) y z`,
 		},
 		{
 			[]token.Token{x, add, y, add, z},
-			`+ + x y z`,
+			`(+) (+) x y z`,
 		},
 		{
 			[]token.Token{fun, x, add, y, add, z},
-			`+ + fun x y z`,
+			`(+) (+) fun x y z`,
 		},
 		{
 			// x + (y + z)
 			[]token.Token{x, add, lparen, y, add, z, rparen},
-			`+ x (+ y z)`,
+			`(+) x (+) y z`,
 		},
 		{
 			// fun (x + y) + z
 			[]token.Token{fun, lparen, x, add, y, rparen, add, z},
-			`+ fun (+ x y) z`,
+			`(+) fun (+) x y z`,
 		},
 		{
 			[]token.Token{lparen, add, rparen, x, y},
@@ -92,19 +134,19 @@ func TestStandardActions(t *testing.T) {
 		},
 		{
 			[]token.Token{lparen, backslash, x, thickArrow, x, rparen},
-			`(\x => x)`,
+			`\x => x`,
 		},
 		{
 			[]token.Token{backslash, x, thickArrow, x, add, x},
-			`\x => + x x`,
+			`\x => (+) x x`,
+		},
+		{
+			[]token.Token{backslash, x, thickArrow, backslash, y, thickArrow, x},
+			`\x, y => x`,
 		},
 		{
 			[]token.Token{backslash, x, comma, y, thickArrow, x},
 			`\x, y => x`,
-		},
-		{
-			[]token.Token{backslash, x, thickArrow, backslash, y, thickArrow, x},
-			`\x => \y => x`,
 		},
 	}
 
@@ -112,7 +154,7 @@ func TestStandardActions(t *testing.T) {
 		term, ok := p.Process(standardActions, test.tokens)
 		if !ok {
 			errors.PrintErrors(p.FlushMessages())
-			t.Fatalf("parsing failed with above messages")
+			t.Fatalf("testing: %v\nparsing failed with above messages", test)
 		}
 
 		actual := term.String()
@@ -172,8 +214,10 @@ func TestTypeActions(t *testing.T) {
 	}
 
 	p.parsingTypeSig = true
+	p.env.DisableGeneralization()
 	for _, test := range tests {
 		term, ok := p.Process(typingActions, test.tokens)
+
 		if !ok {
 			errors.PrintErrors(p.FlushMessages())
 			t.Fatalf("parsing failed with above messages")

@@ -6,7 +6,7 @@ import (
 )
 
 // get position span of terms `a` and `b`; the order the values are given to the function is irrelevant
-func getTermsPos(a, b Term) (start, end int) {
+func getTermsPos(a, b positioned) (start, end int) {
 	// figure out position--it may be in reverse order (a later, b sooner) because of infix ops
 	start, end = a.Pos()
 	start2, end2 := b.Pos()
@@ -74,7 +74,11 @@ func (parser *Parser) application(bp int8, left termElem, data *actionData) (ter
 }
 
 func (parser *Parser) terminalsLeft(data *actionData) bool {
-	return data.hasMoreInput() || !parser.termMemory.Empty()
+	some := data.ptr < uint(len(data.tokens)) || !parser.termMemory.Empty()
+	if !some && data.supplyNext != nil {
+		some = data.supplyNext(parser, data)
+	}
+	return some
 }
 
 func (parser *Parser) peekAtInfix(data *actionData) (term termElem, ok bool) {
@@ -135,6 +139,8 @@ func (parser *Parser) process(bp int8, data *actionData) (term termElem, ok bool
 		return
 	}
 
+	// TODO: what to do about implicit arguments? 
+
 	for again := true; again && parser.keepProcessing(data); {
 		left, again = parser.infix(bp, left, data)
 	}
@@ -149,6 +155,83 @@ func (parser *Parser) reportProcessErrors(data *actionData) {
 	}
 	t, _ := parser.peek(data)
 	parser.errorOnToken(UnexpectedToken, t)
+}
+
+func (tok TokensElem) parseExpressionPart(parser *Parser, data *actionData) (end, ok bool) {
+	data.tokens = tok
+	return true, true
+}
+
+func (let LetBindingElem) parseExpressionPart(parser *Parser, data *actionData) (end, ok bool) {
+	if !let.Parse(parser) {
+		return true, false
+	}
+	return false, true
+}
+
+func (parser *Parser) expressionProcessIteration(i int, expressionParts []ExpressionElem, data *actionData) (new_i int, end, ok bool) {
+	if i >= len(expressionParts) {
+		// this is fine, signals end of expression
+		return i, true, true
+	}
+
+	end, ok = expressionParts[i].parseExpressionPart(parser, data)
+	if !ok {
+		return i, true, false
+	}
+
+	// if not end, then end if at end of expressionParts
+	end = end || i >= len(expressionParts) - 1
+
+	// if let binding, then must be followed by an expression
+	if let, isLet := expressionParts[i].(LetBindingElem); end && isLet {
+		// error: let binding is not followed by an expression
+		parser.errorOn(ExpectedExpression, let)
+		return i, true, false
+	}
+
+	i++
+	return i, end, true
+}
+	
+
+func (parser *Parser) ProcessExpression(a actionMapper, expressionParts []ExpressionElem) (term termElem, ok bool) {
+	i := 0
+	supplyNext := func(p *Parser, data *actionData) bool {
+		if i >= len(expressionParts) {
+			// not good, no more tokens to supply
+			if len(expressionParts) == 0 {
+				panic("illegal expressionParts: no tokens to supply")
+			}
+
+			parser.errorEOI(expressionParts[len(expressionParts)-1])
+			return false
+		}
+		var end bool
+		// loops until tokens are refilled or end of expressionParts (or error)
+		for !end {
+			i, end, ok = p.expressionProcessIteration(i, expressionParts, data)
+		}
+		return ok
+	}
+
+	data := newActionDataWithDischarger(a, nil)
+	data.supplyNext = supplyNext
+	// get first supply of tokens
+	if !supplyNext(parser, data) {
+		return termElem{}, false
+	}
+
+	// process the expression like the other Process functions
+	if term, ok = parser.process(-1, data); !ok {
+		return
+	}
+	if !parser.terminalsLeft(data) {
+		return term, ok
+	}
+
+	parser.reportProcessErrors(data)
+	return term, false
 }
 
 func (parser *Parser) Process(a actionMapper, tokens []token.Token) (term termElem, ok bool) {
@@ -169,7 +252,7 @@ type processedValidation struct {
 	// valid terms at the end of processing
 	validEndTerms []NodeType
 	// error message when none of the terms are found
-	getErrorMessage func(Term) string
+	getErrorMessage func(termElem) string
 }
 
 func (parser *Parser) ProcessAndValidate(a actionMapper, tokens []token.Token, pv processedValidation) (term termElem, ok bool) {
@@ -177,7 +260,7 @@ func (parser *Parser) ProcessAndValidate(a actionMapper, tokens []token.Token, p
 		return
 	}
 
-	actual := term.Term.NodeType()
+	actual := term.NodeType
 	for _, ty := range pv.validEndTerms {
 		if actual == ty {
 			return term, true

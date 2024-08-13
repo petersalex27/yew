@@ -16,18 +16,18 @@ func (parser *Parser) parseModuleLine() (moduleIdent Ident, ok bool) {
 	}
 
 	var notPascalCase bool
-	var ident termElem
+	var ident Ident
 	ident, ok, notPascalCase = parser.getPascalCaseIdent()
 	if !ok {
 		if notPascalCase {
-			parser.error(RequirePascalCaseModule)
+			parser.errorOn(RequirePascalCaseModule, ident)
 			return
 		}
-		parser.error(ExpectedIdentifier)
+		parser.errorOn(ExpectedIdentifier, ident)
 		return
 	}
 
-	moduleIdent = ident.Term.(Ident)
+	moduleIdent = ident
 	return
 }
 

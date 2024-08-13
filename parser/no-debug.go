@@ -16,3 +16,6 @@ func (*debug_info_parser) debug_incTestCounter() {}
 
 // noop
 func (*debug_info_parser) debug_resetCounter() {}
+
+// noop
+func debug_log_builtin(w io.Writer, name fmt.Stringer, term, typ types.Term) {}

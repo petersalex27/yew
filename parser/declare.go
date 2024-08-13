@@ -1,84 +1,34 @@
 package parser
 
 import (
+	"fmt"
 	"math"
+	"os"
 	"strings"
 
+	"github.com/petersalex27/yew/common/table"
 	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/types"
 )
 
-type Definition struct {
+type declaration struct {
+	implicit bool
+	*termInfo
+	available exports
 }
 
-type Declaration struct {
-	implicit bool
-	name     Ident
-	typing   Term
-	termInfo
-}
+type declMultiTable = table.MultiTable[fmt.Stringer, *declaration]
+
+type declTable = table.Table[fmt.Stringer, *declaration]
 
 type declare_meta struct {
 	bp     uint8
 	rAssoc bool
 }
 
-func (dm *declare_meta) LoadMetaData(parser *Parser, start, end int, args ...Term) (ok bool) {
-	if ok = len(args) <= 2; !ok {
-		start, _ = args[2].Pos()
-		_, end = args[len(args)-1].Pos()
-		parser.error2(UnexpectedMetaArgs, start, end)
-		return
-	}
-
-	switch len(args) {
-	case 2:
-		arg := args[1]
-		start, end = arg.Pos()
-		if arg.NodeType() != intConstType {
-			parser.error2(ExpectedUint, start, end)
-			return
-		}
-		if ok = arg.(IntConst).int.X.IsUint64(); !ok {
-			parser.error2(ExpectedUintRange1_9, start, end)
-			return
-		}
-		res := uint8(arg.(IntConst).int.X.Uint64())
-		dm.bp = res
-		fallthrough
-	case 1:
-		arg := args[0]
-		start, end = arg.Pos()
-		if arg.NodeType() != identType {
-			parser.error2(ExpectedLeftRightNone, start, end)
-			return
-		}
-		res := arg.(Ident).Name
-		if ok = "Left" == res || "None" == res; ok {
-			dm.rAssoc = false
-		} else if ok = "Right" == res; ok {
-			dm.rAssoc = true
-		} else {
-			ok = false
-			parser.error2(ExpectedLeftRightNone, start, end)
-			return
-		}
-	case 0:
-		dm.bp = 1
-		dm.rAssoc = false
-	}
-	return
-}
-
-func (decl Declaration) makeTerm() termElem {
-	return termElem{
-		Term:     decl.name,
-		termInfo: decl.termInfo,
-	}
-}
-
-func fillInfo(decl *Declaration, infixed bool, arity uint, bp int8, rAssoc bool) {
+func fillInfo(decl *declaration, infixed bool, arity uint32, bp int8, rAssoc bool) {
 	if arity == 0 {
-		decl.termInfo = termInfo{}
+		*decl.termInfo = termInfo{}
 		return
 	}
 
@@ -86,10 +36,10 @@ func fillInfo(decl *Declaration, infixed bool, arity uint, bp int8, rAssoc bool)
 		rAssoc = false // regardless of truthiness, prefix IDs cannot be right associative--it doesn't make sense
 	}
 
-	decl.termInfo = termInfo{bp, rAssoc, arity, infixed}
+	*decl.termInfo = termInfo{bp, rAssoc, arity, infixed}
 }
 
-func createUseName(name string, start, end int) string {
+func createUseName(name string) string {
 	name = strings.TrimPrefix(name, "(")
 	name = strings.TrimSuffix(name, ")")
 
@@ -102,10 +52,61 @@ func (s Str) String() string {
 	return string(s)
 }
 
-func generate_setType(decl *Declaration) func(typ Term, infixed bool, args ...uint8) {
-	return func(typ Term, infixed bool, args ...uint8) {
-		decl.typing = typ
-		arity := calcArity(typ)
+type generateDecl = func(parser *Parser, typ types.Type, infixed bool, args ...uint8) bool
+
+func generateAssignableTerm(name stringPos, arity uint32) types.Term {
+	// create term (constant or lambda) for pattern matching and eventual translation
+	s, e := name.Pos()
+	C := types.Constant{C: name.String(), Start: s, End: e}
+	// make lambda?
+	if arity == 0 { // no
+		// nothing to apply, just return
+		return types.Var(name)
+	}
+
+	// yes, make lambda
+
+	// generate free variables
+	terms := make([]types.Term, 1, 1+arity)
+	vars := make([]types.Variable, arity)
+	terms[0] = C
+	fmt.Fprintf(os.Stderr, "arity: %d\n", arity)
+	for i := 0; i < len(vars); i++ {
+		vars[i] = Var(fmt.Sprintf("x%d", i))
+		terms = append(terms, vars[i])
+	}
+	// create application
+	app := types.MakeApplication(types.Hole("a"), terms...)
+	lambda := types.AutoAbstract(vars, app)
+	// assign to environment
+	return lambda
+}
+
+func addToEnvironment(parser *Parser, name stringPos, typ types.Type, arity uint32) (ok bool) {
+	// name : typ
+	if !parser.env.Declare(name, typ) {
+		parser.transferEnvErrors()
+		return false
+	}
+
+	// name := term, name : typ
+	term := generateAssignableTerm(name, arity)
+	if !parser.env.Assign(name, term) {
+		parser.transferEnvErrors()
+		return false
+	}
+
+	return true
+}
+
+type stringPos = interface {
+	fmt.Stringer
+	positioned
+}
+
+func generate_setType(name stringPos, decl *declaration) generateDecl {
+	return func(parser *Parser, typ types.Type, infixed bool, args ...uint8) bool {
+		arity := types.CalcArity(typ)
 		var bp uint8 = 0
 		rAssoc := false
 		if len(args) > 0 {
@@ -113,7 +114,7 @@ func generate_setType(decl *Declaration) func(typ Term, infixed bool, args ...ui
 		} else if arity > 0 {
 			bp = 10
 		}
-		
+
 		if len(args) > 1 {
 			rAssoc = args[1] != 0
 		}
@@ -121,13 +122,30 @@ func generate_setType(decl *Declaration) func(typ Term, infixed bool, args ...ui
 		if bp > math.MaxInt8 {
 			panic("bug: illegal binding power, cap is 127 from an internal origin and 9 from a source-code origin")
 		}
+
 		fillInfo(decl, infixed, arity, int8(bp), rAssoc)
+
+		return true
+		//return addToEnvironment(parser, name, typ, arity)
 	}
 }
 
-func (parser *Parser) declareHelper(name string, start, end int, linking bool) (setType func(Term, bool, ...uint8), ok bool) {
+type named struct {
+	name       string
+	start, end int
+}
+
+func (n named) String() string {
+	return n.name
+}
+
+func (n named) Pos() (int, int) {
+	return n.start, n.end
+}
+
+func (parser *Parser) declareHelper(name string, start, end int, linking, implicit bool, export exports) (setType generateDecl, ok bool) {
 	if linking {
-		name = createUseName(name, start, end)
+		name = createUseName(name)
 	}
 
 	nm := Str(name)
@@ -138,12 +156,15 @@ func (parser *Parser) declareHelper(name string, start, end int, linking bool) (
 	}
 
 	ok = true
-	decl := new(Declaration)
-	decl.name = Ident{Name: name, Start: start, End: end}
+	decl := new(declaration)
+	*decl = declaration{
+		implicit: implicit,
+		termInfo: new(termInfo),
+		available: export,
+	}
 
-	decl.termInfo = termInfo{} // set as default info for now
 	parser.declarations.Map(nm, decl)
-	setType = generate_setType(decl)
+	setType = generate_setType(named{name, start, end}, decl)
 	return
 }
 
@@ -154,21 +175,6 @@ const (
 	varType
 	markerType
 )
-
-func MakeKeywordExt(keyword token.Token) extensionElem {
-	key := Key{keyword.Value, keyword.Start, keyword.End}
-	return extensionElem{typ: keywordType, Term: key}
-}
-
-func MakeVarExt(v token.Token) extensionElem {
-	variable := Key{v.Value, v.Start, v.End}
-	return extensionElem{typ: varType, Term: variable}
-}
-
-func MakeMarkerExt(mark token.Token) extensionElem {
-	marker := Key{mark.Value, mark.Start, mark.End}
-	return extensionElem{typ: markerType, Term: marker}
-}
 
 type extensionElem struct {
 	typ uint8
@@ -196,77 +202,83 @@ func calcParts(pattern []extensionElem) (parts []string) {
 }
 
 func parseExtVar(parser *Parser, ptr *uint, tokens []token.Token) (term termElem, ok bool) {
-	if uint(len(tokens)) <= *ptr { // assumes len != 0
-		tok := tokens[len(tokens)-1]
-		parser.error2(ExpectedIdentifier, tok.Start, tok.End)
-		return termElem{}, false
-	}
+	panic("TODO: implement") // TODO
+	/*
+		if uint(len(tokens)) <= *ptr { // assumes len != 0
+			tok := tokens[len(tokens)-1]
+			parser.error2(ExpectedIdentifier, tok.Start, tok.End)
+			return termElem{}, false
+		}
 
-	// get variable name
-	*ptr++
-	tok := tokens[*ptr-1]
-	if ok = tok.Type != token.Id && tok.Type != token.ImplicitId; !ok {
-		// not an id
-		parser.error2(ExpectedIdentifier, tok.Start, tok.End)
-		return
-	} else if ok = validTypeIdent(tok.Value); !ok {
-		// not a camel case id
-		parser.error2(RequireCamelCase, tok.Start, tok.End)
-		return
-	}
+		// get variable name
+		*ptr++
+		tok := tokens[*ptr-1]
+		if ok = tok.Type != token.Id && tok.Type != token.ImplicitId; !ok {
+			// not an id
+			parser.error2(ExpectedIdentifier, tok.Start, tok.End)
+			return
+		} else if ok = validTypeIdent(tok.Value); !ok {
+			// not a camel case id
+			parser.error2(RequireCamelCase, tok.Start, tok.End)
+			return
+		}
 
-	// create term
-	key := Key{tok.Value, tok.Start, tok.End}
-	term = termElem{Term: key, termInfo: termInfo{}}
+		// create term
+		key := Key{tok.Value, tok.Start, tok.End}
+		term = termElem{Term: key, termInfo: termInfo{}}
 
-	if uint(len(tokens)) <= *ptr {
-		tok := tokens[len(tokens)-1]
-		parser.error2(UnexpectedFinalTok, tok.Start, tok.End)
-		return termElem{}, false
-	}
+		if uint(len(tokens)) <= *ptr {
+			tok := tokens[len(tokens)-1]
+			parser.error2(UnexpectedFinalTok, tok.Start, tok.End)
+			return termElem{}, false
+		}
 
-	// get closing bracket
-	*ptr++
-	rbracket := tokens[*ptr-1]
-	if ok = rbracket.Type == token.RightBracket; !ok {
-		parser.error2(ExpectedRBracket, rbracket.Start, rbracket.End)
-		return
-	}
+		// get closing bracket
+		*ptr++
+		rbracket := tokens[*ptr-1]
+		if ok = rbracket.Type == token.RightBracket; !ok {
+			parser.error2(ExpectedRBracket, rbracket.Start, rbracket.End)
+			return
+		}
 
-	return term, true
+		return term, true
+	*/
 }
 
 func (parser *Parser) parseExtension(tokens []token.Token) (ok bool) {
-	ext := Extension{}
-	ext.pattern = []extensionElem{}
-	var i uint
-	for i = 0; i < uint(len(tokens)) && tokens[i].Type != token.Equal; {
-		i++
-		switch tok := tokens[i-1]; tok.Type {
-		case token.StringValue:
-			ext.pattern = append(ext.pattern, MakeKeywordExt(tok))
-		case token.Id:
-			ext.pattern = append(ext.pattern, MakeMarkerExt(tok))
-		case token.LeftBracket:
-			var t termElem
-			t, ok = parseExtVar(parser, &i, tokens)
-			if !ok {
+	panic("TODO: implement") // TODO
+	/*
+		ext := Extension{}
+		ext.pattern = []extensionElem{}
+		var i uint
+		for i = 0; i < uint(len(tokens)) && tokens[i].Type != token.Equal; {
+			i++
+			switch tok := tokens[i-1]; tok.Type {
+			case token.StringValue:
+				ext.pattern = append(ext.pattern, MakeKeywordExt(tok))
+			case token.Id:
+				ext.pattern = append(ext.pattern, MakeMarkerExt(tok))
+			case token.LeftBracket:
+				var t termElem
+				t, ok = parseExtVar(parser, &i, tokens)
+				if !ok {
+					return
+				}
+				ext.pattern = append(ext.pattern, extensionElem{varType, t.Term})
+			default:
+				ok = false
+				parser.error2(UnexpectedToken, tok.Start, tok.End)
 				return
 			}
-			ext.pattern = append(ext.pattern, extensionElem{varType, t.Term})
-		default:
-			ok = false
-			parser.error2(UnexpectedToken, tok.Start, tok.End)
-			return
 		}
-	}
 
-	i++ // move past equals
+		i++ // move past equals
 
-	ext.fn, ok = parser.Process(standardActions, tokens[i:])
+		ext.fn, ok = parser.Process(standardActions, tokens[i:])
 
-	// TODO: register extension
-	return
+		// TODO: register extension
+		return
+	*/
 }
 
 func (parser *Parser) makeExtension(pattern []extensionElem, expression []token.Token) (ext Extension, ok bool) {
@@ -327,30 +339,54 @@ func (parser *Parser) makeExtension(pattern []extensionElem, expression []token.
 
 // func (parser *Parser) createExtension()
 
-type setTypeFunc = func(Term, bool, ...uint8)
+// bp is arg[0], rAssoc is arg[1]
+type setTypeFunc = generateDecl
 
-func (parser *Parser) declare(name token.Token) (setType setTypeFunc, ok bool) {
-	requireLink := name.Type == token.Affixed
+type exports struct {
+	*declTable
+	*types.Locals
+}
+
+// remove all non-implicit names from exports
+func (parser *Parser) processExports(es exports) exports {
+	if es.declTable == nil {
+		return es
+	}
+
+	for _, v := range es.declTable.All() {
+		if !v.Value.implicit {
+			es.declTable.Delete(v.Key)
+			es.Locals.Delete(v.Key)
+		}
+	}
+	return es
+}
+
+
+func (parser *Parser) declare(name token.Token, implicit bool, export exports) (setType generateDecl, ok bool) {
+	requireLink := name.Type == token.Infix
 	var setTypeInit setTypeFunc
-	setTypeInit, ok = parser.declareHelper(name.Value, name.Start, name.End, false)
+	export = parser.processExports(export)
+	setTypeInit, ok = parser.declareHelper(name.Value, name.Start, name.End, false, implicit, export)
 	if !ok {
 		return
 	}
 
 	if requireLink {
 		var setTypeSecond setTypeFunc
-		setTypeSecond, ok = parser.declareHelper(name.Value, name.Start, name.End, true)
+		setTypeSecond, ok = parser.declareHelper(name.Value, name.Start, name.End, true, implicit, export)
 		if !ok {
 			return
 		}
 
-		setType = func(ty Term, infixed bool, args ...uint8) {
+		setType = func(parser *Parser, ty types.Type, infixed bool, args ...uint8) bool {
 			if requireLink && !infixed {
 				panic("bug: mismatch in fixedness identity (infix or prefix)")
 			}
 
-			setTypeInit(ty, infixed, args...)   // call first function
-			setTypeSecond(ty, infixed, args...) // call function for linked name
+			ok := setTypeInit(parser, ty, false, args...)        // call first function
+			ok = ok && setTypeSecond(parser, ty, infixed, args...) // call function for linked name
+			return ok
 		}
 	} else {
 		setType = setTypeInit
@@ -360,23 +396,5 @@ func (parser *Parser) declare(name token.Token) (setType setTypeFunc, ok bool) {
 
 func (parser *Parser) findTermInTop(name token.Token) (found bool) {
 	_, found = parser.declarations.PeekFind(name)
-	return
-}
-
-func (parser *Parser) lookupTermFromId(id Ident) (decl Declaration, found bool) {
-	tok := token.Id.MakeValued(id.Name)
-	return parser.lookupTerm(tok)
-}
-
-func (parser *Parser) lookupTerm(name token.Token) (decl Declaration, found bool) {
-	d, ok := parser.declarations.Find(name)
-	found = ok
-	if !found {
-		return
-	}
-
-	decl = *d
-	// change value to current occurrence, leaving one in map the same
-	decl.name.Start, decl.name.End = name.Start, name.End
 	return
 }

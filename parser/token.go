@@ -8,30 +8,27 @@ import (
 )
 
 func (parser *Parser) get(ty token.Type) (tok token.Token, ok bool) {
-	typ := parser.Peek().Type
-	if ok = ty == typ; !ok {
+	tok = parser.Peek()
+	if ok = ty == tok.Type; !ok {
 		return
 	}
 	tok = parser.Advance()
 	return
 }
 
-func (parser *Parser) getPascalCaseIdent() (ident termElem, ok bool, upperFailed bool) {
+func (parser *Parser) getPascalCaseIdent() (ident Ident, ok bool, upperFailed bool) {
 	tok, ok := parser.get(token.Id)
 	if ok {
 		upperFailed = !startsWithUppercase(tok.Value)
 	}
 	if ok = ok && !upperFailed; !ok {
-		return
+		return Ident{Start: tok.Start, End: tok.End}, false, upperFailed
 	}
 
-	ident = termElem{
-		Term: Ident{
-			Name:  tok.Value,
-			Start: tok.Start,
-			End:   tok.End,
-		},
-		termInfo: termInfo{},
+	ident = Ident{
+		Name:  tok.Value,
+		Start: tok.Start,
+		End:   tok.End,
 	}
 	return
 }

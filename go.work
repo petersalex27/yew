@@ -9,7 +9,7 @@ use (
 	./print
 	./source
 	./bridge
-	./module
 	./types
 	./infer
+	./plant
 )
