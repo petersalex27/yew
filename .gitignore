@@ -1,11 +1,6 @@
 yew
 /lib
-/manual
-/yewtest
-/tmp
-parser-lexer-integration_test.go
-pattern-notes.md
-/agda
-/types/tmp.zip
-/docs
-/plant
+/internal/types/tmp.zip
+/internal/grammar
+/private
+/.vscode/c_cpp_properties.json

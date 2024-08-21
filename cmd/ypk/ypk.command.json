@@ -1,0 +1,57 @@
+{
+  "command" : [
+    {
+      "name": "get",
+      "desc": "Install a package and its dependencies",
+      "opts": [
+        {
+          "name": "o"
+        }
+      ],
+      "alts": [{"name": "g"}]
+    },
+    {
+      "name": "remove",
+      "desc": "Uninstall a package",
+      "alts": [{"name": "rm"}]
+    },
+    {
+      "name": "list",
+      "desc": "List packages",
+      "alts": [{"name": "ls"}]
+    },
+    {
+      "name": "try",
+      "desc": "Try a fuzzy search for a package"
+    },
+    {
+      "name": "health",
+      "desc": "Check and manage package health"
+    },
+    {
+      "name": "info",
+      "desc": "Display information about a package",
+      "alts": [{"name": "i"}]
+    },
+    {
+      "name": "tree",
+      "desc": "Display and manage package dependency tree",
+      "alts": [{"name": "t"}]
+    },
+    {
+      "name": "config",
+      "desc": "Display and manage ypk config. and package config.",
+      "alts": [{"name": "c"}, {"name": "cfg"}]
+    },
+    {
+      "name": "help",
+      "desc": "Display help information",
+      "alts": [{"name": "h"}, {"name": "?"}]
+    },
+    {
+      "name": "version",
+      "desc": "Display the version of ypk",
+      "alts": [{"name": "v"}]
+    }
+  ]
+}

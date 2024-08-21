@@ -1,0 +1,6 @@
+package test
+
+require:
+- https://github.com/petersalex27/ypk/test0 v0.1.2
+- https://github.com/petersalex27/ypk/test1 v@latest
+- https://github.com/petersalex27/ypk/test2 v3.3.8@least
