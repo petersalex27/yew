@@ -24,7 +24,7 @@ TODO
   </tr>
 
   <tr>
-    <th colspan="4"><h3><code>yew</code></h3></th>
+    <th colspan="4"><code>yew</code></th>
   </tr>
   <tr>
     <td></td>
@@ -34,7 +34,7 @@ TODO
   </tr>
 
   <tr>
-    <th colspan="4"><h3><code>yew repl</code></h3></th>
+    <th colspan="4"><code>yew repl</code></th>
   </tr>
   <tr>
     <td></td>
@@ -62,7 +62,7 @@ TODO
   </tr>
 
   <tr>
-    <th colspan="4"><h3><code>yew build</code></h3></th>
+    <th colspan="4"><code>yew build</code></th>
   </tr>
   <tr>
     <td></td>
@@ -108,7 +108,7 @@ TODO
   </tr>
 
   <tr>
-    <th colspan="4"><h3><code>yew help</code></h3></th>
+    <th colspan="4"><code>yew help</code></th>
   </tr>
   <tr>
     <td></td>
@@ -148,7 +148,7 @@ TODO
   </tr>
 
   <tr>
-    <th colspan="4"><h3><code>yew version</code></h3></th>
+    <th colspan="4"><code>yew version</code></th>
   </tr>
   <tr>
     <td></td>
