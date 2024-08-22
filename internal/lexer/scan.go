@@ -1085,7 +1085,12 @@ func (lex *Lexer) analyze() (ok bool, eof bool) {
 	}
 
 
+	lex.SavedChar.Push(lex.Pos)
 	c, _ := lex.nextChar()
+	if c == '\n' {
+		tok := token.Newline.MakeValued('\n')
+		lex.add(tok)
+	}
 	// use char to determine what class new token will belong to
 	class := lex.classify(c)
 	if class == error_class {
