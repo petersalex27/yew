@@ -864,8 +864,8 @@ func parseTrait(parser *Parser) (ok bool) {
 	return
 }
 
-func (parser *Parser) parseTrait() (ok bool) {
-	if parser.Peek().Type != token.Trait {
+func (parser *Parser) parseSpec() (ok bool) {
+	if parser.Peek().Type != token.Spec {
 		panic("bug: current token in stream not validated")
 	}
 	again := func(p *Parser, i int) bool { return p.equalIndent(i) }
@@ -1502,8 +1502,8 @@ func mutualClause(parser *Parser) (ok bool) {
 	switch next := parser.Peek(); next.Type {
 	case token.Alias:
 		panic("TODO: implement 'alias'")
-	case token.Trait:
-		ok = parser.parseTrait()
+	case token.Spec:
+		ok = parser.parseSpec()
 	case token.Id, token.Infix:
 		ok = parser.parseDeclarationOrDefinition()
 	case token.ImplicitId:
@@ -1521,8 +1521,6 @@ func clauseIteration(parser *Parser, endException token.Type) (ok bool) {
 	switch next := parser.Peek(); next.Type {
 	case token.LeftParen, token.Id, token.Infix:
 		ok = parser.parseDeclarationOrDefinition()
-	case token.ImplicitId:
-		ok = parser.parseDefinition()
 	case token.EndOfTokens, endException:
 		ok = true
 	default:
@@ -1720,7 +1718,7 @@ func (parser *Parser) firstPass() (ok bool) {
 		parser.drop() // TODO: is this necessary?
 
 		switch next := parser.Peek(); next.Type {
-		case token.Percent:
+		case token.At:
 			ok = parser.parseAnnotation()
 		case token.Public:
 			ok = parser.parseVisibility(next.Type, Public)
@@ -1732,14 +1730,10 @@ func (parser *Parser) firstPass() (ok bool) {
 			panic("TODO: implement 'automatic'")
 		case token.Alias:
 			panic("TODO: implement 'alias'")
-		case token.Trait:
-			ok = parser.parseTrait()
+		case token.Soec:
+			ok = parser.parseSpec()
 		case token.Id, token.LeftParen:
 			ok = parser.parseDeclarationOrDefinition()
-		case token.ImplicitId:
-			// this should parse the definition for some affixed identifier
-			panic("TODO: implement implicit id")
-			//ok = parser.parseDefinition()
 		case token.EndOfTokens:
 			end = true
 		case token.Hole:

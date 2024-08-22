@@ -58,7 +58,7 @@ func (parser *Parser) getAbstractionVar(data *actionData) (derive types.AbsSecon
 	switch tok.Type {
 	case token.Underscore:
 		break // this is okay: wildcard
-	case token.Id, token.ImplicitId:
+	case token.Id:
 		ok = strings.ToLower(tok.Value) == tok.Value && goodLambdaBinder(tok.Value)
 		if !ok {
 			parser.error2(BadIdent, tok.Start, tok.End)

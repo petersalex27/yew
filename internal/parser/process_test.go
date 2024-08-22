@@ -23,9 +23,9 @@ func TestStandardActions(t *testing.T) {
 	pow := token.Id.MakeValued("**")
 	fun := token.Id.MakeValued("fun")
 
-	x := token.ImplicitId.MakeValued("x")
-	y := token.ImplicitId.MakeValued("y")
-	z := token.ImplicitId.MakeValued("z")
+	x := token.Id.MakeValued("x")
+	y := token.Id.MakeValued("y")
+	z := token.Id.MakeValued("z")
 
 	backslash := token.Backslash.Make()
 	thickArrow := token.ThickArrow.Make()
@@ -170,9 +170,9 @@ func TestTypeActions(t *testing.T) {
 
 	arrow := token.Arrow.Make()
 
-	x := token.ImplicitId.MakeValued("x")
-	a := token.ImplicitId.MakeValued("a")
-	b := token.ImplicitId.MakeValued("b")
+	x := token.Id.MakeValued("x")
+	a := token.Id.MakeValued("a")
+	b := token.Id.MakeValued("b")
 	Type := token.Id.MakeValued("Type")
 	zero := token.IntValue.MakeValued("0")
 	one := token.IntValue.MakeValued("1")

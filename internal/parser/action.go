@@ -78,7 +78,6 @@ func init() {
 	constraintActions = actionMapper{
 		actionMap{
 			token.Id:          idAction,
-			token.ImplicitId:  idAction,
 			token.Underscore:  wildcardAction, // possible, i suppose, but useless // TODO: perhaps make it an error
 			token.Backslash:   abstractionAction,
 			token.Arrow:       productAction,
@@ -95,7 +94,6 @@ func init() {
 	standardActions = actionMapper{
 		actionMap{
 			token.Id:         idAction,
-			token.ImplicitId: idAction,
 			token.Underscore: wildcardAction,
 			token.Backslash:  abstractionAction,
 			// why is this allowed?: functions from terms to types and functions from types to types, e.g.,
@@ -115,7 +113,6 @@ func init() {
 	scrutineeActions = actionMapper{
 		actionMap{
 			token.Id:         scrutineeIdAction,
-			token.ImplicitId: scrutineeIdAction,
 			token.Underscore: wildcardAction,
 			// why is this allowed?: scrutinizing types
 			token.Arrow:       productAction,
@@ -133,7 +130,6 @@ func init() {
 	argPositionImplicitAction = actionMapper{
 		actionMap{
 			token.Id:         idAction,
-			token.ImplicitId: idAction,
 		},
 		argPosImplicitId,
 	}
@@ -141,7 +137,6 @@ func init() {
 	typePositionImplicitAction = actionMapper{
 		actionMap{
 			token.Id:         idAction,
-			token.ImplicitId: idAction,
 			token.Underscore: wildcardAction,
 			token.Colon:      labeledTypeAction,
 			token.Erase:      modalityAction,
@@ -153,7 +148,6 @@ func init() {
 	typingActions = actionMapper{
 		actionMap{
 			token.Id:          idAction,
-			token.ImplicitId:  idAction,
 			token.Equal:       toIdAction,
 			token.Underscore:  wildcardAction,
 			token.Backslash:   abstractionAction,
@@ -173,7 +167,6 @@ func init() {
 	dataTypeFollowActions = actionMapper{
 		actionMap{
 			token.Id:          idAction,
-			token.ImplicitId:  idAction,
 			token.Backslash:   abstractionAction,
 			token.Arrow:       productAction,
 			token.IntValue:    intAction,
@@ -188,7 +181,6 @@ func init() {
 	dataTypeInitActions = actionMapper{
 		actionMap{
 			token.Id:         idDataTypeAction,
-			token.ImplicitId: errorActionGen(IllegalDataTypeName),
 		},
 		dataTypeInitId,
 	}

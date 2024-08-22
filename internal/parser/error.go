@@ -100,8 +100,6 @@ func expectedMessage(ty token.Type) string {
 		return ExpectedIdentifier
 	case token.In:
 		return ExpectedIn
-	case token.Indent:
-		return ExpectedIndentation
 	case token.Module:
 		return ExpectedModule
 	case token.RightBrace:
