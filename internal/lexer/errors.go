@@ -27,6 +27,8 @@ const (
 	InvalidUnderscore               string = "invalid underscore"
 	InvalidAnnotation               string = "invalid annotation"
 
+	UnexpectedUnderscoreInId string = "unexpected underscore in identifier"
+
 	ExtensionOverwrite string = "keyword used in extension outside of an enclosing '\"' pair"
 )
 

@@ -20,7 +20,6 @@ const (
 	underscore_class
 	comment_class
 	char_class
-	annotation_class
 	hole_class
 	end_class
 	error_class
@@ -88,8 +87,6 @@ func (lex *Lexer) classify(c byte) (class symbolClass) {
 		class = underscore_class //lex.reclassifyUnderscore()
 	} else if c == '-' {
 		class = lex.classifyMinus()
-	} else if c == '%' {
-		class = annotation_class
 	} else if c2, _ := lex.peek(); c == '?' && unicode.IsLower(rune(c2)) {
 		class = hole_class
 	} else if isSymbol(c) {
@@ -102,7 +99,7 @@ func (lex *Lexer) classify(c byte) (class symbolClass) {
 }
 
 // creates and pushes token for single-line comment with Value=`lineAfterDashes`
-func (lex *Lexer) getSingleLineComment(lineAfterDashes string) (ok, eof bool) {
+func (lex *Lexer) getAnnotation(lineAfterDashes string) (ok, eof bool) {
 	offs := len(lineAfterDashes)
 	// remove newline (comment right before eof won't have newline)
 	if offs > 0 && lineAfterDashes[offs-1] == '\n' {
@@ -119,50 +116,46 @@ func (lex *Lexer) getSingleLineComment(lineAfterDashes string) (ok, eof bool) {
 	return true, false
 }
 
-// reads, creates, and pushes token for multi-line comment with Value=`lineAfterDashes`
-func (lex *Lexer) getMultiLineComment(line string) (ok, eof bool) {
-	var comment string = "" // full comment
-	var next string = line  // next line to analyze
-	var loc []int = nil
+var annotRegex = regexp.MustCompile(`--\h*`)
 
-	getNext := func(line string) []int {
-		return endMultiCommentRegex.FindStringIndex(line)
+// creates and pushes token for single-line comment with Value=`lineAfterDashes`
+func (lex *Lexer) getSingleLineComment(lineAfterDashes string) (ok, eof bool) {
+	offs := len(lineAfterDashes)
+	// remove newline (comment right before eof won't have newline)
+	if offs > 0 && lineAfterDashes[offs-1] == '\n' {
+		offs-- // don't take newline
+	}
+	lex.Pos += offs
+	tok := token.Comment.MakeValued(lineAfterDashes)
+
+	// pull out annotation
+	// check if 
+	locs := annotRegex.FindStringIndex(tok.Value)
+	if locs == nil {
+		panic("bug: single line comment should have been validated before calling getSingleLineComment")
+	}
+	start, end := locs[0], locs[1]
+	new := tok.Value[end:]
+	if len(new) == 0 {
+		new = tok.Value
 	}
 
-	// allow function to have ok==true for one line comment, i.e., "-**-"
-	ok = true
-
-	// append input read to comment until end of comment is reached
-	for loc = getNext(line); loc == nil; loc = getNext(next) {
-		ok, eof = lex.advanceLine()
-		if eof { // at eof?
-			ok = false
-			lex.error(UnexpectedEOF)
-			return
-		}
-
-		comment = comment + next
-
-		// get next line
-		next, _ = lex.remainingLine()
+	if new[0] == '@' {
+		lex.SavedChar.Pop()
+		lex.SavedChar.Push(lex.Pos + start)
+		tok.Type = token.At
+		tok.Value = new
+		lex.add(tok)
+		return true, false
 	}
 
-	startIndexOfCommentClose := loc[0]
-
-	// grab last line of comment up to (but not including) '*-'
-	next = next[:startIndexOfCommentClose]
-
-	// create an push comment token
-	comment = comment + next
-	tok := token.Comment.MakeValued(comment)
-	lex.Pos += loc[1]
 	if lex.keepComments {
 		lex.add(tok)
 	} else {
 		// remove saved char number
 		lex.SavedChar.Pop()
 	}
-	return ok, false
+	return true, false
 }
 
 func (lex *Lexer) analyzeComment() (ok, eof bool) {
@@ -192,8 +185,6 @@ func (lex *Lexer) analyzeComment() (ok, eof bool) {
 	line, ok = lex.remainingLine()
 	if c == '-' { // single line comment
 		return lex.getSingleLineComment(line)
-	} else if c == '*' { // multi line comment
-		return lex.getMultiLineComment(line)
 	}
 	panic("bug in analyzeComment: else branch reached")
 }
@@ -540,39 +531,6 @@ func (lex *Lexer) analyzeSymbol() (ok, eof bool) {
 	return lex.analyzeIdentifier()
 }
 
-func fixAnnotation(t token.Token) (tok token.Token, errorMessage string) {
-	if strings.ContainsRune(t.Value, '_') {
-		errorMessage = InvalidAnnotation
-	} else {
-		t.Type = token.Percent
-	}
-	return t, errorMessage
-}
-
-func (lex *Lexer) analyzeAnnotation() (ok, eof bool) {
-	start := lex.Pos
-	lex.SavedChar.Push(start)
-	_, eof = lex.nextChar()
-	if eof {
-		panic("bug: input not validated")
-	}
-
-	var tok token.Token
-	// type of token doesn't actually matter; getId is just called to get the identifier
-	tok, ok = lex.getId()
-	if !ok {
-		return
-	}
-	var errorMessage string
-	tok, errorMessage = fixAnnotation(tok)
-	if ok = errorMessage == ""; !ok {
-		lex.error(errorMessage)
-		return
-	}
-	lex.add(tok)
-	return
-}
-
 func getEscape(r rune, escapeString bool) (c byte, ok bool) {
 	ok = true
 	switch r {
@@ -866,8 +824,8 @@ func matchNonCapId(line string) (id string, ty token.Type, errorMessage string) 
 	}
 
 	if strings.ContainsRune(id, '_') {
-		ty = token.Infix
-		errorMessage = checkAffixed(line, id)
+		ty = token.Id
+		errorMessage = UnexpectedUnderscoreInId
 	} else {
 		ty = matchKeyword(id, token.Id) // id or some keyword
 	}
@@ -885,12 +843,9 @@ func (lex *Lexer) getIdType(line, id string) (ty token.Type, errorMessage string
 	ty = token.Id
 
 	if strings.ContainsRune(id, '_') {
-		ty = token.Infix
-		errorMessage = checkAffixed(line, id)
+		errorMessage = UnexpectedUnderscoreInId
 	} else if key, yes := lex.isKeyword(id); yes {
 		ty = key
-	} else if isImplicitId(id) {
-		ty = token.ImplicitId
 	}
 
 	return
@@ -1021,8 +976,6 @@ func (class symbolClass) analyze(lex *Lexer) (ok, eof bool) {
 		return lex.analyzeUnderscore()
 	case comment_class:
 		return lex.analyzeComment()
-	case annotation_class:
-		return lex.analyzeAnnotation()
 	}
 
 	lex.error(InvalidCharacter)
@@ -1074,45 +1027,18 @@ func (lex *Lexer) ungetChar() (c byte) {
 	return
 }
 
-func (lex *Lexer) addIndent(tabs, spaces int) {
-	if lex.illegalWhitespace == ' ' && spaces != 0 {
-		lex.error(IllegalWhitespace)
-		return
-	} else if lex.illegalWhitespace == '\t' && tabs != 0 {
-		lex.error(IllegalWhitespace)
-		return
-	}
-
-	startPos := lex.Pos - (tabs + spaces)
-	if startPos == lex.Pos { // don't add zero length indents
-		return
-	}
-	whitespace := string(lex.Source[startPos:lex.Pos])
-	tok := token.Token{
-		Value: whitespace,
-		Type:  token.Indent,
-		Start: startPos,
-		End:   lex.Pos,
-	}
-
-	// DON'T USE `lex.add`!!! No char number is saved!
-	lex.Tokens = append(lex.Tokens, tok)
-}
-
 // reads whitespace until next non-whitespace char, then advances input and returns non-whitespace
 // char (and eof==true when lexer is at end of source)
 //
 // whitespace is just ' ' and '\t'
-func (lex *Lexer) skipWhitespace() (eof bool) {
+func (lex *Lexer) skipWhitespace() (isEof bool) {
 	// technically, condition isn't needed b/c if eof==true, then c==0 which is the default case
 	var c byte
-	charNum, _ := lex.charNumber()
-	atStart := charNum == 1
 
 	tabs := 0
 	spaces := 0
-	c, eof = lex.peek()
-	for ; !eof; c, eof = lex.peek() {
+	c, isEof = lex.peek()
+	for ; !isEof; c, isEof = lex.peek() {
 		switch c {
 		case ' ':
 			lex.nextChar()
@@ -1121,16 +1047,10 @@ func (lex *Lexer) skipWhitespace() (eof bool) {
 			lex.nextChar()
 			tabs++
 		default: // non whitespace
-			if atStart {
-				lex.addIndent(tabs, spaces)
-			}
-			return eof
+			return isEof
 		}
 	}
-	if atStart {
-		lex.addIndent(tabs, spaces)
-	}
-	return eof
+	return isEof
 }
 
 func eofLineAdvance(lex *Lexer) (ok, eof bool) {
@@ -1164,13 +1084,8 @@ func (lex *Lexer) analyze() (ok bool, eof bool) {
 		return true, eof
 	}
 
-	c, _ := lex.nextChar()
-	if c == '\n' {
-		lex.SavedChar.Push(lex.Pos - 1)
-		lex.add(token.Newline.Make())
-		return lex.advanceLine()
-	}
 
+	c, _ := lex.nextChar()
 	// use char to determine what class new token will belong to
 	class := lex.classify(c)
 	if class == error_class {

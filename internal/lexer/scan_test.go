@@ -257,38 +257,6 @@ func TestAnalyzeString(t *testing.T) {
 	}
 }
 
-func TestFixAnnotation(t *testing.T) {
-	tests := []struct {
-		source         token.Token
-		expect         token.Token
-		expectErrorMsg string
-	}{
-		{
-			source: token.Token{Value: "annotation", Type: token.Id},
-			expect: token.Token{Value: "annotation", Type: token.At},
-		},
-		{
-			source: token.Token{Value: "Annotation", Type: token.Id},
-			expect: token.Token{Value: "Annotation", Type: token.At},
-		},
-		{
-			source:         token.Token{Value: "annotation_a", Type: token.Infix},
-			expect:         token.Token{Value: "annotation_a", Type: token.Infix},
-			expectErrorMsg: InvalidAnnotation,
-		},
-	}
-
-	for _, test := range tests {
-		actual, actualErrorMsg := fixAnnotation(test.source)
-		if actual != test.expect {
-			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
-		}
-		if actualErrorMsg != test.expectErrorMsg {
-			t.Fatalf("unexpected error message (\"%s\"): got \"%s\"", test.expectErrorMsg, actualErrorMsg)
-		}
-	}
-}
-
 func TestAnalyzeAnnotation(t *testing.T) {
 	tests := []struct {
 		source string
