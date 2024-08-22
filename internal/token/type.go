@@ -23,7 +23,6 @@ const (
 	StringValue
 
 	Id
-	ImplicitId
 	Infix
 	Hole
 
@@ -36,12 +35,12 @@ const (
 	Let
 	Module
 	Use
-	Trait
+	Spec
 	Where
 	As
 	With
 	Of
-	Extension
+	Syntax
 	Case
 	Public
 	Open
@@ -66,6 +65,7 @@ const (
 	Equal
 	Backslash
 	ColonEqual
+	At
 	// keywords end
 	_keywords_end_ // ==============================
 
@@ -73,13 +73,9 @@ const (
 
 	Underscore
 
-	Percent
-
 	Indent
 
 	Newline
-
-	ExtensionKey
 
 	EndOfTokens
 )
@@ -96,8 +92,6 @@ func (ty Type) String() string {
 		return "StringValue"
 	case Id:
 		return "Id"
-	case ImplicitId:
-		return "ImplicitId"
 	case Infix:
 		return "Infix"
 	case Hole:
@@ -118,16 +112,18 @@ func (ty Type) String() string {
 		return "Module"
 	case Use:
 		return "Use"
-	case Trait:
-		return "Trait"
+	case Spec:
+		return "Spec"
 	case Where:
 		return "Where"
 	case Of:
 		return "Of"
 	case As:
 		return "As"
-	case Extension:
-		return "Extension"
+	case At:
+		return "At"
+	case Syntax:
+		return "Syntax"
 	case Case:
 		return "Case"
 	case Public:
@@ -178,14 +174,10 @@ func (ty Type) String() string {
 		return "Comment"
 	case Underscore:
 		return "Underscore"
-	case Percent:
-		return "Percent"
 	case Indent:
 		return "Indent"
 	case Newline:
 		return "Newline"
-	case ExtensionKey:
-		return "ExtensionKey"
 	case EndOfTokens:
 		return "EndOfTokens"
 	default:
@@ -207,11 +199,11 @@ var tokenStringMap = map[Type]string{
 	Let:       "let",
 	Module:    "module",
 	Use:       "use",
-	Trait:     "trait",
+	Spec:      "spec",
 	Where:     "where",
 	As:        "as",
 	Of:        "of",
-	Extension: "extension",
+	Syntax:    "syntax",
 	Case:      "case",
 	Public:    "public",
 	Open:      "open",
@@ -236,11 +228,9 @@ var tokenStringMap = map[Type]string{
 
 	Underscore: "_",
 
-	Percent: "%",
+	At: "@",
 
 	Newline: "\n",
-
-	ExtensionKey: "",
 
 	Hole: "",
 }
