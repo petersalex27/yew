@@ -92,16 +92,6 @@ func Init(path source.PathSpec) *Lexer {
 	return lex
 }
 
-func (lex *Lexer) AddExtensionKey(x token.Token) bool {
-	v, found := lex.keywords[x.Value]
-	if found && v != token.ExtensionKey {
-		lex.error2(ExtensionOverwrite, x.Start, x.End)
-		return false
-	}
-	lex.keywords[x.Value] = token.ExtensionKey
-	return true
-}
-
 func (lex *Lexer) SetKeepComments(truthy bool) {
 	lex.keepComments = truthy
 }
