@@ -70,6 +70,15 @@ Nat : Type where (
   Succ : Nat -> Nat
 )
 
+syntax ifThenElse : (
+  {`if`} Bool
+    -> {`then`} Lazy a
+    -> {`else`} Lazy a
+    -> a
+)
+ifThenElse True t _ = t
+ifThenElse False _ f = f
+
 -- Footer [directives]:
 -- @eof
 ```
