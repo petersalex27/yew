@@ -6,7 +6,7 @@ package parser
 import (
 	"fmt"
 	"io"
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 // information for debugging, embed inside parser

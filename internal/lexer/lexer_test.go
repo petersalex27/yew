@@ -6,7 +6,7 @@ package lexer
 import (
 	"testing"
 
-	"github.com/petersalex27/yew/source"
+	"github.com/petersalex27/yew/internal/source"
 )
 
 func TestWrite(t *testing.T) {

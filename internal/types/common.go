@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/petersalex27/yew/common/math"
+	"github.com/petersalex27/yew/internal/common/math"
 )
 
 func GetKind[T Term](a *T) Type {

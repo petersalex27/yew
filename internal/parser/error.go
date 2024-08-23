@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/petersalex27/yew/errors"
-	"github.com/petersalex27/yew/source"
-	"github.com/petersalex27/yew/token"
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/errors"
+	"github.com/petersalex27/yew/internal/source"
+	"github.com/petersalex27/yew/internal/token"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 func stringsAndSort(m map[token.Type]bool) []string {

@@ -11,8 +11,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/petersalex27/yew/token"
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/token"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 type reduceFunction func(parser *Parser, a, b termElem) (termElem, bool)

@@ -5,7 +5,7 @@
 // =================================================================================================
 package parser
 
-import "github.com/petersalex27/yew/token"
+import "github.com/petersalex27/yew/internal/token"
 
 // transfers and receives information related to parsing sections
 type sectionHelper func()

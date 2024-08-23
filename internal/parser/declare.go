@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/petersalex27/yew/common/table"
-	"github.com/petersalex27/yew/token"
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/common/table"
+	"github.com/petersalex27/yew/internal/token"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 type declaration struct {
@@ -356,7 +356,7 @@ func (parser *Parser) processExports(es exports) exports {
 	for _, v := range es.declTable.All() {
 		if !v.Value.implicit {
 			es.declTable.Delete(v.Key)
-			es.Locals.Delete(v.Key)
+			es.Locals.Table.Delete(v.Key)
 		}
 	}
 	return es

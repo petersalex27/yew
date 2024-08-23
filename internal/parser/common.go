@@ -8,8 +8,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/petersalex27/yew/token"
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/token"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 type positioned interface {
@@ -38,7 +38,7 @@ func (export exports) String() string {
 	}
 	if export.Locals != nil {
 		bothNil = false
-		export.Locals.Walk(printLocalsWalker(w))
+		export.Locals.Table.Walk(printLocalsWalker(w))
 	}
 	if bothNil {
 		return ""

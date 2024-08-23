@@ -7,9 +7,9 @@ package lexer
 import (
 	"testing"
 
-	"github.com/petersalex27/yew/errors"
-	"github.com/petersalex27/yew/source"
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/errors"
+	"github.com/petersalex27/yew/internal/source"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 func TestAnalyzeNumber(t *testing.T) {
@@ -282,7 +282,7 @@ func TestAnalyzeAnnotation(t *testing.T) {
 		lex.PositionRanges = []int{len(test.source)}
 		lex.Line = 1
 
-		ok, eof := lex.analyzeAnnotation()
+		ok, eof := lex.analyzeComment()
 		if !ok {
 			t.Fatalf("could not analyze annotation")
 		}

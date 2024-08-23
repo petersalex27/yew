@@ -8,7 +8,7 @@ import (
 	//"os"
 	"strings"
 
-	"github.com/petersalex27/yew/common"
+	"github.com/petersalex27/yew/internal/common"
 )
 
 type SourceCode struct {

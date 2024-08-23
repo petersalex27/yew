@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/petersalex27/yew/common/math"
+	"github.com/petersalex27/yew/internal/common/math"
 )
 
 // interface for usual stack operations (i.e., push, pop, peek, and number of

@@ -4,7 +4,7 @@
 package parser
 
 import (
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 type (

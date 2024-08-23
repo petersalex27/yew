@@ -6,7 +6,7 @@ package types
 
 import (
 	"fmt"
-	"github.com/petersalex27/yew/common"
+	"github.com/petersalex27/yew/internal/common"
 )
 
 func (env *Environment) Rule(s, t Type) (u Sort, ok bool) {

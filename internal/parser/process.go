@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"github.com/petersalex27/yew/common"
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/common"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 // get position span of terms `a` and `b`; the order the values are given to the function is irrelevant

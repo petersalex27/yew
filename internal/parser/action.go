@@ -3,9 +3,9 @@ package parser
 import (
 	"os"
 
-	"github.com/petersalex27/yew/common/stack"
-	"github.com/petersalex27/yew/token"
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/common/stack"
+	"github.com/petersalex27/yew/internal/token"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 type (

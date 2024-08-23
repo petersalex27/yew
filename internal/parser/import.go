@@ -3,7 +3,7 @@
 // =================================================================================================
 package parser
 
-import "github.com/petersalex27/yew/token"
+import "github.com/petersalex27/yew/internal/token"
 
 type Import struct {
 	Lookup token.Token // name used to lookup import

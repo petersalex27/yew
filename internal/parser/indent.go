@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"github.com/petersalex27/yew/common/stack"
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/common/stack"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 // wrapper for *stack.Stack[int]

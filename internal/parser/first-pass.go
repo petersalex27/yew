@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 type (
@@ -1506,8 +1506,6 @@ func mutualClause(parser *Parser) (ok bool) {
 		ok = parser.parseSpec()
 	case token.Id, token.Infix:
 		ok = parser.parseDeclarationOrDefinition()
-	case token.ImplicitId:
-		ok = parser.parseDefinition()
 	case token.EndOfTokens:
 		ok = true // end should be signaled inside runSection when it checks
 	default:

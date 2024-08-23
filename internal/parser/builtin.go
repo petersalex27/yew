@@ -9,8 +9,8 @@ package parser
 import (
 	"os"
 
-	"github.com/petersalex27/yew/token"
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/token"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 func builtin_Type_n() (Type, Type1 types.Sort) {

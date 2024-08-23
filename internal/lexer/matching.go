@@ -9,7 +9,7 @@ package lexer
 import (
 	"regexp"
 
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 const (

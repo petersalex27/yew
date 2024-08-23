@@ -3,9 +3,9 @@ package parser
 import (
 	"testing"
 
-	"github.com/petersalex27/yew/errors"
-	"github.com/petersalex27/yew/source"
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/errors"
+	"github.com/petersalex27/yew/internal/source"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 // Test is kinda half-assed. Need to not just test against strings--need to test actual structures

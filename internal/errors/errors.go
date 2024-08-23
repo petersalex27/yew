@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/petersalex27/yew/common"
+	"github.com/petersalex27/yew/internal/common"
 )
 
 type MessageType byte

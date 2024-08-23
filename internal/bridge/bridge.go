@@ -6,10 +6,10 @@
 package bridge
 
 import (
-	"github.com/petersalex27/yew/errors"
-	"github.com/petersalex27/yew/lexer"
-	"github.com/petersalex27/yew/parser"
-	"github.com/petersalex27/yew/source"
+	"github.com/petersalex27/yew/internal/errors"
+	"github.com/petersalex27/yew/internal/lexer"
+	"github.com/petersalex27/yew/internal/parser"
+	"github.com/petersalex27/yew/internal/source"
 )
 
 // transfers the source code at the given path to a newly initialized lexer

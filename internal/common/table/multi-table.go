@@ -3,7 +3,7 @@ package table
 import (
 	"fmt"
 
-	"github.com/petersalex27/yew/common/math"
+	"github.com/petersalex27/yew/internal/common/math"
 )
 
 type MultiTable[T fmt.Stringer, U any] struct {

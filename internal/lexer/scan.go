@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/petersalex27/yew/common"
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/common"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 type symbolClass byte
@@ -1088,7 +1088,7 @@ func (lex *Lexer) analyze() (ok bool, eof bool) {
 	lex.SavedChar.Push(lex.Pos)
 	c, _ := lex.nextChar()
 	if c == '\n' {
-		tok := token.Newline.MakeValued('\n')
+		tok := token.Newline.MakeValued("\n")
 		lex.add(tok)
 	}
 	// use char to determine what class new token will belong to

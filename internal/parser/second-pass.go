@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/petersalex27/yew/token"
-	"github.com/petersalex27/yew/types"
+	"github.com/petersalex27/yew/internal/token"
+	"github.com/petersalex27/yew/internal/types"
 )
 
 func makeIdent(t token.Token) Ident {

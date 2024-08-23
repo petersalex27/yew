@@ -11,11 +11,11 @@ import (
 	"os"
 	"strings"
 	
-	"github.com/petersalex27/yew/common"
-	"github.com/petersalex27/yew/common/stack"
-	"github.com/petersalex27/yew/errors"
-	"github.com/petersalex27/yew/source"
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/common"
+	"github.com/petersalex27/yew/internal/common/stack"
+	"github.com/petersalex27/yew/internal/errors"
+	"github.com/petersalex27/yew/internal/source"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 type Lexer struct {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/petersalex27/yew/errors"
-	"github.com/petersalex27/yew/source"
+	"github.com/petersalex27/yew/internal/errors"
+	"github.com/petersalex27/yew/internal/source"
 )
 
 const (

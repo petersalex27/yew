@@ -4,7 +4,7 @@
 package parser
 
 import (
-	"github.com/petersalex27/yew/token"
+	"github.com/petersalex27/yew/internal/token"
 )
 
 func (parser *Parser) get(ty token.Type) (tok token.Token, ok bool) {

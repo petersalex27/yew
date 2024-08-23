@@ -3,7 +3,7 @@
 // =================================================================================================
 package parser
 
-import "github.com/petersalex27/yew/types"
+import "github.com/petersalex27/yew/internal/types"
 
 
 type definitionParent struct {
