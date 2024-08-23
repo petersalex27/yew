@@ -244,7 +244,7 @@ const (
 	CouldNotParseChar   string = "couldn't parse char"
 	CouldNotParseString string = "couldn't parse string"
 
-	CannotReturnNamedArg string = "cannot return a named argument"
+	CannotReturnNamedArg    string = "cannot return a named argument"
 	CannotReturnImplicitArg string = "cannot return an implicit argument"
 
 	// = "invalid" ===================================================================================
@@ -370,7 +370,7 @@ func getReadableNameOfLanguageConstruct(e SyntacticElem) string {
 		return "data constructor"
 	case TypeElem:
 		return "type"
-	case TraitElem:
+	case SpecElem:
 		return "trait"
 	case InstanceElem:
 		return "instance"

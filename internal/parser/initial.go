@@ -38,33 +38,11 @@ func (parser *tokenInfo) dropComments() {
 	}
 }
 
-func (parser *Parser) importModules() {
-	// TODO: implement
-}
-
-func (parser *Parser) Begin() (module Module, ok bool) {
-	//parser.tryIndentPush()
-	// NOTE: leading indents probably cause an issue--figure out what to do with them
-	//	- do they decide the base indent? Yes? Yes, but only sometimes (when?)? No?
-	parser.drop()
-	module.name, ok = parser.parseModuleLine()
-	if !ok {
-		return
-	}
-
-	parser.drop()
-	for ok && parser.Peek().Type == token.Import {
-		ok = parser.parseImports()
-		parser.drop()
-	}
-	if !ok {
-		return
-	}
-
-	parser.firstPass()
-	// TODO: at this point imported modules should be parsed (can be done in parallel)
-	parser.importModules()
-
-	// TODO: now, finish parsing this file with the information from now parsed imports
-	return
+func (parser *Parser) Parse() (module Module, ok bool) {
+	module = Module{name: defaultModuleIdentifier}
+	ok = parser.readEnvironment() &&
+		parser.declareModule(&module) &&
+		parser.readImports() &&
+		firstPass(parser)
+	return module, ok
 }

@@ -1065,7 +1065,7 @@ func parseClause(parser *Parser) (ok bool) {
 	return clauseIteration(parser, token.EndOfTokens)
 }
 
-func (parser *Parser) parseVisibility(visType token.Type, vis Visibility) (ok bool) {
+func (parser *Parser) parseVisibility_(visType token.Type, vis Visibility) (ok bool) {
 	// verify parser is exploring the top level
 	if !parser.ExploringTopLevel() {
 		// bug: can't set the visibility of local declarations
@@ -1098,7 +1098,7 @@ func (parser *Parser) parseVisibility(visType token.Type, vis Visibility) (ok bo
 	return
 }
 
-func (parser *Parser) parseAnnotation() (ok bool) {
+func (parser *Parser) parseAnnotation_() (ok bool) {
 	annot := parser.Advance()
 	switch annot.Value {
 	case "builtin":

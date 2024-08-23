@@ -85,7 +85,6 @@ func helper_constraintAsTuple(c termElem) (tup Tuple) {
 	return
 }
 
-
 // parseConstraint parses a constraint
 func parseConstraint(parser *Parser, constraintToks []token.Token, T, u types.Type) (cT types.Type, ok bool) {
 	var constraint termElem
@@ -101,11 +100,11 @@ func parseConstraint(parser *Parser, constraintToks []token.Token, T, u types.Ty
 		return nil, false
 	}
 	// now, using the tuple of constraints, create a new type
-	// 
+	//
 	// 		(Num a, Show b) => a -> b -> c
 	// becomes ...
 	//		{Num a} -> {Show b} -> a -> b -> c
-	for i := len(tup.Elements)-1; i >= 0; i-- {
+	for i := len(tup.Elements) - 1; i >= 0; i-- {
 		var app types.Application
 		var intro types.PiIntro
 		app, ok = tup.Elements[i].(types.Application)
@@ -262,7 +261,7 @@ func (dec DeclarationElem) parseDeclaration_shared(parser *Parser) (d types.Cons
 	}
 
 	// grab the type of the declaration and that type's type
-	A = typ.Term.(types.Type) // type
+	A = typ.Term.(types.Type)    // type
 	u = types.GetKind(&typ.Term) // type's type
 
 	// declare info in parser (this is for parsing)
@@ -286,7 +285,7 @@ func (parser *Parser) declareAndAssignInEnv(f types.Variable, A types.Type, patt
 		parser.transferEnvErrors()
 		return false
 	}
-	return true 
+	return true
 }
 
 // Parse parses a declaration element
@@ -304,7 +303,7 @@ func (dec DeclarationElem) Parse(parser *Parser) (ok bool) {
 
 	// f : A
 	// A : u
-	// s'pose 
+	// s'pose
 	//		A = a -> b -> c,
 	// then
 	//		f := (\x, y => `f` x y)
@@ -403,7 +402,7 @@ func (local localDefinition) Parse(parser *Parser, head termElem) (ok bool) {
 		args = terms[1:]
 	}
 	name := terms[0]
-	/*decl*/_, found := parser.declarations.Find(name)
+	/*decl*/ _, found := parser.declarations.Find(name)
 	if !found {
 		parser.errorOn(UnknownIdent, name)
 		return false
@@ -419,7 +418,7 @@ func (local localDefinition) Parse(parser *Parser, head termElem) (ok bool) {
 	// parse whatever kind of clause (where, with, ?), putting the clause's bindings in scope
 	// for the binding's body to use
 	parser.env.BeginClause() // this needs to manually be closed
-	
+
 	parser.declarations.Increase()
 	defer parser.declarations.Decrease()
 
@@ -439,7 +438,6 @@ func (local localDefinition) Parse(parser *Parser, head termElem) (ok bool) {
 		return
 	}
 
-	
 	locals := parser.env.EndClause(parser.inParent)
 	return parser.define(name, args, ty, body, locals)
 }
@@ -449,7 +447,6 @@ func (bind BindingElem) Parse(parser *Parser) (ok bool) {
 	if len(bind.Head) == 0 {
 		panic("bug: binding must have a head")
 	}
-
 
 	// parse the head (pattern) of the binding as an expression
 	// 	- it must be parsed as an expression bc the precedence and associativity of the operators
@@ -500,7 +497,7 @@ func (data DataTypeElem) Parse(parser *Parser) (ok bool) {
 		parser.transferEnvErrors()
 		return
 	}
-	
+
 	// parse and introduce data constructors
 	Cs := make([]types.Constant, len(data.DataConstructors))
 	Ts := make([]types.Type, len(data.DataConstructors))
@@ -517,7 +514,7 @@ func (data DataTypeElem) Parse(parser *Parser) (ok bool) {
 	return true
 }
 
-func (trait TraitElem) Parse(parser *Parser) (ok bool) { return }
+func (trait SpecElem) Parse(parser *Parser) (ok bool) { return }
 
 func (inst InstanceElem) Parse(parser *Parser) (ok bool) { return }
 

@@ -23,6 +23,7 @@ type tokenInfo struct {
 	// current position in field `tokens`
 	tokenPos     int
 	saveComments bool
+	keepNewlines bool
 	comments     []token.Token
 }
 
@@ -35,7 +36,7 @@ type symbolSaver struct {
 	bindings *stack.SaveStack[BindingElem]
 	types    *stack.SaveStack[DataTypeElem]
 	typings  *stack.SaveStack[TypeElem]
-	traits   *stack.SaveStack[TraitElem]
+	traits   *stack.SaveStack[SpecElem]
 	inst     *stack.SaveStack[InstanceElem]
 	elems    *stack.SaveStack[SymbolicElem]
 }
@@ -73,7 +74,7 @@ func (parser *Parser) write(elem SyntacticElem) (ok bool) {
 		if ok = annotate(parser, elem); ok {
 			parser.saver.types.Push(elem)
 		}
-	case TraitElem:
+	case SpecElem:
 		if ok = annotate(parser, elem); ok {
 			parser.saver.traits.Push(elem)
 		}
@@ -171,7 +172,7 @@ func (t termElem) String() string {
 			return fmt.Sprintf("%v", t.Term)
 		} else {
 			return fmt.Sprintf("%v -> ?", t.Term)
-		} 
+		}
 	case labeledFunctionType, implicitFunctionType:
 		if isNil {
 			return "? -> ?"
@@ -249,7 +250,6 @@ type Parser struct {
 	annotations    []func(*Parser, any) bool
 	debug_info_parser
 }
-
 
 // signal that parser is not in top level, parsing local symbols
 func (parser *Parser) parsingLocal(name string) func(*Parser) {
@@ -344,7 +344,7 @@ func initSaver() (saver symbolSaver) {
 	saver.bindings = stack.NewSaveStack[BindingElem](8)
 	saver.typings = stack.NewSaveStack[TypeElem](8)
 	saver.types = stack.NewSaveStack[DataTypeElem](8)
-	saver.traits = stack.NewSaveStack[TraitElem](8)
+	saver.traits = stack.NewSaveStack[SpecElem](8)
 	saver.elems = stack.NewSaveStack[SymbolicElem](32)
 	saver.allow = stack.NewStack[SyntaxClass](8)
 	saver.inst = stack.NewSaveStack[InstanceElem](8)
@@ -393,22 +393,35 @@ func (parser *Parser) Panicking() bool {
 	return parser.panicking
 }
 
-func (parser *tokenInfo) Advance() token.Token {
-	if parser.tokenPos >= len(parser.tokens) {
-		return endOfTokensToken()
-	}
+func (parser *Parser) openSection() {
 
-	parser.tokenPos++
-	return parser.tokens[parser.tokenPos-1]
+}
+
+func (parser *tokenInfo) getNextToken() (tok token.Token, offset int) {
+	for offset = 0; ; {
+		if parser.tokenPos >= len(parser.tokens) {
+			return endOfTokensToken(), offset
+		}
+
+		tok := parser.tokens[parser.tokenPos+offset]
+		offset++
+		if !parser.keepNewlines && tok.Type == token.Newline {
+			continue
+		}
+		return tok, offset
+	}
+}
+
+func (parser *tokenInfo) Advance() token.Token {
+	tok, offset := parser.getNextToken()
+	parser.tokenPos += offset
+	return tok
 }
 
 // returns next token but does not advance past it
 func (parser *tokenInfo) Peek() token.Token {
-	if parser.tokenPos >= len(parser.tokens) {
-		return endOfTokensToken()
-	}
-
-	return parser.tokens[parser.tokenPos]
+	tok, _ := parser.getNextToken()
+	return tok
 }
 
 // adds a message to parser's internal messages slice

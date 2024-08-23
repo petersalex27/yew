@@ -12,7 +12,7 @@ func Test_CompileTime_ImplementSyntacticElem(*testing.T) {
 	var _ SyntacticElem = TokensElem{}
 	var _ SyntacticElem = TypeConstructorElem{}
 	var _ SyntacticElem = DataTypeElem{}
-	var _ SyntacticElem = TraitElem{}
+	var _ SyntacticElem = SpecElem{}
 	var _ SyntacticElem = InstanceElem{}
 	var _ SyntacticElem = AnnotationElem{}
 }
