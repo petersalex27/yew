@@ -1728,7 +1728,7 @@ func (parser *Parser) firstPass() (ok bool) {
 			panic("TODO: implement 'automatic'")
 		case token.Alias:
 			panic("TODO: implement 'alias'")
-		case token.Soec:
+		case token.Spec:
 			ok = parser.parseSpec()
 		case token.Id, token.LeftParen:
 			ok = parser.parseDeclarationOrDefinition()
