@@ -86,145 +86,145 @@ meta = annotations_ ;
 
 (* header *)
 header = [module], {{"\n"}, [annotations_], import} ;
-	module = "module", {"\n"}, lower ident ;
-	import = "import", {"\n"}, 
-			( package import 
-			| "(", {"\n"}, package import, {{"\n"}, package import}, {"\n"}, ")"
-			) ;
-		package import = import path, [{"\n"}, import specification] ;
-			import specification = as clause | using clause ;
-				as clause = "as", {"\n"}, module alias ;
-				module alias = lower ident | "_" ;
-				using clause = "using", {"\n"}, symbol selection group ;
-				symbol selection group = 
-						"_"
-						| name 
-						| "(", {"\n"}, name, {{"\n"}, ",", {"\n"}, name}, [{"\n"}, ","], {"\n"}, ")" ;
+  module = "module", {"\n"}, lower ident ;
+  import = "import", {"\n"}, 
+      ( package import 
+      | "(", {"\n"}, package import, {{"\n"}, package import}, {"\n"}, ")"
+      ) ;
+    package import = import path, [{"\n"}, import specification] ;
+      import specification = as clause | using clause ;
+        as clause = "as", {"\n"}, module alias ;
+        module alias = lower ident | "_" ;
+        using clause = "using", {"\n"}, symbol selection group ;
+        symbol selection group = 
+            "_"
+            | name 
+            | "(", {"\n"}, name, {{"\n"}, ",", {"\n"}, name}, [{"\n"}, ","], {"\n"}, ")" ;
 
 (* footer *)
 footer = [annotations_], eof ;
 
 (* body *)
 body = {{"\n"}, [annotations_], body elem} ;
-	visibility = "public" | "open" ;
-	modality = "once" | "erase" ;
-	main elem = 
-			def
-			| spec def 
-			| spec inst 
-			| type def 
-			| type alias 
-			| typing 
-			| syntax ; 
-	body elem = def | visible body elem ;
-	visible body elem = [visibility],
-			( spec def 
-			| spec inst 
-			| type def 
-			| type alias 
-			| typing 
-			| syntax 
-			) ;
-	syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
-		syntax rule = syntax symbol, {syntax symbol} ;
-		syntax symbol = ident | "{", {"\n"}, ident, {"\n"}, "}" | raw keyword ;
-		raw keyword = ? RAW STRING OF JUST A VALID ident OR symbol ? ;
-	type def = typing, {"\n"}, "where", {"\n"}, type def body, [{"\n"}, deriving clause] ;
-		type def body =
-				"impossible"
-				| [annotations_], type constructor
-				| "(", {"\n"}, [annotations_], type constructor, {{"\n"}, [annotations_], type constructor}, {"\n"}, ")" ;
-		type constructor = constructor ident, {"\n"}, ":", {"\n"}, type ;
-		deriving clause = "deriving", {"\n"}, deriving body ;
-		deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
-	type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
-	constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer, {"\n"}, ")" ;
-	enc constrainer = upper ident, {"\n"}, pattern ;
-	spec head = [constraint, {"\n"}, "=>", {"\n"}], constrainer ;
-	spec def = "spec", {"\n"}, spec head, [{"\n"}, spec dependency], {"\n"}, "where", {"\n"}, spec body, [{"\n"}, requiring clause] ;
-		spec dependency = "from", {"\n"}, pattern ;
-		spec body =
-				spec member 
-				| "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
-		spec member = [annotations_], def | [annotations_], typing ;
-		requiring clause = 
-				"requiring", {"\n"}, 
-				( [annotations_], def 
-				| "(", {"\n"}, [annotations_], def, {{"\n"}, [annotations_], def}, {"\n"}, ")" 
-				) ;
-	spec inst = "inst", {"\n"}, spec head, {"\n"}, [spec inst target, {"\n"}], spec inst where clause ;
-		spec inst target = "=", {"\n"}, constrainer ;
-		spec inst where clause = "where", {"\n"}, spec inst member group ;
-		spec inst member group = spec body ;
-	constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constrainer ;
-		constraint group = constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}] ;
-		constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
-	typing = ["auto", {"\n"}], name, {"\n"}, ":", {"\n"}, type ;
-	pattern typing = pattern, {"\n"}, ":", {"\n"}, type ;
-	enc type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], enc type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
-	type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
-	type tail = type term, {type tail}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
-	enc type tail = type term, ([{"\n"}, "=>", {"\n"}, enc type tail] | {{"\n"}, enc type tail}) ;
-		type term =
-				expr atom
-				| "_" | "()" | "="
-				| "(", {"\n"}, enc type inner, [{"\n"}, enc typing end], {"\n"}, ")" 
-				| "{", {"\n"}, enc type inner, [{"\n"}, enc typing end, [{"\n"}, default expr]], {"\n"}, "}" ;
-		enc type inner = modality, {"\n"}, ident | inner type terms ;
-		enc typing end = ":", {"\n"}, enc type ;
-		inner type terms = enc type tail, [{{"\n"}, ",", {"\n"}, enc type tail}, [{"\n"}, ","]] ;
-		constrained type = constraint, {"\n"}, "=>", {"\n"}, type ;
-		default expr = ":=", {"\n"}, expr ;
-		forall binders = ident, {ident} | "(", {"\n"}, ident, {{"\n"}, ident}, {"\n"}, ")" ;
-	def = pattern, {"\n"}, def body ;
-	def body thick arrow = (with clause | "=>", {"\n"}, expr), [where clause] | "impossible" ;
-	def body = (with clause | "=", {"\n"}, expr), [where clause] | "impossible" ;
-		where clause = {"\n"}, "where", {"\n"}, where body ;
-		where body = main elem | "(", {"\n"}, main elem, {"\n", main elem}, {"\n"}, ")" ;
-		with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
-			with clause arms = 
-					"(", {"\n"}, with clause arm, {with clause arm}, {"\n"}, ")" 
-					| with clause arm ;
-			with clause arm = [pattern, {"\n"}, "|", {"\n"}], pattern, {"\n"}, def body thick arrow ;
-	pattern atom = literal | name | "[]" | hole ;
-	pattern = pattern term, {pattern term} ;
-	enc pattern = enc pattern term, {{"\n"}, enc pattern term} ;
-	enc pattern term = "=" | pattern term ; 
-	pattern term = 
-			pattern atom 
-			| "_"
-			| "(", {"\n"}, enc pattern inner, {"\n"}, ")" 
-			| "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
-		enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
-	expr atom = pattern atom | lambda abstraction ;
-	expr = expr term, {expr term} ;
-	enc expr = expr term, {{"\n"}, expr term} ;
-		expr term = 
-				expr atom
-				| "(", {"\n"}, enc expr, {"\n"}, ")"
-				| let expr 
-				| case expr ;
-		binder = lower ident | upper ident | "(", {"\n"}, enc pattern, {"\n"}, ")" ;
-	lambda abstraction = "\\", {"\n"}, lambda binders, {"\n"}, "=>", {"\n"}, expr ;
-		lambda binders = lambda binder, {{"\n"}, ",", {"\n"}, lambda binder}, [{"\n"}, ","] ;
-		lambda binder = binder | "_" ;
-	let expr = "let", {"\n"}, let binding, {"\n"}, "in", {"\n"}, expr ;
-		let binding = 
-				binding group member 
-				| "(", {"\n"}, binding group member, {{"\n"}, binding group member}, {"\n"}, ")" ;
-		binding group member =
-				binder, {"\n"}, binding assignment
-				| typing, [{"\n"}, binding assignment] ;
-		binding assignment = ":=", {"\n"}, expr ;
-	case expr = "case", {"\n"}, pattern, {"\n"}, "of", {"\n"}, case arms ;
-		case arms = case arm | "(", {"\n"}, case arm, {{"\n"}, case arm}, {"\n"}, ")" ;
-		case arm = pattern, {"\n"}, def body thick arrow ;
+  visibility = "public" | "open" ;
+  modality = "once" | "erase" ;
+  main elem = 
+      def
+      | spec def 
+      | spec inst 
+      | type def 
+      | type alias 
+      | typing 
+      | syntax ; 
+  body elem = def | visible body elem ;
+  visible body elem = [visibility],
+      ( spec def 
+      | spec inst 
+      | type def 
+      | type alias 
+      | typing 
+      | syntax 
+      ) ;
+  syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
+    syntax rule = syntax symbol, {syntax symbol} ;
+    syntax symbol = ident | "{", {"\n"}, ident, {"\n"}, "}" | raw keyword ;
+    raw keyword = ? RAW STRING OF JUST A VALID ident OR symbol ? ;
+  type def = typing, {"\n"}, "where", {"\n"}, type def body, [{"\n"}, deriving clause] ;
+    type def body =
+        "impossible"
+        | [annotations_], type constructor
+        | "(", {"\n"}, [annotations_], type constructor, {{"\n"}, [annotations_], type constructor}, {"\n"}, ")" ;
+    type constructor = constructor ident, {"\n"}, ":", {"\n"}, type ;
+    deriving clause = "deriving", {"\n"}, deriving body ;
+    deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
+  type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
+  constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer, {"\n"}, ")" ;
+  enc constrainer = upper ident, {"\n"}, pattern ;
+  spec head = [constraint, {"\n"}, "=>", {"\n"}], constrainer ;
+  spec def = "spec", {"\n"}, spec head, [{"\n"}, spec dependency], {"\n"}, "where", {"\n"}, spec body, [{"\n"}, requiring clause] ;
+    spec dependency = "from", {"\n"}, pattern ;
+    spec body =
+        spec member 
+        | "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
+    spec member = [annotations_], def | [annotations_], typing ;
+    requiring clause = 
+        "requiring", {"\n"}, 
+        ( [annotations_], def 
+        | "(", {"\n"}, [annotations_], def, {{"\n"}, [annotations_], def}, {"\n"}, ")" 
+        ) ;
+  spec inst = "inst", {"\n"}, spec head, {"\n"}, [spec inst target, {"\n"}], spec inst where clause ;
+    spec inst target = "=", {"\n"}, constrainer ;
+    spec inst where clause = "where", {"\n"}, spec inst member group ;
+    spec inst member group = spec body ;
+  constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constrainer ;
+    constraint group = constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}] ;
+    constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
+  typing = ["auto", {"\n"}], name, {"\n"}, ":", {"\n"}, type ;
+  pattern typing = pattern, {"\n"}, ":", {"\n"}, type ;
+  enc type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], enc type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
+  type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
+  type tail = type term, {type tail}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
+  enc type tail = type term, ([{"\n"}, "=>", {"\n"}, enc type tail] | {{"\n"}, enc type tail}) ;
+    type term =
+        expr atom
+        | "_" | "()" | "="
+        | "(", {"\n"}, enc type inner, [{"\n"}, enc typing end], {"\n"}, ")" 
+        | "{", {"\n"}, enc type inner, [{"\n"}, enc typing end, [{"\n"}, default expr]], {"\n"}, "}" ;
+    enc type inner = modality, {"\n"}, ident | inner type terms ;
+    enc typing end = ":", {"\n"}, enc type ;
+    inner type terms = enc type tail, [{{"\n"}, ",", {"\n"}, enc type tail}, [{"\n"}, ","]] ;
+    constrained type = constraint, {"\n"}, "=>", {"\n"}, type ;
+    default expr = ":=", {"\n"}, expr ;
+    forall binders = ident, {ident} | "(", {"\n"}, ident, {{"\n"}, ident}, {"\n"}, ")" ;
+  def = pattern, {"\n"}, def body ;
+  def body thick arrow = (with clause | "=>", {"\n"}, expr), [where clause] | "impossible" ;
+  def body = (with clause | "=", {"\n"}, expr), [where clause] | "impossible" ;
+    where clause = {"\n"}, "where", {"\n"}, where body ;
+    where body = main elem | "(", {"\n"}, main elem, {"\n", main elem}, {"\n"}, ")" ;
+    with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
+      with clause arms = 
+          "(", {"\n"}, with clause arm, {with clause arm}, {"\n"}, ")" 
+          | with clause arm ;
+      with clause arm = [pattern, {"\n"}, "|", {"\n"}], pattern, {"\n"}, def body thick arrow ;
+  pattern atom = literal | name | "[]" | hole ;
+  pattern = pattern term, {pattern term} ;
+  enc pattern = enc pattern term, {{"\n"}, enc pattern term} ;
+  enc pattern term = "=" | pattern term ; 
+  pattern term = 
+      pattern atom 
+      | "_"
+      | "(", {"\n"}, enc pattern inner, {"\n"}, ")" 
+      | "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
+    enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
+  expr atom = pattern atom | lambda abstraction ;
+  expr = expr term, {expr term} ;
+  enc expr = expr term, {{"\n"}, expr term} ;
+    expr term = 
+        expr atom
+        | "(", {"\n"}, enc expr, {"\n"}, ")"
+        | let expr 
+        | case expr ;
+    binder = lower ident | upper ident | "(", {"\n"}, enc pattern, {"\n"}, ")" ;
+  lambda abstraction = "\\", {"\n"}, lambda binders, {"\n"}, "=>", {"\n"}, expr ;
+    lambda binders = lambda binder, {{"\n"}, ",", {"\n"}, lambda binder}, [{"\n"}, ","] ;
+    lambda binder = binder | "_" ;
+  let expr = "let", {"\n"}, let binding, {"\n"}, "in", {"\n"}, expr ;
+    let binding = 
+        binding group member 
+        | "(", {"\n"}, binding group member, {{"\n"}, binding group member}, {"\n"}, ")" ;
+    binding group member =
+        binder, {"\n"}, binding assignment
+        | typing, [{"\n"}, binding assignment] ;
+    binding assignment = ":=", {"\n"}, expr ;
+  case expr = "case", {"\n"}, pattern, {"\n"}, "of", {"\n"}, case arms ;
+    case arms = case arm | "(", {"\n"}, case arm, {{"\n"}, case arm}, {"\n"}, ")" ;
+    case arm = pattern, {"\n"}, def body thick arrow ;
 
 (* annotations *)
 annotations_ = annotation, {{"\n"}, annotation}, {"\n"} ;
-	annotation = bound annotation | flat annotation ;
-	flat annotation = ? REGEX "--[ \t]*@[ \t]*[a-z][A-Za-z0-9']*\b.*$" ? ;
-	bound annotation = "[@", {"\n"}, ident, {? ANY OTHER RULE ?}, "]" ;
+  annotation = bound annotation | flat annotation ;
+  flat annotation = ? REGEX "--[ \t]*@[ \t]*[a-z][A-Za-z0-9']*\b.*$" ? ;
+  bound annotation = "[@", {"\n"}, ident, {? ANY OTHER RULE ?}, "]" ;
 
 (* identifiers *)
 lower ident = ? REGEX "[a-z][a-zA-Z0-9']*" ? ;
@@ -258,18 +258,18 @@ eof = ? END OF FILE ? ;
 
 (* reserved *)
 reserved = 
-		"deriving"
-		| "module" | "import" | "as" | "using"
-		| "public" | "open" 
-		| "once" | "erase"
-		| "where" | "with" | "requiring" 
-		| "inst" | "spec" | "from" 
-		| "alias" | "syntax"
-		| "case" | "of" | "let" | "forall" | "in"
-		| "=>" | "->" | ":" | ":=" | "=" | "|" | ","
-		| "(" | ")" | "{" | "}" | "[" | "]" | "." | "_"
-		| "impossible"
-		| "auto" ;
+    "deriving"
+    | "module" | "import" | "as" | "using"
+    | "public" | "open" 
+    | "once" | "erase"
+    | "where" | "with" | "requiring" 
+    | "inst" | "spec" | "from" 
+    | "alias" | "syntax"
+    | "case" | "of" | "let" | "forall" | "in"
+    | "=>" | "->" | ":" | ":=" | "=" | "|" | ","
+    | "(" | ")" | "{" | "}" | "[" | "]" | "." | "_"
+    | "impossible"
+    | "auto" ;
 pseudo keyword = nil | unit type | annotation scope head ;
 unit type = "()" ;
 nil = "[]" ;
