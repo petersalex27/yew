@@ -1,86 +1,79 @@
 # Yew Language Syntax
 
 Key:
-- <code>Name:</code> : file section "Name", must appear in its specific location
-- <code>[name]</code> : optional elements "name", can appear anywhere within the top-level of the respective parent section
+- <code>name:</code> : element "name" must appear in its specific location
+- <code>[name]</code> : optional elements "name"
+- <code>{name}</code> : zero or more occurrences of elements "name"  
 
-A yew file is broken down into the following sections:
+Quick, slightly ambiguous, surface view of a Yew source file
 ```
-┌──────────────────┐
-│ Header:          │
-│  Meta:           │
-│  - [directives]  │
-│  - [embeds]      │
-│ - [module]       │
-│ - [imports]      │
-├┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┤
-│ Body:            │
-│ - [definitions]  │
-│ - [directives]   │
-│ - [mutuals]      │
-│ - [syntaxes]     │
-├┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┤
-│ Footer:          │
-│ - [directives]   │
-└──────────────────┘
+┌──────── Yew Source ────────┐
+│ meta:                      │
+│ - {annotation}             │
+├┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┤
+│ header:                    │
+│ - [module]                 │
+│ - {import}:                │
+│   - {annotation}           │
+│     - import statement     │
+├┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┤
+│ {body}:                    │
+│ - {annotation}             │
+│   - [data type definition] │
+│   - [type alias]           │
+│   - [spec definition]      │
+│   - [inst definition]      │
+│   - [function signature]   │
+│   - [function definition]  │
+│   - [syntax definition]    │
+├┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┤
+│ footer:                    │
+│ - {annotations}            │
+└──────── Source End ────────┘
 ```
 
-Example file with all sections:
+Example file with all sections (labeled with comments):
 ```
--- Header Meta [directives]:
--- @build "example"
--- @excludeBase
+[@infixl 5 (+)]                      -- meta
 
--- Header Meta [embeds]
--- @embed "hello.h" "c" 
-int fhello(FILE *);
--- @end embed "hello.h"
--- @embed "hello.c" "c"
-#include <stdio.h>
+module example                       -- header, module
 
-int fhello(FILE *f) {
-  return fprintf(f, "hello, world!");
-}
--- @end embed "hello.c"
-
--- Header [module]:
-module exampleMod
-
--- Header [imports]:
-import example2/mod.Example
-
--- Body [mutual]:
-mutual (
-  -- Body [directives]:
-  -- @infix Left 2 (foo)
-
-  -- Body [definitions]:
-  (foo) : Int -> Int
-  0 foo = 0
-  (Succ n) foo = bar n
-
-  bar : Int -> Int
-  bar 0 = 1
-  bar (Succ n) = n foo
+--@log Symbols                       -- import
+import (
+  "base" using _
+  "builtin/lazy"
+  "base/bool"
 )
 
--- Body [definitions]:
-Nat : Type where (
-  Zero : Nat
+Nat : Type where (                   -- body, data type def.
+  0 : Nat
   Succ : Nat -> Nat
 )
 
-syntax ifThenElse : (
-  {`if`} Bool
-    -> {`then`} Lazy a
-    -> {`else`} Lazy a
-    -> a
-)
-ifThenElse True t _ = t
-ifThenElse False _ f = f
+alias Bool = bool.Bool               -- type alias
 
--- Footer [directives]:
--- @eof
+spec Summand sm where (              -- spec def.
+  (+) : sm -> sm -> sm
+)
+
+inst Summand Nat where (             -- inst def.
+  0 + y = y
+  (Succ x) + y = Succ (x + y) 
+)
+
+[@inline]                            -- annotation
+ifThenElse : Bool                    -- function type sig.
+  -> lazy.Lazy a 
+  -> lazy.Lazy a 
+  -> a
+
+ifThenElse True true _ = true        -- function def.
+ifThenElse False _ false = false
+
+syntax                               -- syntax def.
+  `if` cnd `then` true `else` false  
+  = ifThenElse cnd true false
+                                     -- footer
 ```
 
 ## EBNF

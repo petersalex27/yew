@@ -2,7 +2,7 @@
 
 Welcome to the Yew language repo!
 
-Official Yew language site (not yet up as of 08/21/2024):
+Official Yew language site (not yet up as of 10/03/2024):
 - yew-lang.org
 
 ## Package Versioning
