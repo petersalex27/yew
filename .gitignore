@@ -1,6 +1,9 @@
-yew
-/lib
+/yew
+/cmd/yew/yew
+/libs
+/_lib
 /internal/types/tmp.zip
 /internal/grammar
 /private
-/.vscode/c_cpp_properties.json
+/internal/archives
+/logs/*

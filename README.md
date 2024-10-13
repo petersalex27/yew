@@ -5,6 +5,39 @@ Welcome to the Yew language repo!
 Official Yew language site (not yet up as of 08/21/2024):
 - yew-lang.org
 
+## Package Versioning
+
+There are two forms: absolute and relative
+
+### Absolute:
+```
+v<major>.<minor>.<patch>[@<prerelease>.<integer>]
+```
+
+An absolute version is made of four primary parts: a required major version number (possibly 0), a required minor version number, a required patch version number, and an optional prerelease milestone
+
+
+Major Version Number:
+- If the major number is 0, it indicates the package is in development and indicating package _*instability*_
+- If the major number is not zero, it indicates backwards **incompatible** public API changes.
+
+Minor Version Number:
+- The minor version number indicates backwards _*compatible*_ public API changes. This guarantees stability.
+
+Patch Version Number:
+- The patch version number indicates no public API changes were made, vacuously indicating backwards _*compatible*_ public API changes. This guarantees stability.
+
+### Relative Version
+```
+v@[latest|stable]
+```
+
+`@latest`:
+- Retrieves the most up-to-date version, regardless of stability
+
+`@stable`:
+- Retrieves the latest **stable** version, i.e., the latest non-development, non-prerelease milestone version
+
 ## Installing
 TODO
 

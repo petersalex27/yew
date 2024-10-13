@@ -1,0 +1,78 @@
+# template
+# -?: {
+#   also: [],
+#   description: '',
+#   usage: '',
+#   more: [],
+# }
+
+topics:
+  repl: {
+    description: 'starts the Yew REPL interface',
+    usage: 'yew repl [options]',
+    options: {
+      -i: {
+        also: ['--import'],
+        description: 'imports each package from a comma-separated list of package identifiers, allowing them to be used in the REPL',
+        usage: '-i <list,of,packages>',
+        example: '-i reflect,http',
+        notes: [],
+        see: {
+          # 'option/command name': reason
+          'pack': 'builds and packages modules',
+          'install': 'installs packages from the Yew registry, making them available for import',
+          'init': 'creates a new Yew package',
+        }
+      },
+      -l: {
+        also: ['--lit', '--literate'],
+        description: 'runs the repl session in literate mode',
+        more: [
+          'Literate mode interprets all unprompted lines as comments. Unlike the default mode, literate mode requires the user to explicitly write the "yew<" prompt for each non-comment line.',
+          'For example, the following session writes a "hello, world!" program in literate mode:',
+          '',
+          '    this is a comment',
+          '    below is my hello world program',
+          '    yew< sayHello : () -> String := \_ => "hello, world!"',
+          '    yew< sayHello ()',
+          '',
+          'When a file is specified, the session will be recorded to the specified file in literate format.',
+        ],
+        usage: '-l [<name>.lit.yew]',
+        example: '-l session.lit.yew',
+        notes: ["'-l session.lit.yew' is equivalent to '-lo session.lit.yew'"],
+        see: {
+          '-o': "specify where to record the session as literate output independent of '-l'",
+        }
+      },
+      -o: {
+        also: ['--out', '--output'],
+        description: 'records the repl session to a literate yew file',
+        more: [],
+        usage: '-o <name>.lit.yew',
+        example: '-o session.lit.yew',
+        notes: ["Implicitly appends '--ignore-comments false' to the options after the '-o' flag and its arguments"],
+        see: {
+          '-l': "run the repl session in literate mode",
+          '--ignore-comments': "specify whether comments are dropped",
+        }
+      },
+      --ignore-comments: {
+        also: [],
+        description: 'specify whether comments are ignored or recorded in any output',
+        more: [
+          "The default value is 'true', which means comments are ignored.",
+        ],
+        usage: '--drop-comments <true|false>',
+        example: '--drop-comments false',
+        notes: ["This option is implicitly set to 'false' when the '-o' flag is used. To ignore comments and use '-o', specify '--ignore-comments true' after the '-o' flag."],
+        see: {
+          '-o': "specify where to record the session",
+        }
+      },
+    }
+  }
+  build: {}
+  help: {}
+  version: {}
+  dev: {}

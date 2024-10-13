@@ -1,0 +1,8 @@
+warning: [
+  deprecations,
+  overlapping-patterns,
+  unrecognized-annotations,
+  literal-overflows,
+  empty-types,
+  inaccessible-code,
+]

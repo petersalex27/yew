@@ -58,9 +58,10 @@ func (printer *SourcePrinter) WriteString(s string) {
 	printer.start = ""
 }
 
-func (printer *SourcePrinter) WriteByte(b byte) {
-	printer.Builder.WriteString(printer.start + string(b))
+func (printer *SourcePrinter) WriteByte(b byte) error {
+	_, e := printer.Builder.WriteString(printer.start + string(b))
 	printer.start = ""
+	return e
 }
 
 func (printer *SourcePrinter) Line() {

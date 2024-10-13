@@ -1,0 +1,8 @@
+unexpected-eof: "unexpected end of file"
+expected-char-literal: "expected character literal"
+illegal-char-literal: "illegal character literal"
+illegal-escape-sequence: "illegal escape sequence"
+illegal-string-literal: "illegal string literal"
+unexpected-underscore: "unexpected underscore" 
+unexpected-symbol: "unexpected symbol"
+expected-annotation-id: "expected annotation identifier"

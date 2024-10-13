@@ -1,0 +1,39 @@
+{
+  "version":"0.2.0",
+  "configurations": [
+    {
+      "name": "Tests",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/${relativeFileDirname}",
+      "buildFlags": ["-tags=test"],
+      "showLog": true,
+    },
+    {
+      "name": "Debug Repl",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/yew/main.go",
+      "args": ["repl"],
+    },
+    {
+      "name": "Test Current File",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/${relativeFileDirname}",
+      "showLog": true
+    },
+    {
+      "name": "Current File",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/${relativeFileDirname}",
+      "buildFlags": ["-tags=test"],
+      "showLog": true
+    }
+  ]
+}

@@ -1,158 +1,182 @@
-yew program = [ header ], [ body ], [ footer ] ; 
-header = [ meta ], [ tail ] ;
-  meta = { env | embeds } ;
-		env = annotation, { new line, annotation } ;
-		embeds = "--\h@\h*embed\h*", string, string, new line, embed body, new line, end embed ;
-			end embed = "--\h*@\h*end\h*embed)", string, new line, { new line } ;
-			embed body = "(?!--\h*@\h*end\h*embed).*" ;
-	tail = ([ module ], [ imports ]) | ([ imports ], [ module ]) ;
-		module = "module", lower ident ;
-		imports = { import } ;
-		import = import package | import package group
-		import package = "import", package ident ;
-		import package group = "import", open paren, [ package sequence ], close paren ;
-		package sequence = package ident, { some new lines, package ident } ;
-body = { new line }, { main elem } ;
-	main elem = body elem | mutual body ;
-	mutual body = keyword mutual, ( body elem | body elem group ) ;
-	body elem = def | spec def | spec inst | type def | type alias | typing | annotation ;
-	body elem group = open paren, body elem, { new line, body elem }, close paren ;
-	type def = name, keyword colon, type, keyword where, type def body, [ keyword derives, derives body ] ;
-		type def body = type def elem | type def elem group ;
-		type def elem = typing | "impossible" ;
-		type def elem group = 
-				( open paren, typing, { new line, typing }, close paren )
-				| ( open paren, "impossible", close paren ) ;
-		derives body = derives elem | derives elem group ;
-			derives elem = spec ident ;
-			derives elem group = open paren, spec ident, { keyword comma, spec ident }, keyword comma, close paren ;
-	type alias = keyword alias, type def ;
-	annotation = { new line }, "--", "@", ident, "[^\n]" ;
-	spec def = [ doc annotation ], keyword spec, spec typing, keyword where, spec body ;
-		spec body = spec member | spec member group ;
-		spec member = def | typing ;
-		spec member group = open paren, spec member, { new line, spec member }, close paren ;
-		spec typing = spec ident, keyword colon, type ;
-	typing = name, keyword colon, type ;
-	explicit typing = name, keyword colon, explicit type ;
-	explicit type = 
-			pattern
-			| ( opem paren, explicit typing, close paren )
-			| ( open paren, explicit type, close paren ) (* enclosed type, e.g., '(a List 3)' *)
-			| ( explicit type, "->", explicit type ) (* function type, e.g., 'a -> b' *)
-			| ( open paren, explicit type, keyword comma, explicit type, { keyword comma,  explicit type }, close paren ) ; (*tuple type, e.g., '(a, b)' *)
-	type =
-			pattern (* a type, e.g., 'MyType a' *)
-			| implicit type (* implicit argument's type *)
-			| ( open paren, [ multiplicity ], typing, close paren )
-			| forall type (* forall type, e.g., 'forall a b . a -> b' *)
-			| ( open paren, type, close paren ) (* enclosed type, e.g., '(a, b)' *)
-			| ( type,  "->", type )
-			| ( open paren, type, keyword comma, type, { keyword comma, type }, close paren ) ;
-		(* implicit argument's type, e.g., '{x : B a}'*)
-		implicit type = open brace, ( ( ( [ mutltiplicity ] typing ) | explicit type ), [ keyword colon equal, expression ] ), close brace ;
-		forall type = "forall", ( ( open paren, ident, { new line, ident }, close paren ) | ( ident, { ident } ) ), keyword dot, type ;
-	spec inst = upper ident, name, where keyword, spec inst body ;
-		spec inst body = spec inst member | spec inst member group ;
-		spec inst member = def ;
-		spec inst member group = open paren, spec inst member, { new line, spec inst member }, close paren ;
-	(* basically, for now, this is just an application pattern that contains at least one 'name' *)
-	name app pattern = { pattern }, name, { pattern } ;
-	def = [ doc annotation ], name app pattern, ( def tail group | def tail ) ;
-		def tail group = open paren,  def tail, close paren ;
-		def tail = ( with clause | assignment ), [ where clause ] ;
-			where clause = { new line }, "where", where body ;
-			where body = main elem | ( open paren, main elem, { new line, main elem }, close paren ) ;
-			where body group = open paren, main elem, { new line, main elem }, close paren ;
-			with clause = keyword with, expression, keyword of, with arms ;
-				with arms = ( open paren, some with clause arms, close paren ) | with clause arm ;
-				some with clause arms = with clause arm, { with clause arm } ;
-				with clause arm = [ lhs, keyword bar ], pattern, ( ( keyword equal, expression ) | with clause ) ;
-					lhs = name app pattern | ( open paren, name app pattern, close paren ) | "_" ;
-			assignment = keyword equal, expression ;
-	pattern = 
-			literal value 
+yew source = {"\n"}, [meta, {"\n"}], [header, {"\n"}], [body, {"\n"}], footer ; 
+meta = annotations_ ;
+header = [module], {{"\n"}, [annotations_], import} ;
+	module = "module", {"\n"}, lower ident ;
+	import = "import", {"\n"}, 
+		( package import 
+		| "(", {"\n"}, package import, {{"\n"}, package import}, {"\n"}, ")"
+		) ;
+		package import = import path, [{"\n"}, import specification] ;
+			import specification = as clause | using clause ;
+				as clause = "as", {"\n"}, lower ident ;
+				using clause = "using", {"\n"}, symbol selection group ;
+				symbol selection group = 
+						"_"
+						| name 
+						| "(", {"\n"}, name, {{"\n"}, ",", {"\n"}, name}, [{"\n"}, ","], {"\n"}, ")" ;
+footer = [annotations_], end of file ;
+body = {{"\n"}, [annotations_], body elem} ;
+	visibility = "public" | "open" ;
+	modality = "once" | "erase" ;
+	main elem = 
+			def
+			| spec def 
+			| spec inst 
+			| type def 
+			| type alias 
+			| typing 
+			| syntax ; 
+	body elem = def | visible body elem ;
+	visible body elem = 
+			[visibility],
+				( spec def 
+				| spec inst 
+				| type def 
+				| type alias 
+				| typing 
+				| syntax ) ;
+	syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
+		syntax rule = syntax symbol, {syntax symbol} ;
+		syntax symbol = ident | "{", {"\n"}, ident, {"\n"}, "}" | raw keyword ;
+		raw keyword = ? RAW STRING OF JUST A VALID ident OR symbol ? ;
+	type def = typing, {"\n"}, "where", {"\n"}, type def body, [{"\n"}, deriving clause] ;
+		type def body =
+				"impossible"
+				| [annotations_], type constructor
+				| "(", {"\n"}, [annotations_], type constructor, {{"\n"}, [annotations_], type constructor}, {"\n"}, ")" ;
+		type constructor = constructor ident, {"\n"}, ":", {"\n"}, type ;
+		deriving clause = "deriving", {"\n"}, deriving body ;
+		deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
+	type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
+	constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer, {"\n"}, ")" ;
+	enc constrainer = upper ident, {"\n"}, pattern ;
+	spec head = [constraint, {"\n"}, "=>", {"\n"}], constrainer ;
+	spec def = "spec", {"\n"}, spec head, [{"\n"}, spec dependency], {"\n"}, "where", {"\n"}, spec body, [{"\n"}, requiring clause] ;
+		spec dependency = "from", {"\n"}, pattern ;
+		spec body =
+				spec member 
+				| "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
+		spec member = [annotations_], def | [annotations_], typing ;
+		requiring clause = 
+				"requiring", {"\n"}, 
+				( [annotations_], def 
+				| "(", {"\n"}, [annotations_], def, {{"\n"}, [annotations_], def}, {"\n"}, ")"
+				) ;
+	spec inst = "inst", {"\n"}, spec head, {"\n"}, [spec inst target, {"\n"}], spec inst where clause ;
+		spec inst target = "=", {"\n"}, constrainer ;
+		spec inst where clause = "where", {"\n"}, spec inst member group ;
+		spec inst member group = spec body ;
+	constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constrainer ;
+		constraint group = constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}] ;
+		constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
+	typing = ["auto", {"\n"}], name, {"\n"}, ":", {"\n"}, type ;
+	pattern typing = pattern, {"\n"}, ":", {"\n"}, type ;
+	enc type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], enc type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
+	type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
+	type tail = type term, {type tail}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
+	enc type tail = type term, ([{"\n"}, "=>", {"\n"}, enc type tail] | {{"\n"}, enc type tail}) ;
+		type term =
+				expr atom
+				| "_" | "()" | "="
+				| "(", {"\n"}, enc type inner, [{"\n"}, enc typing end], {"\n"}, ")" 
+				| "{", {"\n"}, enc type inner, [{"\n"}, enc typing end, [{"\n"}, default expr]], {"\n"}, "}" ;
+		enc type inner = modality, {"\n"}, ident | inner type terms ;
+		enc typing end = ":", {"\n"}, enc type ;
+		inner type terms = enc type tail, [{{"\n"}, ",", {"\n"}, enc type tail}, [{"\n"}, ","]] ;
+		constrained type = constraint, {"\n"}, "=>", {"\n"}, type ;
+		default expr = ":=", {"\n"}, expr ;
+		forall binders = ident, {ident} | "(", {"\n"}, ident, {{"\n"}, ident}, {"\n"}, ")" ;
+	def = pattern, {"\n"}, def body ;
+	def body thick arrow = (with clause | "=>", {"\n"}, expr), [where clause] | "impossible" ;
+	def body = (with clause | "=", {"\n"}, expr), [where clause] | "impossible" ;
+		where clause = {"\n"}, "where", {"\n"}, where body ;
+		where body = main elem | "(", {"\n"}, main elem, {"\n", main elem}, {"\n"}, ")" ;
+		with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
+			with clause arms = 
+					"(", {"\n"}, with clause arm, {with clause arm}, {"\n"}, ")" 
+					| with clause arm ;
+			with clause arm = [pattern, {"\n"}, "|", {"\n"}], pattern, {"\n"}, def body thick arrow ;
+	pattern atom = literal | name | "[]" | hole ;
+	pattern = pattern term, {pattern term} ;
+	enc pattern = enc pattern term, {{"\n"}, enc pattern term} ;
+	enc pattern term = "=" | pattern term ; 
+	pattern term = 
+			pattern atom 
 			| "_"
-			| name 
-			| pattern list 
-			| ( pattern, pattern ) 
-			| ( open paren, pattern, close paren )
-			| ( open paren, pattern, keyword comma, pattern, { keyword comma, pattern }, close paren ) ; 
-		pattern list = open bracket, pattern, { keyword comma, pattern }, keyword comma, close bracket ;
-	expression = 
-			pattern 
-			| lambda abstraction 
-			| let expression 
-			| case expression 
-			| expression list 
-			| ( expression, expression )
-			| ( open paren, expression, close paren ) ;
-		expression list = open bracket, expression, { keyword comma, expression }, keyword comma, close bracket ;
-		lambda abstraction = backslash, lambda binders, keyword thick arrow, expression ;
-			lambda binders = lambda binder, { keyword comma, lambda binder }, [ keyword comma ] ;
-			lambda binder = ident | typed binder ;
-			typed binder = open paren, typed ident, close paren ;
-		typed ident = ident, keyword colon, type ;
-		let expression = keyword let, ( binding group | binding assignment ), keyword in, expression ;
-			binding group = open paren, binding assignment, { new line, binding assignment }, close paren ;
-			binding assignment = ( 
-					( ident, { new line }, ( "=" | ":=" ) ) 
-					| ( typed ident, { new line }, ":=" ) 
-				), { new line }, expression ;
-		case expression = keyword case, expression, keyword of, case arms ;
-			case arms = case arm | ( open paren, case arm group, close paren ) ;
-			case arm group = case arm, { new line, case arm }, { new line } ;
-			case arm = pattern, keyword equal, expression ;
+			| "(", {"\n"}, enc pattern inner, {"\n"}, ")" 
+			| "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
+		enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
+	expr atom = pattern atom | lambda abstraction ;
+	expr = expr term, {expr term} ;
+	enc expr = expr term, {{"\n"}, expr term} ;
+		expr term = 
+				expr atom
+				| "(", {"\n"}, enc expr, {"\n"}, ")"
+				| let expr 
+				| case expr ;
+		binder = lower ident | upper ident | "(", {"\n"}, enc pattern, {"\n"}, ")" ;
+	lambda abstraction = "\\", {"\n"}, lambda binders, {"\n"}, "=>", {"\n"}, expr ;
+		lambda binders = lambda binder, {{"\n"}, ",", {"\n"}, lambda binder}, [{"\n"}, ","] ;
+		lambda binder = binder | "_" ;
+	let expr = "let", {"\n"}, let binding, {"\n"}, "in", {"\n"}, expr ;
+		let binding = binding group member | "(", {"\n"}, binding group member, {{"\n"}, binding group member}, {"\n"}, ")" ;
+		binding group member = (binder | typing), [{"\n"}, ":=", {"\n"}, expr] ;
+	case expr = "case", {"\n"}, pattern, {"\n"}, "of", {"\n"}, case arms ;
+		case arms = case arm | "(", {"\n"}, case arm, {{"\n"}, case arm}, {"\n"}, ")" ;
+		case arm = pattern, {"\n"}, def body thick arrow ;
 
-footer = [ annotation,  { new line, annotation } ], end of file ;
+annotations_ = annotation, {{"\n"}, annotation}, {"\n"} ;
+	annotation = bound annotation | flat annotation ;
+	flat annotation = ? REGEX "--[ \t]*@[ \t]*[a-z][A-Za-z0-9']*\b.*$" ? ;
+	bound annotation = "[@", {"\n"}, ident, {? ANY OTHER RULE ?}, "]" ;
 
-keyword let = { new line }, "let", { new line } ;
-keyword in = { new line }, "in", { new line } ;
-keyword spec = { new line }, "spec", { new line } ;
-keyword case = { new line } , "case", { new line } ;
-keyword with = { new line } , "with", { new line } ;
-keyword mutual = { new line }, "mutual", { new line } ;
-keyword alias = { new line }, "alias", { new line } ;
-keyword derives = { new line }, "derives", { new line } ;
-keyword of = { new line }, "of", { new line } ;
-keyword dot = { new line }, ".", { new line } ;
-keyword bar = { new line }, "|", { new line} ;
-keyword comma = { new line }, ",", { new line } ;
-keyword equal = { new line }, "=", { new line } ;
-keyword colon equal = { new line }, ":=", { new line } ;
-keyword arrow = { new line }, "->", { new line } ;
-keyword thick arrow = { new line }, "=>", { new line } ;
-keyword colon = { new line }, ":", { new line } ;
-
-lower ident = "[a-z][a-zA-Z0-9']*" ;
-upper ident = "[A-Z][a-zA-Z0-9']*" ;
-spec ident = ( upper ident | symbol | ( "(", upper ident, ")" ) | ( "(", symbol, ")", ) ) ;
-open paren = "(", { new line } ;
-close paren = { new line }, ")" ;
-open bracket = "[", { new line } ;
-close bracket = { new line }, "]" ;
-open brace = "{", { new line } ;
-close brace = { new line }, "}" ;
+lower ident = ? REGEX "[a-z][a-zA-Z0-9']*" ? ;
+upper ident = ? REGEX "[A-Z][a-zA-Z0-9']*" ? ;
+hole = ? REGEX "\?[A-Za-z][A-Za-z0-9']*" ? ;
+infix lower ident = ? REGEX "\([a-z][a-zA-Z0-9']*\)" ? ;
+infix upper ident = ? REGEX "\([A-Z][a-zA-Z0-9']*\)" ? ;
+infix symbol = ? REGEX "\((?![-=]>\B|[.]{1,2}\B|:\B|\?\|)[-/*=<>!@#$%^&|~?+:.]+\)" ? ;
 ident = lower ident | upper ident ;
-symbol = "[-/*=<>!@#$%^&\\|~?+\|:;,.]+" ;
-prefixed name = ident | symbol ;
-infixed name = "(", ( prefixed name ), ")" ;
-name = prefixed name | infixed name ;
-package ident = lower ident, { "/", lower ident }, [ ".", name ] ;
-new line = ? ASCII character 0xA ? ;
+symbol = ? REGEX "(?![-=]>\B|[.]{1,2}\B|:\B|\?\|)[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\)" ? ;
+infix name = infix lower ident | infix upper ident | infix symbol ;
+constructor name = infix upper ident | upper ident | symbol | upper ident ;
+name = ident | symbol | infix name ;
+import path = ? REGEX "\"([a-z][a-zA-Z0-9']*)(/[a-z][a-zA-Z0-9']*)*\"" ? ;
+
+literal = string | integer | float | char ;
+string = raw string | escapable string | prompted string | import path ;
+raw string = ? REGEX "`.*`" ? ;
+escapable string = ? REGEX "\"(\\[afnvtbr\\\"]|[^\a\f\n\v\t\b\r])*\"" ? ;
+integer = decimal | hexadecimal | binary | octal ;
+decimal = ? REGEX "[0-9]+(_[0-9]+)*" ? ;
+hexadecimal = ? REGEX "0[xX][0-9a-fA-F]+(_[0-9a-fA-F]+)*" ? ;
+binary = ? REGEX "0[bB][01]+(_[01]+)*" ? ;
+octal = ? REGEX "0[oO][0-7]+(_[0-7]+)*" ? ;
+float = ? REGEX "([0-9]+(_[0-9]+)*)?(\.[0-9]+(_[0-9]+)*)([eE][\+-][0-9]+(_[0-9]+)*)?" ? ;
+char = ? REGEX "'(\\[afnvtbr\\']|[^\a\f\n\v\t\b\r])'" ? ;
+
 end of file = ? EOF ? ;
-comment = "--[^\n]*" ;
-comments = [ comment, { new line, comment } ] ;
-doc annotation = "@doc\h*", new line, comments ;
-backslash = "\\" ;
 
-(* one or more/some/at least one new line(s) *)
-some new lines = new line, { new line } ;
+reserved = 
+		"deriving"
+		| "module" | "import" | "as" | "using"
+		| "public" | "open" 
+		| "once" | "erase"
+		| "where" | "with" | "requiring" 
+		| "inst" | "spec" | "from" 
+		| "alias" | "syntax"
+		| "case" | "of" | "let" | "forall" | "in"
+		| "=>" | "->" | ":" | ":=" | "=" | "|" | ","
+		| "(" | ")" | "{" | "}" | "[" | "]" | "." | "_"
+		| "impossible"
+		| "auto" ;
+pseudo keyword = nil | unit type | annotation scope head ;
+unit type = "()" ;
+nil = "[]" ;
+annotation scope head = "[@" ;
+comment = ? REGEX "--(?![ \t]*@[a-z]).*$" ? ;
+comments = comment, {{"\n"}, comment} ;
 
-literal value = string | integer | float | char ;
-string = raw string | escapable string ;
-raw string = "`", "[^`]*", "`" ;
-escapable string = "\"", { "\\[afnvtbr\\\"]" | "[^\n]" }, "\"" ;
-integer = "[0-9]+(_[0-9]+)*" ;
-float = "([0-9]+(_[0-9]+)*)?(\.[0-9]+(_[0-9]+)*)([eE][\+-][0-9]+(_[0-9]+)*)?" ;
-char = "'", { "\\[afnvtbr\\']" | "[^\n]" }, "'" ;
+mode = multiplicity | "ref" ;
+dot dot = ".." ;
+syntax specification = "pattern" | "term" ;

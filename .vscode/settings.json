@@ -1,38 +1,39 @@
 {
   "cSpell.words": [
     "annots",
-    "appc",
     "builtins",
-    "DEPFUNC",
-    "Droppables",
-    "fprivate",
     "idents",
     "imprt",
     "insts",
     "kleene",
-    "lextoparse",
     "mult",
     "noprint",
     "printables",
-    "stlc",
     "toks",
-    "Typeas",
+    "ttype",
     "unifications",
-    "Untypable",
-    "wmap",
-    "Yewmod"
+    "Untypable"
   ],
   "files.associations": {
     "*.old": "json",
-    "stdint.h": "c"
+    "stdint.h": "c",
+    "cstdlib": "c",
+    "locale": "c",
+    "new": "c",
+    "ostream": "c",
+    "stdlib.h": "c",
+    "data.h": "c",
+    "stdio.h": "c",
+    "_stdio.h": "c",
+    "libc.h": "c"
   },
 
-  "gopls": {
-    "build.buildFlags": [
-        "-tags=debug"
-    ]
-  },
-  "go.testFlags": [
-    "-tags=debug"
-  ]
+  // "gopls": {
+  //   "build.buildFlags": [
+  //       "-tags=debug"
+  //   ]
+  // },
+  // "go.testFlags": [
+  //   "-tags=debug"
+  // ]
 }

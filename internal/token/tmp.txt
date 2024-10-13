@@ -1,9 +1,0 @@
-Tokens:
-- ImplicitId
-- Trait
-+ Spec
-- Extension
-+ Syntax
-+ At
-- Percent
-- ExtensionKey
