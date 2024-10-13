@@ -75,6 +75,7 @@ const (
 	ExpectedImportPath           string = "expected import path"                                                         // expected-import-path
 	IllegalEmptyUsingClause      string = "illegal empty using clause"                                                   // illegal-empty-using-clause
 	IllegalUnenclosedUsingClause string = "illegal unenclosed symbol selection in using clause"                          // illegal-unenclosed-using-clause
+	ExpectedAccessDot            string = "expected '.'"                                                                 // expected-access-dot
 )
 
 var makePos = (api.Positioned).GetPos

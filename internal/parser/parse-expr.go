@@ -60,7 +60,7 @@ func parseMaybeExpr(p Parser, enclosed bool) (*data.Ers, data.Maybe[expr]) {
 }
 
 func parseJustAppExprOrJustExpr(p Parser, lhs expr, enclosed bool) (*data.Ers, expr) {
-	es, exps, has2ndTerm := parseOneOrMore(p, lhs, enclosed, parseMaybeExprTerm)
+	es, exps, has2ndTerm := parseOneOrMore(p, lhs, enclosed, parseMaybeExprTermRhs)
 	if es != nil {
 		return es, nil
 	}
@@ -79,7 +79,21 @@ func parseJustAppExprOrJustExpr(p Parser, lhs expr, enclosed bool) (*data.Ers, e
 //	expr term = expr atom | "(", {"\n"}, enc expr, {"\n"}, ")" | let expr | case expr ;
 //	```
 func parseMaybeExprTerm(p Parser) (*data.Ers, data.Maybe[expr]) {
-	if lookahead1(p, token.Let) { // "let"
+	return parseMaybeExprTermHelper(p, false)
+}
+
+func parseMaybeExprTermRhs(p Parser) (*data.Ers, data.Maybe[expr]) {
+	return parseMaybeExprTermHelper(p, true)
+}
+
+func parseMaybeExprTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[expr]) {
+	if rhs && lookahead1(p, token.Dot) {
+		es, acc := parseAccess(p)
+		if es != nil {
+			return es, data.Nothing[expr](p)
+		}
+		return nil, data.Just[expr](acc)
+	} else if lookahead1(p, token.Let) { // "let"
 		es, e := parseMaybeLetExpr(p)
 		return es, bind(e, fun.Compose(data.Just, (letExpr).asExpr))
 	} else if lookahead1(p, token.Case) { // "case"

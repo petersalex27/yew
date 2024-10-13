@@ -83,7 +83,7 @@ func parseType(p Parser, enclosed bool) data.Either[data.Ers, typ] {
 // rule:
 //
 //	```
-//	type tail = type term, {type term}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
+//	type tail = type term, {type term rhs}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
 //	```
 func parseMaybeTypeTail(p Parser, enclosed bool) (*data.Ers, data.Maybe[typ]) {
 	es, mTerm := maybeParseTypeTerm(p)
@@ -208,8 +208,22 @@ func assembleForallType(fb forallBinders) func(typ) data.Either[data.Ers, typ] {
 //		| "{", {"\n"}, enc type inner, [{"\n"}, enc typing end, [{"\n"}, default expr]], {"\n"}, "}" ;
 //	```
 func maybeParseTypeTerm(p Parser) (*data.Ers, data.Maybe[typ]) {
+	return maybeParseTypeTermHelper(p, false)
+}
+
+func maybeParseTypeTermRhs(p Parser) (*data.Ers, data.Maybe[typ]) {
+	return maybeParseTypeTermHelper(p, true)
+}
+
+func maybeParseTypeTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[typ]) {
 	var lhsTerm data.Either[data.Ers, typ]
-	if lookahead1(p, exprInTypeL1s...) {
+	if rhs && lookahead1(p, token.Dot) {
+		es, acc := parseAccess(p)
+		if es != nil {
+			return es, data.Nothing[typ](p)
+		}
+		lhsTerm = data.Ok[typ](acc)
+	} else if lookahead1(p, exprInTypeL1s...) {
 		lhsTerm = data.Cases(parseExprAtom(p), data.PassErs[typ], exprAtomAsExprRes)
 	} else if lookahead1(p, token.Underscore, token.EmptyParenEnclosure, token.Equal) {
 		lhsTerm = parseTypeTermException(p) // "_", "()", or "="
@@ -249,7 +263,7 @@ func parseJustAppTypeOrJustType(p Parser, lhs typ, enclosed bool) (*data.Ers, ty
 	if lhs == nil {
 		panic("lhs cannot be nil")
 	}
-	es, types, has2ndTerm := parseOneOrMore(p, lhs, enclosed, maybeParseTypeTerm)
+	es, types, has2ndTerm := parseOneOrMore(p, lhs, enclosed, maybeParseTypeTermRhs)
 	if es != nil {
 		return es, nil
 	}

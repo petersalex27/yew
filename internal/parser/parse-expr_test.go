@@ -14,7 +14,7 @@ import (
 // rule:
 //
 //	```
-//	expr = expr term, {expr term} ;
+//	expr = expr term, {expr term rhs} ;
 //	```
 func TestParseExpr(t *testing.T) {
 	tests := []struct {
@@ -36,6 +36,21 @@ func TestParseExpr(t *testing.T) {
 			"2 + k expr terms (tested w/ k=1)",
 			[]api.Token{id_x_tok, id_x_tok, id_x_tok},
 			exprAppNode2,
+		},
+		{
+			"expr w/ access - 0",
+			[]api.Token{id_x_tok, dot, id_x_tok},
+			exprAppAccess,
+		},
+		{
+			"expr w/ access - 1",
+			[]api.Token{id_x_tok, dot, newline, id_x_tok},
+			exprAppAccess,
+		},
+		{
+			"expr w/ double access",
+			[]api.Token{id_x_tok, dot, id_x_tok, dot, id_x_tok},
+			exprAppAccessDouble,
 		},
 	}
 

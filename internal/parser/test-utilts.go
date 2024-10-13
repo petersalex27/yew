@@ -75,6 +75,7 @@ var (
 	forall      = token.Forall.Make()     // forall
 	moduleTok   = token.Module.Make()     // module
 	importTok   = token.Import.Make()     // import
+	dot         = token.Dot.Make()        // .
 
 	// nodes
 	name_x                = data.EOne[name](id_x_tok)
@@ -97,13 +98,19 @@ var (
 	pattern_x_x           = data.Construct[pattern](name_x, name_x)                                                      // x, x OR x x
 	exprAtomNode          = data.Inl[lambdaAbstraction](patternAtomNode)                                                 // x
 	exprNode              = expr(name_x)                                                                                 // x
-	_exprGroup            = data.Construct[expr](exprNode, exprNode)                                                     // x x
+	_exprGroup            = data.Construct(exprNode, exprNode)                                                           // x x
+	_exprAccGroup         = data.Construct[expr](access(name_x), access(name_x))                                         // .x.x
 	_patternGroup         = data.Construct[pattern](name_x, name_x)                                                      // x x
+	_patternAccGroup      = data.Construct[pattern](access(name_x), access(name_x))                                      // .x.x
 	exprAppNode           = expr(data.EMakePair[exprApp](exprNode, data.Singleton(exprNode)))                            // x x
 	exprAppNode2          = expr(data.EMakePair[exprApp](exprNode, _exprGroup))                                          // x x x
+	exprAppAccess         = expr(data.EMakePair[exprApp](exprNode, data.Singleton[expr](access(name_x))))                // x.x
+	exprAppAccessDouble   = expr(data.EMakePair[exprApp](exprNode, _exprAccGroup))                                       // x.x.x
 	patternNode           = pattern(name_x)                                                                              // x
 	patternAppNode        = pattern(data.EMakePair[patternApp](patternNode, data.Singleton(patternNode)))                // x x
 	patternAppNode2       = pattern(data.EMakePair[patternApp](patternNode, _patternGroup))                              // x x x
+	patternAppAccess      = pattern(data.EMakePair[patternApp](patternNode, data.Singleton[pattern](access(name_x))))    // x.x
+	patternAppAccessDouble = pattern(data.EMakePair[patternApp](patternNode, _patternAccGroup))                          // x.x.x
 	encPattern            = pattern(patternEnclosed{NonEmpty: enc})                                                      // ( x )
 	encPattern2           = pattern(patternEnclosed{NonEmpty: pattern_x_x})                                              // (x, x)
 	encPatternImplicit    = pattern(patternEnclosed{NonEmpty: enc, implicit: true})                                      // {x}
@@ -148,6 +155,9 @@ var (
 
 	// type nodes
 
+	_typeAccGroup                     = data.Construct[typ](access(name_x), access(name_x))                             // .x.x
+	appTypeAccessNode                 = typ(data.EMakePair[appType](typ_x, data.Singleton[typ](access(name_x))))        // x.x
+	appTypeAccessDoubleNode           = typ(data.EMakePair[appType](typ_x, _typeAccGroup))                              // x.x.x
 	eraseMultiplicity                 = data.EOne[modality](eraseTok)                                                   // erase
 	onceMultiplicity                  = data.EOne[modality](onceTok)                                                    // once
 	innerTypeTermsSeq                 = data.EConstruct[innerTypeTerms](typ_x, typ_x)                                   // x, x
@@ -220,8 +230,8 @@ func createTestSourceCodeFromTokens(tokens []api.Token) *source.SourceCode {
 
 func initTestParser(input []api.Token) *ParserState {
 	scanner := &testScanner{
-		tokens: input,
-		counter: 0,
+		tokens:     input,
+		counter:    0,
 		SourceCode: createTestSourceCodeFromTokens(input),
 	}
 

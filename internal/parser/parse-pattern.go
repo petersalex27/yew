@@ -78,8 +78,8 @@ func maybeParsePattern(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern])
 		return nil, data.Nothing[pattern](p)
 	}
 
-	maybeFunc := fun.BinBind1st_PairTarget(maybeParsePatternTerm, enclosed)
-	es, res, has2ndTerm := parseOneOrMore[pattern](p, first, enclosed, maybeFunc)
+	maybeFunc := fun.BinBind1st_PairTarget( /* note RHS here! */ maybeParsePatternTermRhs, enclosed)
+	es, res, has2ndTerm := parseOneOrMore(p, first, enclosed, maybeFunc)
 	if es != nil {
 		return es, data.Nothing[pattern](p)
 	} else if !has2ndTerm {
@@ -102,19 +102,34 @@ func closeEnclosedPattern(p Parser, opener api.Token, closerType token.Type) fun
 	}
 }
 
-// rule:
-//
-//	```
-//	enc pattern term = "=" | pattern term ;
-//	pattern term =
-//		pattern atom
-//		| "_"
-//		| "(", {"\n"}, enc pattern inner, {"\n"}, ")"
-//		| "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
-//	enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
-//	```
-func maybeParsePatternTerm(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
-	if enclosed && matchCurrentEqual(p) {
+func parseAccess(p Parser) (_ *data.Ers, acc access) {
+	dot, found := getKeywordAtCurrent(p, token.Dot)
+	if !found {
+		e := data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedAccessDot, p))
+		return &e, acc
+	}
+
+	es, mName := parseMaybeName(p)
+	if es != nil {
+		return es, acc
+	} else if name, just := mName.Break(); !just {
+		e := data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedName, p))
+		return &e, acc
+	} else {
+		acc = access(name)
+		acc.Position = acc.Update(dot)
+		return nil, acc
+	}
+}
+
+func maybeParsePatternTermHelper(p Parser, enclosed bool, rhs bool) (*data.Ers, data.Maybe[pattern]) {
+	if rhs && token.Dot.Match(p.current()) {
+		es, res := parseAccess(p)
+		if es != nil {
+			return es, data.Nothing[pattern](p)
+		}
+		return nil, data.Just[pattern](res)
+	} else if enclosed && matchCurrentEqual(p) {
 		// allow '=' to be used as a pattern term as long as the term(s) is/are enclosed
 		eq := pattern(data.EOne[name](p.current()))
 		p.advance()
@@ -159,4 +174,23 @@ func maybeParsePatternTerm(p Parser, enclosed bool) (*data.Ers, data.Maybe[patte
 		return &esOut, data.Nothing[pattern](p)
 	}
 	return nil, data.Just(out)
+}
+
+// rule:
+//
+//	```
+//	enc pattern term = "=" | pattern term ;
+//	pattern term =
+//		pattern atom
+//		| "_"
+//		| "(", {"\n"}, enc pattern inner, {"\n"}, ")"
+//		| "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
+//	enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
+//	```
+func maybeParsePatternTerm(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
+	return maybeParsePatternTermHelper(p, enclosed, false)
+}
+
+func maybeParsePatternTermRhs(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
+	return maybeParsePatternTermHelper(p, enclosed, true)
 }

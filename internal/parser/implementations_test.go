@@ -38,6 +38,7 @@ func Test_assert_expr(*testing.T) {
 		_ expr = literal{}
 		_ expr = hole{}
 		_ expr = name{}
+		_ expr = access{}
 		_ expr = lambdaAbstraction{}
 		_ expr = letExpr{}
 		// it's not a mistake that lambdaAbstraction is missing, it's included w/in exprRoot
@@ -66,6 +67,7 @@ func Test_assert_typ(*testing.T) {
 		_ typ = literal{}
 		_ typ = hole{}
 		_ typ = name{}
+		_ typ = access{}
 		_ typ = lambdaAbstraction{}
 		_ typ = forallType{}
 		_ typ = functionType{}
@@ -92,6 +94,7 @@ func Test_assert_visibleBodyElement(*testing.T) {
 
 func Test_assert_DescribableNode(t *testing.T) {
 	var (
+		_ api.DescribableNode = access{}
 		_ api.DescribableNode = annotations{}
 		_ api.DescribableNode = appType{}
 		_ api.DescribableNode = body{}

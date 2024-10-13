@@ -6,6 +6,9 @@ import (
 )
 
 type (
+	// a dot followed by a name, e.g., `.run`
+	access struct{ data.Solo[api.Token] }
+
 	// an annotation, e.g., `--@infixr 0 ($)` and `[@infixr 0 ($)]`
 	annotation = data.Either[flatAnnotation, enclosedAnnotation]
 

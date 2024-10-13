@@ -14,7 +14,7 @@ import (
 // rule:
 //
 //	```
-//	pattern = pattern term, {pattern term} ;
+//	pattern = pattern term, {pattern term rhs} ;
 //	```
 func TestParsePattern(t *testing.T) {
 	tests := []struct {
@@ -36,6 +36,21 @@ func TestParsePattern(t *testing.T) {
 			"three",
 			[]api.Token{id_x_tok, id_x_tok, id_x_tok},
 			patternAppNode2, // x x x
+		},
+		{
+			"access - 0",
+			[]api.Token{id_x_tok, dot, id_x_tok},
+			patternAppAccess, // x.x
+		},
+		{
+			"access - 1",
+			[]api.Token{id_x_tok, dot, newline, id_x_tok},
+			patternAppAccess, // x.\nx
+		},
+		{
+			"double access",
+			[]api.Token{id_x_tok, dot, id_x_tok, dot, id_x_tok},
+			patternAppAccessDouble, // x.x.x
 		},
 	}
 

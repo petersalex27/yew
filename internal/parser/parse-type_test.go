@@ -99,7 +99,7 @@ func TestParseType(t *testing.T) {
 // rule:
 //
 //	```
-//	type tail = type term, {type term}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
+//	type tail = type term, {type term rhs}, [{"\n"}, arrow, {"\n"}, type tail] ;
 //	```
 func TestParseTypeTail(t *testing.T) {
 	tests := []struct {
@@ -138,6 +138,24 @@ func TestParseTypeTail(t *testing.T) {
 			[]api.Token{id_x_tok, newline, id_x_tok},
 			data.MakeApp[appType](typ_x, typ_x),
 			true,
+		},
+		{
+			"access - 0",
+			[]api.Token{id_x_tok, dot, id_x_tok},
+			appTypeAccessNode, // x.x
+			false,
+		},
+		{
+			"access - 1",
+			[]api.Token{id_x_tok, dot, newline, id_x_tok},
+			appTypeAccessNode, // x.\nx
+			false,
+		},
+		{
+			"double access",
+			[]api.Token{id_x_tok, dot, id_x_tok, dot, id_x_tok},
+			appTypeAccessDoubleNode, // x.x.x
+			false,
 		},
 		// function cases
 		{

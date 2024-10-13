@@ -17,6 +17,26 @@ var (
 	exprAtomAsExprRes    = fun.Compose(data.Inr[data.Ers], exprAtomAsTyp)
 )
 
+// = access ========================================================================================
+
+// access implements expr
+func (expr access) updatePosExpr(p api.Positioned) expr {
+	expr.Position = expr.Update(p)
+	return expr
+}
+
+// access implements pattern
+func (pat access) updatePosPattern(p api.Positioned) pattern {
+	pat.Position = pat.Update(p)
+	return pat
+}
+
+// access implements typ
+func (ty access) updatePosTyp(p api.Positioned) typ {
+	ty.Position = ty.Update(p)
+	return ty
+}
+
 // = appType =======================================================================================
 
 // appType implements typ

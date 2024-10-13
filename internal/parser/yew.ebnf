@@ -122,8 +122,9 @@ body = {{"\n"}, [annotations_], body elem} ;
       | "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
     enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
   expr atom = pattern atom | lambda abstraction ;
-  expr = expr term, {expr term | access} ;
-  enc expr = expr term, {{"\n"}, expr term} ;
+  expr = expr term, {expr term rhs} ;
+  enc expr = expr term, {{"\n"}, expr term rhs} ;
+    expr term rhs = expr term | access ;
     expr term = 
         expr atom
         | "(", {"\n"}, enc expr, {"\n"}, ")"
