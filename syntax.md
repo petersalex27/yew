@@ -77,6 +77,9 @@ syntax                               -- syntax def.
 ```
 
 ## EBNF
+
+NOTE: There might be slight inconsistencies with the *actual* grammar. The most accurate representation of Yew's grammar can be found in `./internal/parser/yew.ebnf`
+
 ```ebnf
 (* root *)
 yew source = {"\n"}, [meta, {"\n"}], [header, {"\n"}], [body, {"\n"}], footer ; 
@@ -134,7 +137,7 @@ body = {{"\n"}, [annotations_], body elem} ;
         "impossible"
         | [annotations_], type constructor
         | "(", {"\n"}, [annotations_], type constructor, {{"\n"}, [annotations_], type constructor}, {"\n"}, ")" ;
-    type constructor = constructor ident, {"\n"}, ":", {"\n"}, type ;
+    type constructor = constructor name, {"\n"}, ":", {"\n"}, type ;
     deriving clause = "deriving", {"\n"}, deriving body ;
     deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
   type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
@@ -147,8 +150,7 @@ body = {{"\n"}, [annotations_], body elem} ;
         spec member 
         | "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
     spec member = [annotations_], def | [annotations_], typing ;
-    requiring clause = 
-        "requiring", {"\n"}, 
+    requiring clause = "requiring", {"\n"}, 
         ( [annotations_], def 
         | "(", {"\n"}, [annotations_], def, {{"\n"}, [annotations_], def}, {"\n"}, ")" 
         ) ;
@@ -163,8 +165,11 @@ body = {{"\n"}, [annotations_], body elem} ;
   pattern typing = pattern, {"\n"}, ":", {"\n"}, type ;
   enc type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], enc type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
   type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
-  type tail = type term, {type tail}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
-  enc type tail = type term, ([{"\n"}, "=>", {"\n"}, enc type tail] | {{"\n"}, enc type tail}) ;
+  type tail = type term, {type term rhs}, [{"\n"}, function rhs] ;
+  enc type tail = type term, {{"\n"}, type term rhs}, [{"\n"}, function rhs] ;
+    type term rhs = type term | access ;
+    function rhs = arrow, {"\n"}, type tail ;
+    arrow = "->" | "=>" ;
     type term =
         expr atom
         | "_" | "()" | "="
@@ -187,9 +192,12 @@ body = {{"\n"}, [annotations_], body elem} ;
           | with clause arm ;
       with clause arm = [pattern, {"\n"}, "|", {"\n"}], pattern, {"\n"}, def body thick arrow ;
   pattern atom = literal | name | "[]" | hole ;
-  pattern = pattern term, {pattern term} ;
-  enc pattern = enc pattern term, {{"\n"}, enc pattern term} ;
+  pattern = pattern term, {pattern term rhs} ;
+  access = ".", {"\n"}, name ;
+  pattern term rhs = pattern term | access ;
+  enc pattern = enc pattern term, {{"\n"}, enc pattern term rhs} ;
   enc pattern term = "=" | pattern term ; 
+  enc pattern term rhs = enc pattern term | access ;
   pattern term = 
       pattern atom 
       | "_"
@@ -197,7 +205,7 @@ body = {{"\n"}, [annotations_], body elem} ;
       | "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
     enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
   expr atom = pattern atom | lambda abstraction ;
-  expr = expr term, {expr term} ;
+  expr = expr term, {expr term | access} ;
   enc expr = expr term, {{"\n"}, expr term} ;
     expr term = 
         expr atom
@@ -235,9 +243,10 @@ infix upper ident = ? REGEX "\([A-Z][a-zA-Z0-9']*\)" ? ;
 infix symbol = ? REGEX "\((?![-=]>\B|[.]{1,2}\B|:\B|\?\|)[-/*=<>!@#$%^&|~?+:.]+\)" ? ;
 ident = lower ident | upper ident ;
 symbol = ? REGEX "(?![-=]>\B|[.]{1,2}\B|:\B|\?\|)[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\)" ? ;
+method symbol = ? REGEX "\([.]([a-z][A-Z0-9']*|[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\))\)" ? ;
 infix name = infix lower ident | infix upper ident | infix symbol ;
 constructor name = infix upper ident | upper ident | symbol | upper ident ;
-name = ident | symbol | infix name ;
+name = ident | symbol | infix name | method symbol ;
 import path = ? REGEX "\"([a-z][a-zA-Z0-9']*)(/[a-z][a-zA-Z0-9']*)*\"" ? ;
 
 (* literals *)
