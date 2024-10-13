@@ -17,30 +17,31 @@ import (
 
 var (
 	// tokens (as api.Token interface)
-	id_x_tok         api.Token = token.Id.MakeValued("x")               // x
-	id_MyId_tok      api.Token = token.Id.MakeValued("MyId")            // MyId
-	underscoreTok    api.Token = token.Underscore.Make()                // _
-	floatValTok      api.Token = token.FloatValue.MakeValued("1.0")     // 1.0
-	charValTok       api.Token = token.CharValue.MakeValued("a")        // 'a'
-	stringValTok     api.Token = token.StringValue.MakeValued("abc")    // "abc"
-	rawStringValTok  api.Token = token.RawStringValue.MakeValued("abc") // `abc`
-	importPathTok    api.Token = token.ImportPath.MakeValued("a/b/c")   // "a/b/c"
-	integerValTok    api.Token = token.IntValue.MakeValued("1")         // 1
-	nilListTok       api.Token = token.EmptyBracketEnclosure.Make()     // []
-	unitTypeTok      api.Token = token.EmptyParenEnclosure.Make()       // ()
-	hole_x_tok       api.Token = token.Hole.MakeValued("?x")            // ?x
-	hole_MyId_tok    api.Token = token.Hole.MakeValued("?MyId")         // ?MyId
-	id_dollar_tok    api.Token = token.Id.MakeValued("$")               // $
-	infix_dollar_tok api.Token = token.Infix.MakeValued("($)")          // ($)
-	__               api.Token = token.Underscore.Make()                // just a placeholder
-	equalTok         api.Token = token.Equal.Make()                     // =
-	eraseTok         api.Token = token.Erase.Make()                     // erase
-	onceTok          api.Token = token.Once.Make()                      // once
-	annotOpenTok     api.Token = token.LeftBracketAt.Make()
-	id_test_tok      api.Token = token.Id.MakeValued("test")
-	lbracketToken    api.Token = token.LeftBracket.Make()
-	rbracket         api.Token = token.RightBracket.Make()
-	annot            api.Token = token.Token{Typ: token.FlatAnnotation, Value: "--@test"}
+	id_x_tok         api.Token = token.Id.MakeValued("x")                   // x
+	id_MyId_tok      api.Token = token.Id.MakeValued("MyId")                // MyId
+	underscoreTok    api.Token = token.Underscore.Make()                    // _
+	floatValTok      api.Token = token.FloatValue.MakeValued("1.0")         // 1.0
+	charValTok       api.Token = token.CharValue.MakeValued("a")            // 'a'
+	stringValTok     api.Token = token.StringValue.MakeValued("abc")        // "abc"
+	rawStringValTok  api.Token = token.RawStringValue.MakeValued("abc")     // `abc`
+	importPathTok    api.Token = token.ImportPath.MakeValued("a/b/c")       // "a/b/c"
+	integerValTok    api.Token = token.IntValue.MakeValued("1")             // 1
+	nilListTok       api.Token = token.EmptyBracketEnclosure.Make()         // []
+	unitTypeTok      api.Token = token.EmptyParenEnclosure.Make()           // ()
+	hole_x_tok       api.Token = token.Hole.MakeValued("?x")                // ?x
+	hole_MyId_tok    api.Token = token.Hole.MakeValued("?MyId")             // ?MyId
+	id_dollar_tok    api.Token = token.Id.MakeValued("$")                   // $
+	infix_dollar_tok api.Token = token.Infix.MakeValued("$")                // ($)
+	method_run_tok   api.Token = token.MethodSymbol.MakeValued("run")       // (.run)
+	__               api.Token = token.Underscore.Make()                    // just a placeholder
+	equalTok         api.Token = token.Equal.Make()                         // =
+	eraseTok         api.Token = token.Erase.Make()                         // erase
+	onceTok          api.Token = token.Once.Make()                          // once
+	annotOpenTok     api.Token = token.LeftBracketAt.Make()                 // [@
+	id_test_tok      api.Token = token.Id.MakeValued("test")                // test
+	lbracket         api.Token = token.LeftBracket.Make()                   // [
+	rbracket         api.Token = token.RightBracket.Make()                  // ]
+	annot            api.Token = token.FlatAnnotation.MakeValued("--@test") // doesn't matter, but I think the value should technically just be "test"
 
 	// tokens
 	backslash   = token.Backslash.Make()  // \
@@ -78,80 +79,81 @@ var (
 	dot         = token.Dot.Make()        // .
 
 	// nodes
-	name_x                = data.EOne[name](id_x_tok)
-	name_eq               = data.EOne[name](equalTok)                                                                    // x
-	name_MyId             = data.EOne[name](id_MyId_tok)                                                                 // MyId
-	name_dollar           = data.EOne[name](id_dollar_tok)                                                               // $
-	name_infix_dollar     = data.EOne[name](infix_dollar_tok)                                                            // ($)
-	holeNode              = data.EOne[hole](hole_x_tok)                                                                  // ?x
-	holePatName           = data.Inl[name](holeNode)                                                                     // ?x
-	nilList               = data.Inr[hole](data.EOne[name](nilListTok))                                                  // []
-	literalNode           = data.EOne[literal](integerValTok)                                                            // 1
-	x_as_lower            = data.EOne[lowerIdent](id_x_tok)                                                              // x
-	MyId_as_upper         = data.EOne[upperIdent](id_MyId_tok)                                                           // MyId
-	lowerId               = data.Inl[upperIdent](x_as_lower)                                                             // x
-	upperId               = data.Inr[lowerIdent](MyId_as_upper)                                                          // MyId
-	patternName_x         = data.Inr[hole](name_x)                                                                       // x
-	patternName_eq        = data.Inr[hole](name_eq)                                                                      // =
-	patternAtomNode       = data.Inr[literal](patternName_x)                                                             // x
-	enc                   = data.Singleton[pattern](name_x)                                                              // x
-	pattern_x_x           = data.Construct[pattern](name_x, name_x)                                                      // x, x OR x x
-	exprAtomNode          = data.Inl[lambdaAbstraction](patternAtomNode)                                                 // x
-	exprNode              = expr(name_x)                                                                                 // x
-	_exprGroup            = data.Construct(exprNode, exprNode)                                                           // x x
-	_exprAccGroup         = data.Construct[expr](access(name_x), access(name_x))                                         // .x.x
-	_patternGroup         = data.Construct[pattern](name_x, name_x)                                                      // x x
-	_patternAccGroup      = data.Construct[pattern](access(name_x), access(name_x))                                      // .x.x
-	exprAppNode           = expr(data.EMakePair[exprApp](exprNode, data.Singleton(exprNode)))                            // x x
-	exprAppNode2          = expr(data.EMakePair[exprApp](exprNode, _exprGroup))                                          // x x x
-	exprAppAccess         = expr(data.EMakePair[exprApp](exprNode, data.Singleton[expr](access(name_x))))                // x.x
-	exprAppAccessDouble   = expr(data.EMakePair[exprApp](exprNode, _exprAccGroup))                                       // x.x.x
-	patternNode           = pattern(name_x)                                                                              // x
-	patternAppNode        = pattern(data.EMakePair[patternApp](patternNode, data.Singleton(patternNode)))                // x x
-	patternAppNode2       = pattern(data.EMakePair[patternApp](patternNode, _patternGroup))                              // x x x
-	patternAppAccess      = pattern(data.EMakePair[patternApp](patternNode, data.Singleton[pattern](access(name_x))))    // x.x
-	patternAppAccessDouble = pattern(data.EMakePair[patternApp](patternNode, _patternAccGroup))                          // x.x.x
-	encPattern            = pattern(patternEnclosed{NonEmpty: enc})                                                      // ( x )
-	encPattern2           = pattern(patternEnclosed{NonEmpty: pattern_x_x})                                              // (x, x)
-	encPatternImplicit    = pattern(patternEnclosed{NonEmpty: enc, implicit: true})                                      // {x}
-	encPattern2Implicit   = pattern(patternEnclosed{NonEmpty: pattern_x_x, implicit: true})                              // {x, x}
-	wildcardNode          = wildcard{data.One(underscoreTok)}                                                            // _
-	lowerBinder           = data.Inl[pattern](lowerId)                                                                   // x
-	lambdaBinderNode      = data.EInl[lambdaBinder](lowerBinder)                                                         // x
-	lambdaBinders1        = data.EConstruct[lambdaBinders](lambdaBinderNode)                                             // x
-	lambdaBinders2        = data.EConstruct[lambdaBinders](lambdaBinderNode, lambdaBinderNode)                           // x, x
-	lambdaAbs1            = data.EMakePair[lambdaAbstraction](lambdaBinders1, exprNode)                                  // \x => x
-	lambdaAbs2            = data.EMakePair[lambdaAbstraction](lambdaBinders2, exprNode)                                  // \x, x => x
-	typ_x                 = typ(name_x)                                                                                  // x
-	enclosedExpr          = expr(name_x)                                                                                 // x
-	_noAnnots             = data.Nothing[annotations]()                                                                  //
-	_noVis                = data.Nothing[visibility]()                                                                   //
-	typingPair            = data.MakePair(name_x, typ_x)                                                                 // x : x
-	typingNode            = typing{annotations: _noAnnots, visibility: _noVis, typing: typingPair}                       // x : x
-	bindingGroupMem_def   = bindingGroupMember(data.Inl[typingMember](data.MakePair(lowerBinder, exprNode)))             // x := x
-	bindingGroupMem_typ   = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Nothing[expr]())))  // x : x
-	bindingGroupMem_typ_2 = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Just(exprNode))))   // x : x := x
-	letBinding_b          = data.EConstruct[letBinding](bindingGroupMem_def)                                             // x := x
-	letBinding_t          = data.EConstruct[letBinding](bindingGroupMem_typ)                                             // x : x
-	letBinding_a          = data.EConstruct[letBinding](bindingGroupMem_typ_2)                                           // x : x := x
-	letBinding_bt         = data.EConstruct[letBinding](bindingGroupMem_def, bindingGroupMem_typ)                        // x := x; x : x
-	letExprNode           = data.EMakePair[letExpr](letBinding_b, exprNode)                                              // let x := x in x
-	defBodyPossible_x     = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Nothing[whereClause]()) // x
-	defBody_x             = data.EInr[defBody](defBodyPossible_x)                                                        // x
-	caseArmNode           = data.EMakePair[caseArm](pattern(name_x), defBody_x)                                          // x => x
-	caseExprNode          = data.EMakePair[caseExpr](pattern(name_x), data.EConstruct[caseArms](caseArmNode))            // case x of x => x
+	name_x                 = data.EOne[name](id_x_tok)
+	name_eq                = data.EOne[name](equalTok)                                                                    // x
+	name_MyId              = data.EOne[name](id_MyId_tok)                                                                 // MyId
+	name_dollar            = data.EOne[name](id_dollar_tok)                                                               // $
+	name_infix_dollar      = data.EOne[name](infix_dollar_tok)                                                            // ($)
+	name_method_run        = data.EOne[name](method_run_tok)                                                              // (.run)
+	holeNode               = data.EOne[hole](hole_x_tok)                                                                  // ?x
+	holePatName            = data.Inl[name](holeNode)                                                                     // ?x
+	nilList                = data.Inr[hole](data.EOne[name](nilListTok))                                                  // []
+	literalNode            = data.EOne[literal](integerValTok)                                                            // 1
+	x_as_lower             = data.EOne[lowerIdent](id_x_tok)                                                              // x
+	MyId_as_upper          = data.EOne[upperIdent](id_MyId_tok)                                                           // MyId
+	lowerId                = data.Inl[upperIdent](x_as_lower)                                                             // x
+	upperId                = data.Inr[lowerIdent](MyId_as_upper)                                                          // MyId
+	patternName_x          = data.Inr[hole](name_x)                                                                       // x
+	patternName_eq         = data.Inr[hole](name_eq)                                                                      // =
+	patternAtomNode        = data.Inr[literal](patternName_x)                                                             // x
+	enc                    = data.Singleton[pattern](name_x)                                                              // x
+	pattern_x_x            = data.Construct[pattern](name_x, name_x)                                                      // x, x OR x x
+	exprAtomNode           = data.Inl[lambdaAbstraction](patternAtomNode)                                                 // x
+	exprNode               = expr(name_x)                                                                                 // x
+	_exprGroup             = data.Construct(exprNode, exprNode)                                                           // x x
+	_exprAccGroup          = data.Construct[expr](access(name_x), access(name_x))                                         // .x.x
+	_patternGroup          = data.Construct[pattern](name_x, name_x)                                                      // x x
+	_patternAccGroup       = data.Construct[pattern](access(name_x), access(name_x))                                      // .x.x
+	exprAppNode            = expr(data.EMakePair[exprApp](exprNode, data.Singleton(exprNode)))                            // x x
+	exprAppNode2           = expr(data.EMakePair[exprApp](exprNode, _exprGroup))                                          // x x x
+	exprAppAccess          = expr(data.EMakePair[exprApp](exprNode, data.Singleton[expr](access(name_x))))                // x.x
+	exprAppAccessDouble    = expr(data.EMakePair[exprApp](exprNode, _exprAccGroup))                                       // x.x.x
+	patternNode            = pattern(name_x)                                                                              // x
+	patternAppNode         = pattern(data.EMakePair[patternApp](patternNode, data.Singleton(patternNode)))                // x x
+	patternAppNode2        = pattern(data.EMakePair[patternApp](patternNode, _patternGroup))                              // x x x
+	patternAppAccess       = pattern(data.EMakePair[patternApp](patternNode, data.Singleton[pattern](access(name_x))))    // x.x
+	patternAppAccessDouble = pattern(data.EMakePair[patternApp](patternNode, _patternAccGroup))                           // x.x.x
+	encPattern             = pattern(patternEnclosed{NonEmpty: enc})                                                      // ( x )
+	encPattern2            = pattern(patternEnclosed{NonEmpty: pattern_x_x})                                              // (x, x)
+	encPatternImplicit     = pattern(patternEnclosed{NonEmpty: enc, implicit: true})                                      // {x}
+	encPattern2Implicit    = pattern(patternEnclosed{NonEmpty: pattern_x_x, implicit: true})                              // {x, x}
+	wildcardNode           = wildcard{data.One(underscoreTok)}                                                            // _
+	lowerBinder            = data.Inl[pattern](lowerId)                                                                   // x
+	lambdaBinderNode       = data.EInl[lambdaBinder](lowerBinder)                                                         // x
+	lambdaBinders1         = data.EConstruct[lambdaBinders](lambdaBinderNode)                                             // x
+	lambdaBinders2         = data.EConstruct[lambdaBinders](lambdaBinderNode, lambdaBinderNode)                           // x, x
+	lambdaAbs1             = data.EMakePair[lambdaAbstraction](lambdaBinders1, exprNode)                                  // \x => x
+	lambdaAbs2             = data.EMakePair[lambdaAbstraction](lambdaBinders2, exprNode)                                  // \x, x => x
+	typ_x                  = typ(name_x)                                                                                  // x
+	enclosedExpr           = expr(name_x)                                                                                 // x
+	_noAnnots              = data.Nothing[annotations]()                                                                  //
+	_noVis                 = data.Nothing[visibility]()                                                                   //
+	typingPair             = data.MakePair(name_x, typ_x)                                                                 // x : x
+	typingNode             = typing{annotations: _noAnnots, visibility: _noVis, typing: typingPair}                       // x : x
+	bindingGroupMem_def    = bindingGroupMember(data.Inl[typingMember](data.MakePair(lowerBinder, exprNode)))             // x := x
+	bindingGroupMem_typ    = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Nothing[expr]())))  // x : x
+	bindingGroupMem_typ_2  = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Just(exprNode))))   // x : x := x
+	letBinding_b           = data.EConstruct[letBinding](bindingGroupMem_def)                                             // x := x
+	letBinding_t           = data.EConstruct[letBinding](bindingGroupMem_typ)                                             // x : x
+	letBinding_a           = data.EConstruct[letBinding](bindingGroupMem_typ_2)                                           // x : x := x
+	letBinding_bt          = data.EConstruct[letBinding](bindingGroupMem_def, bindingGroupMem_typ)                        // x := x; x : x
+	letExprNode            = data.EMakePair[letExpr](letBinding_b, exprNode)                                              // let x := x in x
+	defBodyPossible_x      = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Nothing[whereClause]()) // x
+	defBody_x              = data.EInr[defBody](defBodyPossible_x)                                                        // x
+	caseArmNode            = data.EMakePair[caseArm](pattern(name_x), defBody_x)                                          // x => x
+	caseExprNode           = data.EMakePair[caseExpr](pattern(name_x), data.EConstruct[caseArms](caseArmNode))            // case x of x => x
 
 	// annotation nodes
 
-	test_id                = data.Inl[upperIdent](data.EOne[lowerIdent](id_test_tok))                                           // test
-	flatAnnot              = data.EOne[flatAnnotation](annot)                                                                   // --@test
-	annotSimple            = data.EMakePair[enclosedAnnotation](test_id, data.Nil[api.Node]())                                  // [@test]
-	annotSomeContent       = data.EMakePair[enclosedAnnotation](test_id, data.Nil[api.Node](1).Snoc(id_test_tok))               // [@test test]
-	annotWithInnerBrackets = data.EMakePair[enclosedAnnotation](test_id, data.Nil[api.Node](2).Append(lbracketToken, rbracket)) // [@test[]]
-	annotation_enclosed    = annotation(data.Inr[flatAnnotation](annotSimple))                                                  // [@test]
-	annotation_flat        = annotation(data.Inl[enclosedAnnotation](flatAnnot))                                                // --@test
-	annotationBlock1       = data.EConstruct[annotations](annotation_flat)                                                      // --@test
-	annotationBlock2       = annotations{data.Construct[annotation](annotation_flat).Snoc(annotation_enclosed)}                 // --@test\n[@test]
+	test_id                = data.Inl[upperIdent](data.EOne[lowerIdent](id_test_tok))                                      // test
+	flatAnnot              = data.EOne[flatAnnotation](annot)                                                              // --@test
+	annotSimple            = data.EMakePair[enclosedAnnotation](test_id, data.Nil[api.Node]())                             // [@test]
+	annotSomeContent       = data.EMakePair[enclosedAnnotation](test_id, data.Nil[api.Node](1).Snoc(id_test_tok))          // [@test test]
+	annotWithInnerBrackets = data.EMakePair[enclosedAnnotation](test_id, data.Nil[api.Node](2).Append(lbracket, rbracket)) // [@test[]]
+	annotation_enclosed    = annotation(data.Inr[flatAnnotation](annotSimple))                                             // [@test]
+	annotation_flat        = annotation(data.Inl[enclosedAnnotation](flatAnnot))                                           // --@test
+	annotationBlock1       = data.EConstruct[annotations](annotation_flat)                                                 // --@test
+	annotationBlock2       = annotations{data.Construct[annotation](annotation_flat).Snoc(annotation_enclosed)}            // --@test\n[@test]
 
 	// type nodes
 

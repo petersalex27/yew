@@ -171,7 +171,7 @@ func TestParseOptionalEnclosedAnnotation(t *testing.T) {
 		{
 			"has inner brackets",
 			[]api.Token{
-				annotOpenTok, id_test_tok, lbracketToken, rbracket, rbracket,
+				annotOpenTok, id_test_tok, lbracket, rbracket, rbracket,
 			},
 			data.Ok(data.Just(annotWithInnerBrackets)),
 		},

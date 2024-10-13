@@ -180,6 +180,11 @@ func TestMaybeParseName(t *testing.T) {
 			[]api.Token{infix_dollar_tok}, // ($)
 			data.Just(name_infix_dollar),
 		},
+		{
+			"method",
+			[]api.Token{method_run_tok}, // (.run)
+			data.Just(name_method_run),
+		},
 	}
 
 	for _, test := range tests {

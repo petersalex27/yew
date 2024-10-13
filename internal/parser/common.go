@@ -28,6 +28,7 @@ var (
 	matchCurrentForall      = matchCurrent(token.Forall)
 	matchCurrentInfix       = matchCurrent(token.Infix)
 	matchCurrentRawString   = matchCurrent(token.RawStringValue)
+	matchCurrentMethodId    = matchCurrent(token.MethodSymbol)
 
 	notMatchCurrent = func(t token.Type) func(Parser) bool {
 		return func(p Parser) bool { return !matchCurrent(t)(p) }
@@ -55,7 +56,7 @@ func currentIsUpperIdent(p Parser) bool {
 }
 
 func currentIsName(p Parser) bool {
-	return matchCurrentId(p) || matchCurrentInfix(p)
+	return matchCurrentId(p) || matchCurrentInfix(p) || matchCurrentMethodId(p)
 }
 
 func ifThenElse[a any](cond bool, true_, false_ a) a {
