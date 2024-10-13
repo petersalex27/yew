@@ -23,7 +23,7 @@ func (ty Type) MakeValued(val string) Token {
 }
 
 func IsKeyword(tokenType Type) bool {
-	return tokenType > _keywords_start_ && tokenType < _keywords_end_
+	return tokenType > _variable_end_ && tokenType < _keywords_end_
 }
 
 const (
@@ -39,10 +39,12 @@ const (
 	Id
 	Infix
 	Hole
+	_variable_end_
+	MethodSymbol = _variable_end_
+)
 
-	// keywords start
-	_keywords_start_ // ===================================
-	Alias
+const (
+	Alias Type = iota + 1 + _variable_end_
 	Deriving
 	Import
 	In
@@ -89,24 +91,21 @@ const (
 	FlatAnnotation
 	LeftBracketAt
 	EmptyParenEnclosure
-	EmptyBracketEnclosure
-	// keywords end
-	_keywords_end_ // ==============================
+	_keywords_end_
+	EmptyBracketEnclosure = _keywords_end_
+)
 
-	Comment
-
+const (
+	Comment Type = iota + 1 + _keywords_end_
 	Underscore
-
 	Newline
-
-	EndOfTokens
-
-	_commands_start_
+	_token_types_proper_end_
+	EndOfTokens = _token_types_proper_end_
 )
 
 const (
 	/* = Symbol related commands ======================================================== */
-	Import_c Type = iota + _commands_start_
+	Import_c Type = iota + 1 + _token_types_proper_end_
 
 	/* = Info query commands ============================================================ */
 	Instances_c
@@ -132,10 +131,13 @@ const (
 	End_c
 	Include_c
 
-	USER_DEFINED_START
+	_commands_end_
+	USER_DEFINED_START = _commands_end_
 )
 
-func (ty Type) String() string {
+const UnknownTokenTypeString string = "?UnknownTokenType"
+
+func ProperTypeString(ty Type) string {
 	switch ty {
 	case Error:
 		return "Error"
@@ -157,6 +159,8 @@ func (ty Type) String() string {
 		return "Infix"
 	case Hole:
 		return "Hole"
+	case MethodSymbol:
+		return "MethodSymbol"
 	case Alias:
 		return "Alias"
 	case Deriving:
@@ -260,11 +264,16 @@ func (ty Type) String() string {
 	case EndOfTokens:
 		return "EndOfTokens"
 	default:
-		if InReplMode() {
-			return ty.CommandString()
-		}
-		return fmt.Sprintf("Type(%d)", ty)
+		return "?UnknownTokenType"
 	}
+}
+
+func (ty Type) String() string {
+	s := ProperTypeString(ty)
+	if InReplMode() && s == UnknownTokenTypeString {
+		s = ty.CommandString()
+	}
+	return s
 }
 
 func (ty Type) CommandString() string {
@@ -297,69 +306,78 @@ func (ty Type) Match(tok api.Node) bool {
 }
 
 var tokenStringMap = map[Type]string{
-	Error:       "", //"<error>",
-	IntValue:    "", //"<int-literal>",
-	CharValue:   "", //"<char-literal>",
-	FloatValue:  "", //"<float-literal>",
-	StringValue: "", //"<string-literal>",
+	Error:       ``, //`<error>`,
+	IntValue:    ``, //`<int-literal>`,
+	CharValue:   ``, //`<char-literal>`,
+	FloatValue:  ``, //`<float-literal>`,
+	StringValue: ``, //`<string-literal>`,
+	RawStringValue: ``, //`<raw-string-literal>`,
+	ImportPath: ``, //`<import-path>`,
 
-	Id:    "", //"<identifier>",
-	Infix: "", //"<(infix)>",
-	Hole:  "", //"<?hole>",
+	Id:    ``, //`<identifier>`,
+	Infix: ``, //`<(infix)>`,
+	Hole:  ``, //`<?hole>`,
 
-	Alias:      "alias",
-	Deriving:   "deriving",
-	With:       "with",
-	Import:     "import",
-	In:         "in",
-	Let:        "let",
-	Module:     "module",
-	Using:      "use",
-	Spec:       "spec",
-	Where:      "where",
-	As:         "as",
-	Of:         "of",
-	Syntax:     "syntax",
-	Case:       "case",
-	Public:     "public",
-	Open:       "open",
-	Auto:       "auto",
-	Inst:       "inst",
-	Erase:      "erase",
-	Once:       "once",
-	Impossible: "impossible",
-	Requiring:  "requiring",
-	From:       "from",
+	MethodSymbol: ``, //`<method-symbol>`,
 
-	LeftParen:    "(",
-	RightParen:   ")",
-	LeftBracket:  "[",
-	RightBracket: "]",
-	LeftBrace:    "{",
-	RightBrace:   "}",
-	Comma:        ",",
-	Dot:          ".",
-	DotDot:       "..",
-	Colon:        ":",
-	ThickArrow:   "=>",
-	Arrow:        "->",
-	Bar:          "|",
-	Equal:        "=",
-	Backslash:    "\\",
+	Alias:      `alias`,
+	Deriving:   `deriving`,
+	With:       `with`,
+	Import:     `import`,
+	In:         `in`,
+	Let:        `let`,
+	Module:     `module`,
+	Using:      `use`,
+	Spec:       `spec`,
+	Where:      `where`,
+	As:         `as`,
+	Of:         `of`,
+	Syntax:     `syntax`,
+	Case:       `case`,
+	Public:     `public`,
+	Open:       `open`,
+	Auto:       `auto`,
+	Inst:       `inst`,
+	Erase:      `erase`,
+	Once:       `once`,
+	Impossible: `impossible`,
+	Requiring:  `requiring`,
+	From:       `from`,
+	Forall:     `forall`,
+	Ref:        `ref`,
+	Term:       `term`,
+	Pattern:    `pattern`,
 
-	Underscore: "_",
+	LeftParen:    `(`,
+	RightParen:   `)`,
+	LeftBracket:  `[`,
+	RightBracket: `]`,
+	LeftBrace:    `{`,
+	RightBrace:   `}`,
+	Comma:        `,`,
+	Dot:          `.`,
+	DotDot:       `..`,
+	Colon:        `:`,
+	ThickArrow:   `=>`,
+	Arrow:        `->`,
+	Bar:          `|`,
+	Equal:        `=`,
+	Backslash:    `\`,
+	ColonEqual:   `:=`,
 
-	FlatAnnotation: "", //"<annotation>",
+	Underscore: `_`,
 
-	LeftBracketAt:         "[@",
-	EmptyParenEnclosure:   "()",
-	EmptyBracketEnclosure: "[]",
+	FlatAnnotation: ``, //`<annotation>`,
 
-	Newline: "\n",
+	LeftBracketAt:         `[@`,
+	EmptyParenEnclosure:   `()`,
+	EmptyBracketEnclosure: `[]`,
 
-	Comment: "", //"<comment>",
+	Newline: `\n`,
 
-	EndOfTokens: "", //"<end-of-tokens>",
+	Comment: ``, //`<comment>`,
+
+	EndOfTokens: ``, //`<end-of-tokens>`,
 }
 
 var commandStringMap = map[Type]string{
