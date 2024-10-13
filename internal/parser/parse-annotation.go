@@ -15,6 +15,7 @@ func (typeAlias *typeAlias) annotate(as data.Maybe[annotations])  { typeAlias.an
 func (typing *typing) annotate(as data.Maybe[annotations])        { typing.annotations = as }
 func (syntax *syntax) annotate(as data.Maybe[annotations])        { syntax.annotations = as }
 func (cons *typeConstructor) annotate(as data.Maybe[annotations]) { cons.annotations = as }
+func (module *module) annotate(as data.Maybe[annotations])        { module.annotations = as }
 
 // parses annotations enclosed in brackets, like '[@inline]'
 //

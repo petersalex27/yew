@@ -495,7 +495,7 @@ func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
 		return data.Inl[specInst](esBody)
 	}
 	si.Position = si.Update(specBod)
-	si.body = specInstWhereClause{specBod}
+	si.body = specBod
 
 	return data.Ok(si)
 }

@@ -15,6 +15,11 @@ import (
 	"github.com/petersalex27/yew/internal/source"
 )
 
+// there are obviously lots of ridiculous definitions here, but they are all representative of syntactically valid yew code
+//
+// most of it will fail type checking though, assuming reasonable definitions paired with the tokens
+
+
 var (
 	// tokens (as api.Token interface)
 	id_x_tok         api.Token = token.Id.MakeValued("x")                   // x
@@ -33,6 +38,7 @@ var (
 	id_dollar_tok    api.Token = token.Id.MakeValued("$")                   // $
 	infix_dollar_tok api.Token = token.Infix.MakeValued("$")                // ($)
 	method_run_tok   api.Token = token.MethodSymbol.MakeValued("run")       // (.run)
+	raw_my_tok       api.Token = token.RawStringValue.MakeValued("my")      // `my`
 	__               api.Token = token.Underscore.Make()                    // just a placeholder
 	equalTok         api.Token = token.Equal.Make()                         // =
 	eraseTok         api.Token = token.Erase.Make()                         // erase
@@ -42,6 +48,7 @@ var (
 	lbracket         api.Token = token.LeftBracket.Make()                   // [
 	rbracket         api.Token = token.RightBracket.Make()                  // ]
 	annot            api.Token = token.FlatAnnotation.MakeValued("--@test") // doesn't matter, but I think the value should technically just be "test"
+	impossibleTok    api.Token = token.Impossible.Make()                    // impossible
 
 	// tokens
 	backslash   = token.Backslash.Make()  // \
@@ -130,6 +137,8 @@ var (
 	_noVis                 = data.Nothing[visibility]()                                                                   //
 	typingPair             = data.MakePair(name_x, typ_x)                                                                 // x : x
 	typingNode             = typing{annotations: _noAnnots, visibility: _noVis, typing: typingPair}                       // x : x
+	annotTypingNode        = typing{annotations: data.Just(annotationBlock1), visibility: _noVis, typing: typingPair}     // --@test\nx : x
+	upperTypingNode        = typing{annotations: _noAnnots, visibility: _noVis, typing: data.MakePair(name_MyId, typ_x)}  // MyId : x
 	bindingGroupMem_def    = bindingGroupMember(data.Inl[typingMember](data.MakePair(lowerBinder, exprNode)))             // x := x
 	bindingGroupMem_typ    = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Nothing[expr]())))  // x : x
 	bindingGroupMem_typ_2  = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Just(exprNode))))   // x : x := x
@@ -158,6 +167,7 @@ var (
 	// type nodes
 
 	_typeAccGroup                     = data.Construct[typ](access(name_x), access(name_x))                             // .x.x
+	appTypeNode                       = typ(data.EMakePair[appType](typ_x, data.Singleton(typ_x)))                      // x x
 	appTypeAccessNode                 = typ(data.EMakePair[appType](typ_x, data.Singleton[typ](access(name_x))))        // x.x
 	appTypeAccessDoubleNode           = typ(data.EMakePair[appType](typ_x, _typeAccGroup))                              // x.x.x
 	eraseMultiplicity                 = data.EOne[modality](eraseTok)                                                   // erase
@@ -192,7 +202,9 @@ var (
 
 	// header nodes
 
-	module_x                = data.EOne[module](x_as_lower)                                                                  // module x
+	emptyAnnots             = data.Nothing[annotations]()                                                                    // <no token representation>
+	module_x                = module{annotations: emptyAnnots, name: data.One(x_as_lower)}                                   // module x
+	module_annot_x          = module{annotations: data.Just(annotationBlock1), name: data.One(x_as_lower)}                   // --@test\nmodule x
 	abc_path                = data.EOne[importPathIdent](importPathTok)                                                      // "a/b/c"
 	hideAbcNode             = data.EMakePair[packageImport](abc_path, data.Nothing[selections]())                            // "a/b/c" using _
 	allSelections           = data.Inr[lowerIdent](data.Nothing[data.NonEmpty[name]]())                                      // <no token representation>
@@ -205,10 +217,45 @@ var (
 	as_x                    = data.Inl[data.Maybe[data.NonEmpty[name]]](x_as_lower)                                          // as x
 	using_x_x               = data.Inr[lowerIdent](data.Just(data.Construct[name](name_x, name_x)))                          // using (x, x)
 
+	// spec inst/def nodes
+
+	constrainerNode  = data.EMakePair[constrainer](MyId_as_upper, pattern(name_x))                                                // MyId x
+	vConstraintNode  = data.EConstruct[constraintVerified](data.MakePair(data.Nil[upperIdent](), constrainerNode))                // MyId x
+	vConstraint2Node = data.EConstruct[constraintVerified](data.MakePair(data.Makes[upperIdent](MyId_as_upper), constrainerNode)) // MyId, MyId x
+	specDefBodyNode  = data.EConstruct[specBody](data.Inr[def](typingNode))                                                       // where x : x
+	specInstBodyNode = data.EConstruct[specBody](data.Inl[typing](defNode))                                                       // where x = x
+
 	// body nodes
 
-	bodyElemNode = typingNode                                        // x : x
-	bodyNode     = body{data.Nil[bodyElement](1).Snoc(bodyElemNode)} // x : x
+	emptyVisibility    = data.Nothing[visibility]()                                                                         // <no token representation>
+	defBodyNode        = data.EInr[defBody](defBodyPossible_x)                                                              // x
+	defBodyImpossible  = data.EInl[defBody](data.EOne[impossible](impossibleTok))                                           // impossible
+	defNode            = def{emptyAnnots, name_x, defBodyNode, api.ZeroPosition()}                                          // x = x
+	defImpossibleNode  = def{emptyAnnots, name_x, defBodyImpossible, api.ZeroPosition()}                                    // x impossible
+	unvConstraintNode  = data.EOne[constraintUnverified](appTypeNode)                                                       // x x
+	specHeadNode       = data.EMakePair[specHead](data.Nothing[constraint](), constrainerNode)                              // MyId x
+	specHeadConstrNode = data.EMakePair[specHead](data.Just[constraint](unvConstraintNode), constrainerNode)                // x x => MyId x
+	specDefNode        = makeSpecDef(specHeadNode, data.Nothing[pattern](), specDefBodyNode, data.Nothing[specRequiring]()) // spec MyId x where x : x
+	specInstNode       = makeSpecInst(specHeadNode, data.Nothing[constrainer](), specInstBodyNode)                          // spec MyId x where x = x
+	rawStringNode      = data.EOne[rawString](raw_my_tok)                                                                   // `my`
+	rawKeyNode         = data.EOne[syntaxRawKeyword](rawStringNode)                                                         // `my`
+	rawSym             = data.Inr[ident](rawKeyNode)                                                                        // `my`
+	idSymNode          = data.Inl[syntaxRawKeyword](lowerId)                                                                // x
+	syntaxRuleNode     = data.EConstruct[syntaxRule](rawSym, idSymNode)                                                     // `my` x
+	syntaxNode         = makeSyntax(syntaxRuleNode, expr(name_x))                                                           // syntax `my` x = x
+	aliasNode          = makeAlias(name_x, typ_x)                                                                           // alias x = x
+	typeConsNode       = makeCons(name_MyId, typ_x)                                                                         // MyId : x
+	_consGroup         = data.Construct[typeConstructor](typeConsNode)                                                      // MyId : x
+	typeDefNode        = makeTypeDef(upperTypingNode, data.Inl[impossible](_consGroup), data.Nothing[deriving]())           // MyId : x where MyId : x
+	body_typing        = body{data.Makes[bodyElement](typingNode)}                                                          // x : x
+	body_def           = body{data.Makes[bodyElement](defNode)}                                                             // x = x
+	body_defImpossible = body{data.Makes[bodyElement](defImpossibleNode)}                                                   // x impossible
+	body_specDef       = body{data.Makes[bodyElement]()}                                                                    // spec x = x
+	body_specInst      = body{data.Makes[bodyElement](specInstNode)}                                                        // spec MyId x where x = x
+	body_syntax        = body{data.Makes[bodyElement](syntaxNode)}                                                          // syntax `my` x = x
+	body_alias         = body{data.Makes[bodyElement](aliasNode)}                                                           // alias x = x
+	body_typeDef       = body{data.Makes[bodyElement](typeDefNode)}                                                         // type x = x
+	body_annotTyping   = body{data.Makes[bodyElement]()}
 )
 
 // a very simple function that creates a test source from a list of tokens
@@ -243,6 +290,7 @@ func initTestParser(input []api.Token) *ParserState {
 func runResultTest[a api.DescribableNode](p Parser, t *testing.T, want a, fut func(p Parser) data.Either[data.Ers, a]) {
 	es, actual, isActual := fut(p).Break()
 	if !isActual {
+		printErrors(parseErrors(p, es)...)
 		t.Errorf("expected \n%s\n, got \n%s\n", sprintTree(want), sprintTree(es))
 	} else if !equals(actual, want) {
 		t.Errorf("expected \n%v\n, got \n%v\n", sprintTree(want), sprintTree(actual))
@@ -275,6 +323,7 @@ func runMaybeOutputTest[a api.DescribableNode](p Parser, t *testing.T, want data
 	es, mActual := fut(p)
 
 	if es != nil {
+		printErrors(parseErrors(p, *es)...)
 		t.Errorf("expected \n%s\n, got \n%s\n", sprintTree(want), sprintTree(*es))
 	} else if !equals(mActual, want) {
 		t.Errorf("expected \n%v\n, got \n%v\n", sprintTree(want), sprintTree(mActual))

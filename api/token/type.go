@@ -373,7 +373,7 @@ var tokenStringMap = map[Type]string{
 	EmptyParenEnclosure:   `()`,
 	EmptyBracketEnclosure: `[]`,
 
-	Newline: `\n`,
+	Newline: "\n",
 
 	Comment: ``, //`<comment>`,
 

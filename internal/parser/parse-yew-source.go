@@ -2,14 +2,14 @@ package parser
 
 import (
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/api/util/fun"
+	//"github.com/petersalex27/yew/api/util/fun"
 	"github.com/petersalex27/yew/common/data"
 )
 
-func (ys *yewSource) acceptMeta(m data.Maybe[meta]) {
-	ys.meta = m
-	ys.Position = ys.Update(m)
-}
+// func (ys *yewSource) acceptMeta(m data.Maybe[meta]) {
+// 	ys.meta = m
+// 	ys.Position = ys.Update(m)
+// }
 
 func (ys *yewSource) acceptHeader(h data.Maybe[header]) {
 	ys.header = h
@@ -35,7 +35,7 @@ func parseYewSource(p Parser) Parser {
 
 	// parse the yew source file surface from the top down
 	p = p.
-		bind(ys.parseMeta).bind(ys.parseHeader).
+		bind(ys.parseHeader).
 		bind(ys.parseBodyAndFooter).bind(assertEOF)
 
 	// record the AST in the parser state on success
@@ -57,20 +57,20 @@ func assertEOF(p Parser) Parser {
 }
 
 // = meta ==========================================================================================
-func (ys *yewSource) parseMeta(p Parser) Parser {
-	return runCases(p, parseAnnotations, writeErrors, ys.writeMeta)
-}
+// func (ys *yewSource) parseMeta(p Parser) Parser {
+// 	return runCases(p, parseAnnotations, writeErrors, ys.writeMeta)
+// }
 
-func makeMeta(as annotations) meta { return meta{as} }
+//func makeMeta(as annotations) meta { return meta{as} }
 
-func (ys *yewSource) writeMeta(p Parser, m data.Maybe[annotations]) Parser {
-	res := bind(m, fun.Compose(data.Just, makeMeta))
-	if !res.IsNothing() {
-		p.dropNewlines() // only drop newlines if meta was parsed
-	}
-	ys.acceptMeta(res)
-	return p
-}
+// func (ys *yewSource) writeMeta(p Parser, m data.Maybe[annotations]) Parser {
+// 	res := bind(m, fun.Compose(data.Just, makeMeta))
+// 	if !res.IsNothing() {
+// 		p.dropNewlines() // only drop newlines if meta was parsed
+// 	}
+// 	ys.acceptMeta(res)
+// 	return p
+// }
 
 func (ys *yewSource) writeBody(p Parser, mb data.Maybe[body]) Parser {
 	p.dropNewlines()
@@ -118,7 +118,7 @@ func (ys *yewSource) parseBodyAndFooter(p Parser) Parser {
 		return writeErrors(p, es)
 	}
 	if b.IsNothing() {
-		
+
 	}
 	p = ys.writeBody(p, b)
 

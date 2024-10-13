@@ -6,6 +6,7 @@ import (
 	t "github.com/petersalex27/yew/internal/parser/typ"
 )
 
+func (n access) Type() api.NodeType               { return t.Access }
 func (n annotations) Type() api.NodeType          { return t.Annotations }
 func (n appType) Type() api.NodeType              { return t.AppType }
 func (n body) Type() api.NodeType                 { return t.Body }
@@ -47,7 +48,9 @@ func (n letBinding) Type() api.NodeType        { return t.LetBinding }
 func (n letExpr) Type() api.NodeType           { return t.LetExpr }
 func (n literal) Type() api.NodeType           { return t.Literal }
 func (n lowerIdent) Type() api.NodeType        { return t.LowerIdent }
-func (n meta) Type() api.NodeType              { return t.Meta }
+
+//func (n meta) Type() api.NodeType              { return t.Meta }
+
 func (n modality) Type() api.NodeType          { return t.Modality }
 func (n module) Type() api.NodeType            { return t.Module }
 func (n name) Type() api.NodeType {
@@ -74,7 +77,6 @@ func (n specBody) Type() api.NodeType            { return t.SpecBody }
 func (n specHead) Type() api.NodeType            { return t.SpecHead }
 func (n specDef) Type() api.NodeType             { return t.SpecDef }
 func (n specInst) Type() api.NodeType            { return t.SpecInst }
-func (n specInstWhereClause) Type() api.NodeType { return t.SpecInstWhereClause }
 func (n syntax) Type() api.NodeType              { return t.Syntax }
 func (n syntaxRule) Type() api.NodeType          { return t.SyntaxRule }
 func (n typeAlias) Type() api.NodeType           { return t.TypeAlias }
@@ -209,14 +211,16 @@ func (n literal) Describe() (string, []api.Node) {
 func (n lowerIdent) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n meta) Describe() (string, []api.Node) {
-	return n.Type().String(), n.Children()
-}
+
+// func (n meta) Describe() (string, []api.Node) {
+// 	return n.Type().String(), n.Children()
+// }
+
 func (n modality) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n module) Describe() (string, []api.Node) {
-	return n.Type().String(), n.Children()
+	return n.Type().String(), append([]api.Node{n.annotations}, n.name.Children()...)
 }
 func (n name) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
@@ -244,9 +248,6 @@ func (n specDef) Describe() (string, []api.Node) {
 }
 func (n specInst) Describe() (string, []api.Node) {
 	return n.Type().String(), []api.Node{n.annotations, n.visibility, n.head, n.target, n.body}
-}
-func (n specInstWhereClause) Describe() (string, []api.Node) {
-	return n.Type().String(), n.Children()
 }
 func (n syntax) Describe() (string, []api.Node) {
 	return n.Type().String(), []api.Node{n.annotations, n.visibility, n.rule}
@@ -294,5 +295,5 @@ func (n withClauseArms) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n yewSource) Describe() (string, []api.Node) {
-	return n.Type().String(), []api.Node{n.meta, n.header, n.body, n.footer}
+	return n.Type().String(), []api.Node{ /*n.meta,*/ n.header, n.body, n.footer}
 }

@@ -29,7 +29,7 @@ func EStrengthen[ne EmbedsNonEmpty[a], a api.Node](xs List[a]) Maybe[ne] {
 	} else {
 		return Nothing[ne](xs.Position)
 	}
-} 
+}
 
 func (xs List[a]) Strengthen() Maybe[NonEmpty[a]] {
 	if xs.IsEmpty() {
@@ -49,6 +49,14 @@ func Nil[a api.Node](cap ...int) List[a] {
 		effectiveCap = cap[0]
 	}
 	return List[a]{elements: make([]a, 0, effectiveCap)}
+}
+
+func Makes[a api.Node](xs ...a) List[a] {
+	return Nil[a](len(xs)).Append(xs...)
+}
+
+func EMakes[list EmbedsList[a], a api.Node](xs ...a) list {
+	return list{Makes(xs...)}
 }
 
 func (xs List[a]) IsEmpty() bool {

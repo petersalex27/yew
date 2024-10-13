@@ -46,3 +46,64 @@ func constructAlias(aliasToken api.Token, n name, equalToken api.Token, ty typ) 
 func makeFunc(lhs typ, rhs typ) typ {
 	return typ(functionType{data.MakePair(lhs, rhs)})
 }
+
+type specRequiring = data.NonEmpty[def]
+
+func makeSpecDef(head specHead, dep data.Maybe[pattern], body specBody, req data.Maybe[specRequiring]) specDef {
+	return specDef{
+		data.Nothing[annotations](),
+		data.Nothing[visibility](),
+		head,
+		dep,
+		body,
+		req,
+		api.WeakenRangeOver[api.Node](head, dep, body, req),
+	}
+}
+
+func makeSpecInst(head specHead, target data.Maybe[constrainer], body specInstWhereClause) specInst {
+	return specInst{
+		data.Nothing[annotations](),
+		data.Nothing[visibility](),
+		head,
+		target,
+		body,
+		api.WeakenRangeOver[api.Node](head, target, body),
+	}
+}
+
+func makeSyntax(rule syntaxRule, e expr) syntax {
+	return syntax{
+		data.Nothing[annotations](),
+		data.Nothing[visibility](),
+		data.MakePair(rule, e),
+		api.WeakenRangeOver[api.Node](rule, e),
+	}
+}
+
+func makeAlias(n name, ty typ) typeAlias {
+	return typeAlias{
+		data.Nothing[annotations](),
+		data.Nothing[visibility](),
+		data.MakePair(n, ty),
+		api.WeakenRangeOver[api.Node](n, ty),
+	}
+}
+
+func makeTypeDef(head typing, body typeDefBody, der data.Maybe[deriving]) typeDef {
+	return typeDef{
+		data.Nothing[annotations](),
+		data.Nothing[visibility](),
+		data.MakePair(head, body),
+		der,
+		api.WeakenRangeOver[api.Node](head, body, der),
+	}
+}
+
+func makeCons(n name, ty typ) typeConstructor {
+	return typeConstructor{
+		data.Nothing[annotations](),
+		data.MakePair(n, ty),
+		api.WeakenRangeOver[api.Node](n, ty),
+	}
+}

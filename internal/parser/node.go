@@ -219,9 +219,13 @@ type (
 		pureMainElem() mainElement
 	}
 
-	meta struct{ annotations }
+	// meta struct{ annotations }
 
-	module struct{ data.Solo[lowerIdent] }
+	module struct{
+		annotations data.Maybe[annotations]
+		name data.Solo[lowerIdent]
+		api.Position
+	}
 
 	modality struct{ data.Solo[api.Token] }
 
@@ -359,7 +363,7 @@ type (
 	}
 
 	// a group of members of a spec instance
-	specInstWhereClause struct{ specBody }
+	specInstWhereClause = specBody
 
 	// a member of a spec
 	specMember = data.Either[def, typing]
@@ -461,7 +465,8 @@ type (
 	yewSource struct {
 		// the meta section is primarily distinguished by semantics, but it does require a module
 		// declaration to indicate its *possible* presence--which is its syntactic component
-		meta data.Maybe[meta]
+		//meta data.Maybe[meta]
+
 		// the header section contains the module declaration and any imports
 		//
 		// both are optional, but the module is required if the meta section is present; if the module

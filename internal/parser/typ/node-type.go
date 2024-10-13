@@ -26,7 +26,8 @@ const MaxProperNodeTypeValue nodeType = 0xff
 
 // actual types
 const (
-	Annotations nodeType = MinProperNodeTypeValue + iota
+	Access nodeType = MinProperNodeTypeValue + iota
+	Annotations
 	AppType
 	Body
 	BodyElem
@@ -81,7 +82,6 @@ const (
 	SpecDef
 	SpecHead
 	SpecInst
-	SpecInstWhereClause
 	Syntax
 	SyntaxRawKeyword
 	SyntaxRule
@@ -111,6 +111,8 @@ func (nt nodeType) String() string {
 	switch nt {
 	case UnknownNodeType:
 		return "?unknown"
+	case Access:
+		return "access"
 	case Error:
 		return "error"
 	case Annotations:
@@ -221,8 +223,6 @@ func (nt nodeType) String() string {
 		return "spec head"
 	case SpecInst:
 		return "inst definition"
-	case SpecInstWhereClause:
-		return "inst where clause"
 	case Syntax:
 		return "syntax definition"
 	case SyntaxRawKeyword:

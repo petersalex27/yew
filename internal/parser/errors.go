@@ -1,6 +1,9 @@
 package parser
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/common/data"
 	"github.com/petersalex27/yew/internal/errors"
@@ -87,6 +90,20 @@ func mkErr(msg string, positioned api.Positioned) data.Err {
 func parseError(p Parser, e data.Err) error {
 	start, end := e.Pos()
 	return errors.Syntax(p.srcCode(), e.Msg(), start, end)
+}
+
+func parseErrors(p Parser, es data.Ers) []error {
+	errs := make([]error, es.Len())
+	for i, e := range es.Elements() {
+		errs[i] = parseError(p, e)
+	}
+	return errs
+}
+
+func printErrors(es ...error) {
+	for _, e := range es {
+		fmt.Fprintf(os.Stderr, "%s\n", e.Error())
+	}
 }
 
 func makeError(p Parser, msg string, ps ...api.Positioned) error {

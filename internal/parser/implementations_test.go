@@ -132,7 +132,7 @@ func Test_assert_DescribableNode(t *testing.T) {
 		_ api.DescribableNode = letExpr{}
 		_ api.DescribableNode = literal{}
 		_ api.DescribableNode = lowerIdent{}
-		_ api.DescribableNode = meta{}
+		//_ api.DescribableNode = meta{}
 		_ api.DescribableNode = module{}
 		_ api.DescribableNode = modality{}
 		_ api.DescribableNode = name{}

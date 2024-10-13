@@ -11,14 +11,39 @@ import (
 //	header = [module], {{"\n"}, [annotations_], import} ;
 //	```
 func parseHeader(p Parser) data.Either[data.Ers, header] {
+	origin := getOrigin(p)
+	annotEs, mAnnots, isMAnnots := parseAnnotations(p).Break()
+	if !isMAnnots {
+		return data.PassErs[header](annotEs)
+	}
+
 	es, mod, ok := parseModule(p).Break()
 	if !ok {
 		return data.PassErs[header](es)
 	}
 
-	es, imports, isImports := parseImports(p).Break()
+	var imports data.List[importStatement]
+	var isImports bool
+
+	if !mod.IsNothing() && !mAnnots.IsNothing() {
+		// attach annotations to module, whether they actually target the module or not
+		// will be determined later
+		m, _ := mod.Break()
+		m.annotate(mAnnots)
+		mod = data.Just(m)
+	} else if !mAnnots.IsNothing() {
+		// give annotations to imports if no module is present
+		es, imports, isImports = parseImportsHelper(p, mAnnots).Break()
+	} else {
+		es, imports, isImports = parseImports(p).Break()
+	}
+
 	if !isImports {
 		return data.PassErs[header](es)
+	} else if mod.IsNothing() && imports.IsEmpty() && !mAnnots.IsNothing() {
+		// reset to the position before the annotations
+		//lint:ignore SA4006 ignore unused variable warning
+		p = resetOrigin(p, origin)
 	}
 	return data.Ok(data.EMakePair[header](mod, imports))
 }
@@ -43,25 +68,23 @@ func parseModule(p Parser) data.Either[data.Ers, data.Maybe[module]] {
 		return data.Fail[data.Maybe[module]](ExpectedModuleId, p)
 	}
 
-	mod := data.EOne[module](id)
+	mod := module{data.Nothing[annotations](), data.One[lowerIdent](id), id.Position}
 	mod.Position = mod.Update(moduleToken)
 	return data.Ok(data.Just[module](mod))
 }
 
-// Note, this is not an actual rule in the grammar, but a helper function to parse the imports. That
-// said, if it was a rule, it would be the following:
-//
-//	```
-//	imports = {{"\n"}, [annotations_], import} ;
-//	```
-func parseImports(p Parser) data.Either[data.Ers, data.List[importStatement]] {
+func parseImportsHelper(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, data.List[importStatement]] {
 	p.dropNewlines()
 	importStatements := data.Nil[importStatement]()
 	for {
 		// only reset if nothing is returned for `maybeParseImport`
 		tokenPosition := getOrigin(p)
+		var es data.Ers
+		var isMAnnots bool
+		if isMAnnots = !as.IsNothing(); !isMAnnots { // this allows the argument to be used if non-Nothing
+			es, as, isMAnnots = parseAnnotations(p).Break()
+		}
 
-		es, mAnnots, isMAnnots := parseAnnotations(p).Break()
 		if !isMAnnots {
 			return data.PassErs[data.List[importStatement]](es)
 		}
@@ -83,9 +106,21 @@ func parseImports(p Parser) data.Either[data.Ers, data.List[importStatement]] {
 			return data.Ok(importStatements)
 		}
 
-		stmt := data.EMakePair[importStatement](mAnnots, im)
+		stmt := data.EMakePair[importStatement](as, im)
 		importStatements = importStatements.Snoc(stmt) // keep position, don't reset
+		// clear annotations for next import statement
+		as = data.Nothing[annotations]()
 	}
+}
+
+// Note, this is not an actual rule in the grammar, but a helper function to parse the imports. That
+// said, if it was a rule, it would be the following:
+//
+//	```
+//	imports = {{"\n"}, [annotations_], import} ;
+//	```
+func parseImports(p Parser) data.Either[data.Ers, data.List[importStatement]] {
+	return parseImportsHelper(p, data.Nothing[annotations]())
 }
 
 // rule:
