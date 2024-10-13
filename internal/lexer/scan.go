@@ -19,6 +19,7 @@ const (
 	string_class
 	identifier_class
 	infix_class
+	method_class
 	underscore_class
 	comment_class
 	char_class
@@ -53,7 +54,7 @@ func (lex *Lexer) classifyMinus() (class symbolClass) {
 }
 
 // regex for infix identifier w/o leading '('
-var infixRegex_wo_lparen = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9']*|[!@#\$\^\&\*~,<>\?/:\|\-\+=\\]+)\)`)
+var infixRegex_wo_lparen = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9']*|[!@#$^&*~<>?/:|\-+=\\]+)\)`)
 
 func (lex *Lexer) classifySymbol(r rune) (class symbolClass) {
 	if r != '(' {
@@ -65,9 +66,18 @@ func (lex *Lexer) classifySymbol(r rune) (class symbolClass) {
 		return symbol_class
 	}
 
+	// class to return if the infix regex matches
+	matchedClass := infix_class
+
+	// set matchedClass to method_class?
+	if len(line) > 1 && line[1] == '.' {
+		line = line[1:]
+		matchedClass = method_class
+	}
+
 	loc := infixRegex_wo_lparen.FindStringIndex(line)
 	if loc != nil && loc[0] == 0 {
-		return infix_class
+		return matchedClass
 	}
 
 	return symbol_class
@@ -473,61 +483,42 @@ func (lex *Lexer) symbol() token.Token {
 
 func (lex *Lexer) infix() token.Token {
 	lex.SavedChar.Push(lex.Pos)
-	c, _ := lex.nextChar()
-	if c != '(' {
-		panic("bug: source was not validated before calling infix")
-	}
-
+	
 	line, ok := lex.remainingLine()
 	if !ok {
 		panic("bug: function called without verifying readable source exists")
 	}
 
-	loc := infixRegex_wo_lparen.FindStringIndex(line)
-	if loc == nil || loc[0] != 0 || loc[1]-loc[0] < 2 {
+	var pStr *string
+	if pStr = common.MethodId.Match(line); pStr != nil {
+		ln := len(*pStr)
+		lex.Pos += len(*pStr)
+		tok := token.MethodSymbol.MakeValued((*pStr)[2:ln-1]) // remove leading "(." and trailing ")"
+		return lex.output(tok)
+	} else if pStr = common.InfixId.Match(line); pStr != nil {
+		ln := len(*pStr)
+		lex.Pos += len(*pStr)
+		tok := token.Infix.MakeValued((*pStr)[1:ln-1]) // remove leading "(" and trailing ")"
+		return lex.output(tok)
+	} else {
 		panic("bug: source was not validated before calling infix")
 	}
+}
 
-	lex.Pos += loc[1]
-	tok := token.Infix.MakeValued(line[:loc[1]-1])
-	return lex.output(tok)
+var escapeMap = map[rune]byte{
+	'n': '\n', 't': '\t', 'r': '\r', 'v': '\v', 'b': '\b', 'a': '\a', 'f': '\f', '\\': '\\',
 }
 
 func getEscape(r rune, escapeString bool) (c byte, ok bool) {
-	ok = true
-	switch r {
-	case 'n':
-		c = '\n'
-	case 't':
-		c = '\t'
-	case 'r':
-		c = '\r'
-	case 'v':
-		c = '\v'
-	case 'b':
-		c = '\b'
-	case 'a':
-		c = '\a'
-	case 'f':
-		c = '\f'
-	case '\\':
-		c = '\\'
-	case '"':
-		if escapeString {
-			c = '"'
-		} else {
-			ok = false
-		}
-	case '\'':
-		if !escapeString {
-			c = '\''
-		} else {
-			ok = false
-		}
-	default:
-		ok = false
-	}
-	return
+	c, ok = escapeMap[r]
+	if ok {
+		return c, true
+	} else if ok = escapeString && r == '"'; ok {
+		return byte(r), true
+	} else if ok = !escapeString && r == '\''; ok {
+		return byte(r), true
+	} 
+	return 0, false
 }
 
 // read escape sequence
@@ -755,46 +746,19 @@ func matchId(line string) (matched string, errorMessage string, illegalArgument 
 	return "", UnexpectedSymbol, false
 }
 
-// matches non capital letter starting identifier (lowercase alpha-numeric-symbolic identifier)
-//
-// returns token type for the returned identifier string `id` and an empty string for `errorMessage`
-// on success; otherwise, returns garbage for `id` and `ty`, and a non-empty string `errorMessage`
-func matchNonCapId(line string) (id string, ty token.Type, errorMessage string) {
-	var illegalArgument bool
-	id, errorMessage, illegalArgument = matchId(line)
-	if illegalArgument {
-		panic("bug: illegal argument, empty string for argument `line`")
-	} else if errorMessage != "" {
-		return
-	}
-
-	if strings.ContainsRune(id, '_') {
-		ty = token.Id
-		errorMessage = UnexpectedSymbol
-	} else {
-		ty = matchKeyword(id, token.Id) // id or some keyword
-	}
-	return
-}
-
 // returns type of identifier
 //
 // return value `ty` is ...
 //   - token.Id
-//   - token.Infix
 //   - keyword token type
 //   - token.Error (if `id` contains an underscore)
 func (lex *Lexer) getIdType(id string) (ty token.Type, errorMessage string) {
 	ty = token.Id
-	ln := len(id)
-	isInfix := ln > 2 && id[0] == '(' && id[ln-1] == ')' && common.Is_symbolCase(id[1:ln-1])
 
 	if strings.ContainsRune(id, '_') {
 		ty, errorMessage = token.Error, UnexpectedSymbol
 	} else if key, yes := lex.isKeyword(id); yes {
 		ty = key
-	} else if isInfix {
-		ty = token.Infix
 	}
 
 	return ty, errorMessage
@@ -854,7 +818,7 @@ func (class symbolClass) analyze(lex *Lexer) (tok token.Token) {
 		return lex.number()
 	case identifier_class, symbol_class, hole_class:
 		return lex.symbol()
-	case infix_class:
+	case infix_class, method_class:
 		return lex.infix()
 	case char_class:
 		return lex.char()
@@ -940,31 +904,6 @@ func (lex *Lexer) skipWhitespace() (isEof bool) {
 		}
 	}
 	return isEof
-}
-
-func eofLineAdvance(lex *Lexer) (ok, eof bool) {
-	eof = true
-	endPositions := lex.EndPositions()
-	ok = lex.Line > len(endPositions) // if already at EOF, then not ok; else ok
-	lex.Line = len(endPositions) + 1  // set to eof
-	lex.Pos++
-	return
-}
-
-// moves line counter to next line and char counter to first char
-//
-// returns ok==true if line counter was advanced and eof==true either when already at end of source
-// or if advancing the line counter puts lexer at end of input
-func (lex *Lexer) advanceLine() (ok, eof bool) {
-	//println("advancing!")
-	if lex.Line >= len(lex.EndPositions()) {
-		// returns ok==true when not at EOF before advancing; eof==true unconditionally
-		return eofLineAdvance(lex)
-	}
-
-	lex.Line++
-	lex.Pos = lex.EndPositions()[lex.Line-2]
-	return true, false
 }
 
 func (lex *Lexer) analyze() token.Token {

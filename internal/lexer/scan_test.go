@@ -658,6 +658,19 @@ func TestAnalyzeInfix(t *testing.T) {
 			source: `(->)`,
 			expect: token.Token{Value: "->", Typ: token.Infix, End: 4},
 		},
+		// method symbols
+		{
+			source: `(.method)`,
+			expect: token.Token{Value: "method", Typ: token.MethodSymbol, End: 9},
+		},
+		{
+			source: `(.Method)`,
+			expect: token.Token{Value: "Method", Typ: token.MethodSymbol, End: 9},
+		},
+		{
+			source: `(.?)`,
+			expect: token.Token{Value: "?", Typ: token.MethodSymbol, End: 4},
+		},
 	}
 
 	for _, test := range tests {

@@ -17,8 +17,12 @@ var (
 	symbolIdRegex = regexp.MustCompile(`[!@#$%^&*\-=+;:\\|~,<.>/?]+`)
 	// any kind of id or symbol, excluding infixed ids and symbols
 	nonInfixNameRegex = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9']*|[!@#$%^&*\-=+;:\\|~,<.>/?]+`)
+	// infixed ids and symbols
+	infixIdRegex = regexp.MustCompile(`\([a-zA-Z][a-zA-Z0-9']*\)|\([!@#$%^&*\-=+;:\\|~,<.>/?]+\)`)
+	// method ids
+	methodIdRegex = regexp.MustCompile(`\([.][a-zA-Z][a-zA-Z0-9']*\)|\([.][!@#$%^&*\-=+;:\\|~,<.>/?]+\)`)
 	// any kind of id or symbol, including infixed ids and symbols
-	nameRegex = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9']*|\([a-zA-Z][a-zA-Z0-9']*\)|[!@#$%^&*\-=+;:\\|~,<.>/?]+|\([!@#$%^&*\-=+;:\\|~,<.>/?]+\)`)
+	nameRegex = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9']*|\([.]?[a-zA-Z][a-zA-Z0-9']*\)|[!@#$%^&*\-=+;:\\|~,<.>/?]+|\([.]?[!@#$%^&*\-=+;:\\|~,<.>/?]+\)`)
 	// ids that that look like paths using camelCase ids between and after '/' and '.' respectively
 	importPathRegex = regexp.MustCompile(`[a-z][a-zA-Z0-9']*(/[a-z][a-zA-Z0-9']*)*`)
 	// integer literal regex
@@ -118,6 +122,8 @@ const (
 	PascalCaseId
 	SymbolId
 	NonInfixName
+	InfixId
+	MethodId
 	Name
 	ImportPath
 	StandaloneSymbol
@@ -135,6 +141,8 @@ var regexMap = map[regexIdentifier]*regexp.Regexp{
 	SymbolId:         symbolIdRegex,
 	NonInfixName:     nonInfixNameRegex,
 	Name:             nameRegex,
+	InfixId:          infixIdRegex,
+	MethodId:         methodIdRegex,
 	ImportPath:       importPathRegex,
 	StandaloneSymbol: standaloneRegex,
 	IntLiteral:       intRegex,
