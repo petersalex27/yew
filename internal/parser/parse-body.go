@@ -111,7 +111,7 @@ func parseTypeDefBodyTypeCons(p Parser) data.Either[data.Ers, typeConstructor] {
 // rule:
 //
 //	```
-//	constructor name = infix upper ident | upper ident | symbol | upper ident ;
+//	constructor name = infix upper ident | upper ident | symbol | infix symbol ;
 //	```
 func parseConstructorName(p Parser) data.Either[data.Ers, name] {
 	isMethod := lookahead1(p, token.MethodSymbol)
@@ -127,7 +127,8 @@ func parseConstructorName(p Parser) data.Either[data.Ers, name] {
 	// validate: just make sure it's not lowercase; method names were previously disallowed
 	// 		- hacky, but guaranteed to be a token due to the type of the embedded `Solo`
 	tok := n.Solo.Children()[0].(api.Token)
-	if common.Is_camelCase2(tok) {
+	// infix ids are not stored w/ parens, so this will work for both infix and non-infix
+	if common.Is_camelCase2(tok) { 
 		return data.Fail[name](IllegalLowercaseConstructorName, tok)
 	}
 

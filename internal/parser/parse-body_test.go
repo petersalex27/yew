@@ -92,11 +92,67 @@ func TestParseBodyElement(t *testing.T) {
 
 }
 
-func TestParseConstructorName(t *testing.T) {
 
+// rule:
+//
+//	```
+//	constructor name = infix upper ident | upper ident | symbol | infix symbol ;
+//	```
+func TestParseConstructorName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  data.Either[data.Ers, name]
+	}{
+		{
+			"infix upper ident",
+			[]api.Token{infix_MyId_tok},
+			data.Ok(data.EOne[name](infix_MyId_tok)),
+		},
+		{
+			"upper ident",
+			[]api.Token{id_MyId_tok},
+			data.Ok(data.EOne[name](id_MyId_tok)),
+		},
+		{
+			"symbol",
+			[]api.Token{id_dollar_tok},
+			data.Ok(data.EOne[name](id_dollar_tok)),
+		},
+		{
+			"infix symbol",
+			[]api.Token{infix_dollar_tok},
+			data.Ok(data.EOne[name](infix_dollar_tok)),
+		},
+		// error cases
+		{
+			"error - lower ident",
+			[]api.Token{id_x_tok},
+			data.Fail[name](IllegalLowercaseConstructorName, __),
+		},
+		{
+			"error - lower infix ident",
+			[]api.Token{infix_x_tok},
+			data.Fail[name](IllegalLowercaseConstructorName, __),
+		},
+		{
+			"error - method name",
+			[]api.Token{method_run_tok},
+			data.Fail[name](IllegalMethodTypeConstructor, __),
+		},
+		{
+			"error - non-name",
+			[]api.Token{alias},
+			data.Fail[name](ExpectedTypeConstructorName, __),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, eitherOutputFUT(test.input, test.want, parseConstructorName))
+	}
 }
 
-func TestParseConstructor(t *testing.T) {
+func TestParseConstructor(t *testing.T) { 
 
 }
 

@@ -36,6 +36,8 @@ var (
 	hole_MyId_tok    api.Token = token.Hole.MakeValued("?MyId")             // ?MyId
 	id_dollar_tok    api.Token = token.Id.MakeValued("$")                   // $
 	infix_dollar_tok api.Token = token.Infix.MakeValued("$")                // ($)
+	infix_MyId_tok   api.Token = token.Infix.MakeValued("MyId")             // (MyId)
+	infix_x_tok      api.Token = token.Infix.MakeValued("x")                // (x)
 	method_run_tok   api.Token = token.MethodSymbol.MakeValued("run")       // (.run)
 	raw_my_tok       api.Token = token.RawStringValue.MakeValued("my")      // `my`
 	__               api.Token = token.Underscore.Make()                    // just a placeholder
@@ -294,6 +296,16 @@ func runResultTest[a api.DescribableNode](p Parser, t *testing.T, want a, fut fu
 		t.Errorf("expected \n%s\n, got \n%s\n", sprintTree(want), sprintTree(es))
 	} else if !equals(actual, want) {
 		t.Errorf("expected \n%v\n, got \n%v\n", sprintTree(want), sprintTree(actual))
+	}
+}
+
+func eitherOutputFUT[a, b api.DescribableNode](input []api.Token, want data.Either[a, b], fut func(p Parser) data.Either[a, b]) func(*testing.T) {
+	return func(t *testing.T) {
+		p := initTestParser(input)
+		got := fut(p)
+		if !equals(got, want) {
+			t.Errorf("expected \n%s\n, got \n%s\n", sprintTree(want), sprintTree(got))
+		}
 	}
 }
 
