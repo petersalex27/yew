@@ -212,8 +212,6 @@ func parseConstraint(p Parser) data.Either[data.Ers, constraintVerified] {
 // rule:
 //
 //	```
-//	constrainer = upper ident, pattern ;
-//	enc constrainer = upper ident, {"\n"}, pattern ;
 //	spec head = [constraint, {"\n"}, "=>", {"\n"}], constrainer ;
 //	```
 func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
@@ -239,9 +237,9 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 	p.dropNewlines()
 	isCaseA := c.Tail().Len() == 0 && c.Head().Fst().Len() == 0
 	if isCaseA {
-		ta, found := getKeywordAtCurrent(p, token.Arrow)
+		ta, found := getKeywordAtCurrent(p, token.ThickArrow)
 		if !found {
-			sh = data.EMakePair[specHead](data.Nothing[constraint](p), c.Head().Snd())
+			sh = data.EMakePair[specHead](data.Nothing[constraintVerified](p), c.Head().Snd())
 			return data.Ok(sh)
 		} // else found, fall out of branch
 		thickArrow = ta
@@ -254,7 +252,7 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 	}
 
 	// assemble: c => rhs
-	sh = data.EMakePair[specHead](data.Just[constraint](c), rhs)
+	sh = data.EMakePair[specHead](data.Just(c), rhs)
 	sh.Position = sh.Update(thickArrow)
 	return data.Ok(sh)
 }

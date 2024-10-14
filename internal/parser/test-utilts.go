@@ -232,8 +232,8 @@ var (
 	defNode            = def{emptyAnnots, name_x, defBodyNode, api.ZeroPosition()}                                          // x = x
 	defImpossibleNode  = def{emptyAnnots, name_x, defBodyImpossible, api.ZeroPosition()}                                    // x impossible
 	unvConstraintNode  = data.EOne[constraintUnverified](appTypeNode)                                                       // x x
-	specHeadNode       = data.EMakePair[specHead](data.Nothing[constraint](), constrainerNode)                              // MyId x
-	specHeadConstrNode = data.EMakePair[specHead](data.Just[constraint](unvConstraintNode), constrainerNode)                // x x => MyId x
+	specHeadNode       = data.EMakePair[specHead](data.Nothing[constraintVerified](), constrainerNode)                      // MyId x
+	specHeadConstrNode = data.EMakePair[specHead](data.Just(vConstraintNode), constrainerNode)                              // MyId x => MyId x
 	specDefNode        = makeSpecDef(specHeadNode, data.Nothing[pattern](), specDefBodyNode, data.Nothing[specRequiring]()) // spec MyId x where x : x
 	specInstNode       = makeSpecInst(specHeadNode, data.Nothing[constrainer](), specInstBodyNode)                          // spec MyId x where x = x
 	rawStringNode      = data.EOne[rawString](raw_my_tok)                                                                   // `my`

@@ -34,8 +34,47 @@ func TestParseSpecMemberGroup(t *testing.T) {
 	
 }
 
+// rule:
+//
+//	```
+//	spec head = [constraint, {"\n"}, "=>", {"\n"}], constrainer ;
+//	```
 func TestParseSpecHead(t *testing.T) {
-	
+	tests := []struct {
+		name string
+		input []api.Token
+		want  specHead		
+	}{
+		{
+			"no constraint",
+			[]api.Token{id_MyId_tok, id_x_tok},
+			specHeadNode,
+		},
+		{
+			"with constraint - 00",
+			[]api.Token{id_MyId_tok, id_x_tok, thickArrow, id_MyId_tok, id_x_tok},
+			specHeadConstrNode,
+		},
+		{
+			"with constraint - 01",
+			[]api.Token{id_MyId_tok, id_x_tok, thickArrow, newline, id_MyId_tok, id_x_tok},
+			specHeadConstrNode,
+		},
+		{
+			"with constraint - 10",
+			[]api.Token{id_MyId_tok, id_x_tok, newline, thickArrow, id_MyId_tok, id_x_tok},
+			specHeadConstrNode,
+		},
+		{
+			"with constraint - 11",
+			[]api.Token{id_MyId_tok, id_x_tok, newline, thickArrow, newline, id_MyId_tok, id_x_tok},
+			specHeadConstrNode,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseSpecHead, -1))
+	}
 }
 
 func TestParseSpecDependency(t *testing.T) {

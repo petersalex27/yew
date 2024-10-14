@@ -323,7 +323,7 @@ type (
 	}
 
 	specHead struct {
-		data.Pair[data.Maybe[constraint], constrainer]
+		data.Pair[data.Maybe[constraintVerified], constrainer]
 	}
 
 	// A spec instance. Examples of various forms it can take:
