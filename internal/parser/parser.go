@@ -21,9 +21,9 @@ type Parser interface {
 	advance()
 	// drop zero or more newlines
 	dropNewlines()
-	// Mark whatever is parsed next as optional. 
+	// Mark whatever is parsed next as optional.
 	//
-	// An error is not to be reported when a parse attempt fails and the parser is in an 
+	// An error is not to be reported when a parse attempt fails and the parser is in an
 	// optional-marked-state. Instead, it should gracefully return the parsing to the point where
 	// the optional-mark was made.
 	markOptional() Parser
@@ -31,15 +31,19 @@ type Parser interface {
 	//
 	// This is *NOT* necessarily the inverse of `markOptional`; it's its own state transition.
 	// Though, it works closely with `markOptional` to provide the optional parsing feature. And,
-	// under ALL circumstances, it should be paired with a prior `markOptional` call. 
+	// under ALL circumstances, it should be paired with a prior `markOptional` call.
 	demarkOptional() Parser
+	acceptRoot(yewSource) Parser
 }
 
 // initialize the parser, providing it with a scanner to read tokens from
 func Init(scanner api.ScannerPlus) Parser {
-	ps := &ParserState{state: createState(scanner), ast: nil}
+	ps := &ParserState{
+		state: createState(scanner),
+		ast:   makeEmptyYewSource(),
+	}
 	if !ps.load() {
-		return &ParserStateFail{bad: *ps}
+		return &ParserStateFail{bad: ps}
 	}
 
 	return ps
@@ -68,26 +72,12 @@ func getOrigin(p Parser) int {
 func resetOrigin(p Parser, origin int) Parser {
 	if ps, ok := p.(*ParserState); ok {
 		ps.tokenCounter = origin
-		return ps
+		p = ps
 	} else if ps, ok := p.(*ParserState_optional); ok {
 		ps.tokenCounter = origin
-		return ps
+		p = ps
 	}
 	return p
-}
-
-func repeat[a, b api.Node](test func(Parser) bool, body func(Parser) data.Either[data.Ers, a], finish func(data.List[a]) data.Either[data.Ers, b]) func(Parser) data.Either[data.Ers, b] {
-	return func(p Parser) data.Either[data.Ers, b] {
-		xs := data.Nil[a]()
-		for test(p) {
-			es, x, isX := body(p).Break()
-			if !isX {
-				return data.Inl[b](es)
-			}
-			xs = xs.Snoc(x)
-		}
-		return finish(xs)
-	}
 }
 
 func passParseErs[b api.Node](_ Parser, x data.Ers) data.Either[data.Ers, b] {

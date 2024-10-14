@@ -19,82 +19,81 @@ func TestParseYewSource(t *testing.T) {
 		{
 			"source - 0000 (empty footer only)",
 			[]api.Token{},
-			yewSource{
-				//meta: data.Nothing[meta](),
-				header: data.Nothing[header](),
-				body: data.Nothing[body](),
-				footer: footer{data.Nothing[annotations]()},
-			},
+			makeYewSource(
+				//data.Nothing[meta](),
+				data.Nothing[header](),
+				data.Nothing[body](),
+				data.Nothing[annotations](),
+			),
 		},
 		{
 			"source - 0001 (footer only)",
 			[]api.Token{annot},
-			yewSource{
-				//meta: data.Nothing[meta](),
-				header: data.Nothing[header](),
-				body: data.Nothing[body](),
-				footer: footer{data.Just(data.EConstruct[annotations](annotation_flat))},
-			},
+			makeYewSource(
+				//data.Nothing[meta](),
+				data.Nothing[header](),
+				data.Nothing[body](),
+				data.Just(data.EConstruct[annotations](annotation_flat)),
+			),
 		},
 		{
 			"source - 0010 (body only)",
 			[]api.Token{id_x_tok, colon, id_x_tok},
-			yewSource{
-				//meta: data.Nothing[meta](),
-				header: data.Nothing[header](),
-				body: data.Just(body_typing),
-				footer: footer{data.Nothing[annotations]()},
-			},
+			makeYewSource(
+				//data.Nothing[meta](),
+				data.Nothing[header](),
+				data.Just(body_typing),
+				data.Nothing[annotations](),
+			),
 		},
 		{
 			"source - 0011 (body and footer)",
 			[]api.Token{id_x_tok, colon, id_x_tok, newline, annot},
-			yewSource{
-				//meta: data.Nothing[meta](),
-				header: data.Nothing[header](),
-				body: data.Just[body](body_typing),
-				footer: footer{data.Just(data.EConstruct[annotations](annotation_flat))},
-			},
+			makeYewSource(
+				//data.Nothing[meta](),
+				data.Nothing[header](),
+				data.Just(body_typing),
+				data.Just(data.EConstruct[annotations](annotation_flat)),
+			),
 		},
 		{
 			"source - 0100 (header only)",
 			[]api.Token{moduleTok, id_x_tok},
-			yewSource{
-				//meta: data.Nothing[meta](),
-				header: data.Just[header](data.EMakePair[header](data.Just[module](module_x), data.Nil[importStatement]())),
-				body: data.Nothing[body](),
-				footer: footer{data.Nothing[annotations]()},
-			},
+			makeYewSource(
+				//data.Nothing[meta](),
+				data.Just[header](data.EMakePair[header](data.Just[module](module_x), data.Nil[importStatement]())),
+				data.Nothing[body](),
+				data.Nothing[annotations](),
+			),
 		},
 		{
 			"source - 0101 (header and footer)",
 			[]api.Token{moduleTok, id_x_tok, newline, annot},
-			yewSource{
-				//meta: data.Nothing[meta](),
-				header: data.Just[header](data.EMakePair[header](data.Just[module](module_x), data.Nil[importStatement]())),
-				body: data.Nothing[body](),
-				footer: footer{data.Just(data.EConstruct[annotations](annotation_flat))},
-			},
+			makeYewSource(
+				//data.Nothing[meta](),
+				data.Just(data.EMakePair[header](data.Just(module_x), data.Nil[importStatement]())),
+				data.Nothing[body](),
+				data.Just(data.EConstruct[annotations](annotation_flat)),
+			),
 		},
 		{
 			"source - 0110 (header and body)",
 			[]api.Token{moduleTok, id_x_tok, newline, id_x_tok, colon, id_x_tok},
-			yewSource{
-				//meta: data.Nothing[meta](),
-				header: data.Just[header](data.EMakePair[header](data.Just[module](module_x), data.Nil[importStatement]())),
-				body: data.Just[body](body_typing),
-				footer: footer{data.Nothing[annotations]()},
-			},
+			makeYewSource(
+				//data.Nothing[meta](),
+				data.Just(data.EMakePair[header](data.Just(module_x), data.Nil[importStatement]())),
+				data.Just(body_typing),
+				footer{data.Nothing[annotations]()},
+			),
 		},
 		{
 			"source - 0111 (header, body, and footer)",
 			[]api.Token{moduleTok, id_x_tok, newline, id_x_tok, colon, id_x_tok, newline, annot},
-			yewSource{
-				//meta: data.Nothing[meta](),
-				header: data.Just[header](data.EMakePair[header](data.Just[module](module_x), data.Nil[importStatement]())),
-				body: data.Just[body](body_typing),
-				footer: footer{data.Just(data.EConstruct[annotations](annotation_flat))},
-			},
+			makeYewSource(
+				data.Just(data.EMakePair[header](data.Just(module_x), data.Nil[importStatement]())),
+				data.Just(body_typing),
+				data.Just(data.EConstruct[annotations](annotation_flat)),
+			),
 		},
 
 		// NOTE: this shows there are really just three *syntactic* sections of a yew source file; however,
@@ -115,42 +114,40 @@ func TestParseYewSource(t *testing.T) {
 		{
 			"source - 1100 (meta and header)",
 			[]api.Token{annot, newline, moduleTok, id_x_tok},
-			yewSource{
-				//meta: data.Just[meta](meta{data.EConstruct[annotations](annotation_flat)}),
-				header: data.Just[header](data.EMakePair[header](data.Just(module_annot_x), data.Nil[importStatement]())),
-				body: data.Nothing[body](),
-				footer: footer{data.Nothing[annotations]()},
-			},
+			makeYewSource(
+				data.Just[header](data.EMakePair[header](data.Just(module_annot_x), data.Nil[importStatement]())),
+				data.Nothing[body](),
+				data.Nothing[annotations](),
+			),
 		},
 		{
 			"source - 1101 (meta, header, and footer)",
 			[]api.Token{annot, newline, moduleTok, id_x_tok, newline, annot},
-			yewSource{
-				//meta: data.Just[meta](meta{data.EConstruct[annotations](annotation_flat)}),
-				header: data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
-				body: data.Nothing[body](),
-				footer: footer{data.Just(data.EConstruct[annotations](annotation_flat))},
-			},
+			makeYewSource(
+				data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
+				data.Nothing[body](),
+				data.Just(data.EConstruct[annotations](annotation_flat)),
+			),
 		},
 		{
 			"source - 1110 (meta, header, and body)",
 			[]api.Token{annot, newline, moduleTok, id_x_tok, newline, id_x_tok, colon, id_x_tok},
-			yewSource{
-				//meta: data.Just[meta](meta{data.EConstruct[annotations](annotation_flat)}),
-				header: data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
-				body: data.Just[body](body_typing),
-				footer: footer{data.Nothing[annotations]()},
-			},
+			makeYewSource(
+				//data.Just[meta](meta{data.EConstruct[annotations](annotation_flat)}),
+				data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
+				data.Just[body](body_typing),
+				data.Nothing[annotations](),
+			),
 		},
 		{
 			"source - 1111 (meta, header, body, and footer--all source section present)",
 			[]api.Token{annot, newline, moduleTok, id_x_tok, newline, id_x_tok, colon, id_x_tok, newline, annot},
-			yewSource{
-				//meta: data.Just[meta](meta{data.EConstruct[annotations](annotation_flat)}),
-				header: data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
-				body: data.Just[body](body_typing),
-				footer: footer{data.Just(data.EConstruct[annotations](annotation_flat))},
-			},
+			makeYewSource(
+				//data.Just[meta](meta{data.EConstruct[annotations](annotation_flat)}),
+				data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
+				data.Just[body](body_typing),
+				data.Just(data.EConstruct[annotations](annotation_flat)),
+			),
 		},
 	}
 
@@ -158,9 +155,9 @@ func TestParseYewSource(t *testing.T) {
 		fut := func(p Parser) data.Either[data.Ers, yewSource] {
 			p = parseYewSource(p)
 			if ps, ok := p.(*ParserState); ok {
-				return data.Ok(*ps.ast)
+				return data.Ok(ps.ast)
 			} else if pso, ok := p.(*ParserState_optional); ok {
-				return data.Ok(*pso.ParserState.ast)
+				return data.Ok(pso.ParserState.ast)
 			} else {
 				return data.Fail[yewSource]("(test failure) could not parse yew source", p)
 			}

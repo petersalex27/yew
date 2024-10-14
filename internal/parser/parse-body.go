@@ -59,45 +59,49 @@ func parseTypeSig(p Parser) data.Either[data.Ers, typing] {
 //		| [annotations_], type cons ;
 //	type cons = typing ;
 //	```
-func parseTypeDefBody(p Parser, typ typing) data.Either[data.Ers, data.Pair[typing, typeDefBody]] {
+func parseTypeDefBody(p Parser) data.Either[data.Ers, typeDefBody] {
 	if matchCurrentImpossible(p) {
 		// constant "impossible" case
 		td := data.Inr[data.NonEmpty[typeConstructor]](impossible{data.One(p.current())})
 		p.advance()
 
-		return data.Ok(data.MakePair(typ, td))
-	} else if !matchCurrentLeftParen(p) {
-		// single constructor case
-		return data.Cases(parseTypeDefBodyTypeCons(p),
-			data.Inl[data.Pair[typing, typeDefBody], data.Ers],
-			assembleSingleConstructor(typ),
-		)
+		return data.Ok(td)
+	}
+	// else if !matchCurrentLeftParen(p) {
+	// 	res := parseTypeDefBodyTypeCons(p)
+	// }
+
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
+	var first typeConstructor
+	es, tc, isTC := parseTypeDefBodyTypeCons(p).Break()
+	if !isTC {
+		return data.PassErs[typeDefBody](es)
+	}
+	if !found {
+		return data.Ok(data.Inl[impossible](data.Singleton(tc)))
+	} else {
+		first = tc
 	}
 
 	// enclosed case
-	p.advance()
+	bod := data.Singleton(first)
 	p.dropNewlines()
-	return repeat(notMatchCurrent(token.RightParen),
-		parseTypeDefBodyTypeCons,
-		assembleTypeConstructors(typ),
-	)(p)
-}
-
-func assembleSingleConstructor(typ typing) func(typeConstructor) data.Either[data.Ers, data.Pair[typing, typeDefBody]] {
-	return func(tc typeConstructor) data.Either[data.Ers, data.Pair[typing, typeDefBody]] {
-		return data.Inr[data.Ers](data.MakePair(typ, data.Inl[impossible](data.Singleton(tc))))
-	}
-}
-
-func assembleTypeConstructors(typ typing) func(data.List[typeConstructor]) data.Either[data.Ers, data.Pair[typing, typeDefBody]] {
-	return func(l data.List[typeConstructor]) data.Either[data.Ers, data.Pair[typing, typeDefBody]] {
-		if cons, just := l.Head().Break(); !just {
-			return data.Fail[data.Pair[typing, typeDefBody]](ExpectedTypeConstructor, l)
-		} else {
-			tdb := data.Inl[impossible](data.Singleton(cons).Append(l.Elements()[1:]...))
-			return data.Ok(data.MakePair(typ, tdb))
+	for !token.RightParen.Match(p.current()) {
+		es, tc, isTC := parseTypeDefBodyTypeCons(p).Break()
+		if !isTC {
+			return data.PassErs[typeDefBody](es)
 		}
+		bod = bod.Snoc(tc)
+		p.dropNewlines()
 	}
+
+	rparen, found := getKeywordAtCurrent(p, token.RightParen)
+	if !found {
+		return data.Fail[typeDefBody](ExpectedRightParen, lparen)
+	}
+
+	bod.Position = bod.Update(lparen).Update(rparen)
+	return data.Ok(data.Inl[impossible](bod))
 }
 
 func parseTypeDefBodyTypeCons(p Parser) data.Either[data.Ers, typeConstructor] {
@@ -177,11 +181,17 @@ func parseOptionalVisibility(p Parser) (mv data.Maybe[visibility]) {
 
 func attachVisibility(vis data.Maybe[visibility]) func(be bodyElement) data.Either[data.Ers, bodyElement] {
 	return func(be bodyElement) data.Either[data.Ers, bodyElement] {
-		if vbe, ok := be.(visibleBodyElement); !ok && !vis.IsNothing() {
+		vbe, ok := be.(visibleBodyElement)
+		visibilityExists := !vis.IsNothing()
+		if !ok && visibilityExists {
+			// trying to target a non-visibility modifiable body element w/ a visibility
 			return data.Fail[bodyElement](IllegalVisibilityTarget, be)
-		} else {
+		} else if ok && visibilityExists {
+			// attach visibility to the body element
 			return data.Ok(vbe.setVisibility(vis))
 		}
+		// no visibility to attach, return the body element as is
+		return data.Ok(be)
 	}
 }
 
@@ -214,16 +224,16 @@ func parseBody(p Parser) (theBody data.Either[data.Ers, data.Maybe[body]], mFoot
 	const smallBodyCap int = 16
 	sourceBody := body{data.Nil[bodyElement](smallBodyCap)}
 	var es data.Ers
-	var isAnnots bool
+	var isMAnnots bool
 
 	has2ndTerm := false
 
 	for {
 		p.dropNewlines()
-		es, mFooterAnnots, isAnnots = parseAnnotations(p).Break()
-		if !isAnnots { // not just annotations & not nothing -> void
+		es, mFooterAnnots, isMAnnots = parseAnnotations(p).Break()
+		if !isMAnnots { // not just annotations & not nothing -> void
 			return data.PassErs[data.Maybe[body]](es), mFooterAnnots
-		} else if isAnnots && lookahead1(p, token.EndOfTokens) {
+		} else if isMAnnots && lookahead1(p, token.EndOfTokens) {
 			// possibly parsed footer annotations, return body and "Maybe" footer annotations
 			theBody = data.Ok(data.Just(sourceBody))
 			break
@@ -262,7 +272,7 @@ func _parseDef_ParsePattern(p Parser) (es *data.Ers, pat pattern) {
 	if !isPat {
 		return &e, nil
 	}
-	return &e, pat
+	return nil, pat
 }
 
 func _finishParseDef(p Parser, pat pattern) data.Either[data.Ers, def] {
@@ -466,12 +476,10 @@ func parseTypeAlias(p Parser) data.Either[data.Ers, typeAlias] {
 //	syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
 //	```
 func parseSyntax(p Parser) data.Either[data.Ers, syntax] {
-	var syn syntax
 	syntaxToken, found := getKeywordAtCurrent(p, token.Syntax)
 	if !found {
 		return data.Fail[syntax](ExpectedSyntax, p)
 	}
-	syn.Position = syn.Update(syntaxToken)
 
 	es, rule, isRule := parseSyntaxRule(p).Break()
 	if !isRule {
@@ -483,15 +491,14 @@ func parseSyntax(p Parser) data.Either[data.Ers, syntax] {
 	if !found {
 		return data.Fail[syntax](ExpectedSyntaxBinding, rule)
 	}
-	syn.Position = syn.Update(equalToken)
 
 	esE, e, isE := ParseExpr(p).Break()
 	if !isE {
 		return data.PassErs[syntax](esE)
 	}
 
-	syn.rule = data.MakePair(rule, e)
-	syn.Position = syn.Update(syn.rule)
+	syn := makeSyntax(rule, e)
+	syn.Position = syn.Update(syntaxToken).Update(equalToken)
 	return data.Ok(syn)
 }
 
@@ -499,25 +506,31 @@ func parseSyntax(p Parser) data.Either[data.Ers, syntax] {
 //
 //	```
 //	spec def = "spec", {"\n"}, def ;
+//	```
 func parseSyntaxRule(p Parser) data.Either[data.Ers, syntaxRule] {
-	var ruleInsides data.NonEmpty[syntaxSymbol]
-	has1stTerm := false
-	for { // loop until there aren't any syntax symbols in view
-		es, sym := maybeParseSyntaxSymbol(p)
+	const smallCap int = 4
+	var sym syntaxSymbol
+	hasSymbol := true
+
+	ruleInsides := data.Nil[syntaxSymbol](smallCap)
+
+	for hasSymbol { // loop until there aren't any syntax symbols in view
+		es, mSym := maybeParseSyntaxSymbol(p)
 		if es != nil {
 			return data.PassErs[syntaxRule](*es)
-		} else if unit, just := sym.Break(); !just {
-			break
-		} else {
-			ruleInsides = ruleInsides.Snoc(unit)
-			has1stTerm = true
+		}
+
+		if sym, hasSymbol = mSym.Break(); hasSymbol {
+			ruleInsides = ruleInsides.Snoc(sym)
 		}
 	}
 
-	if !has1stTerm {
-		return data.Fail[syntaxRule](ExpectedSyntaxRule, p)
+	// attempt to strengthen list -> non-empty list
+	if rule, just := ruleInsides.Strengthen().Break(); just {
+		return data.Inr[data.Ers](syntaxRule{rule})
 	}
-	return data.Inr[data.Ers](syntaxRule{ruleInsides})
+
+	return data.Fail[syntaxRule](ExpectedSyntaxRule, p)
 }
 
 // assumes the token is the correct type (i.e., `token.RawStringValue`)
@@ -759,9 +772,9 @@ func parseMaybeMainElem(p Parser) (*data.Ers, data.Maybe[mainElement]) {
 func parseTypeDefOrTyping(p Parser, t typing) data.Either[data.Ers, mainElement] {
 	where, found := getKeywordAtCurrent(p, token.Where)
 	if !found {
-		return data.Inr[data.Ers](mainElement(t))
+		return data.Inr[data.Ers, mainElement](t)
 	}
-	es, tdb, isTbd := parseTypeDefBody(p, t).Break()
+	es, tdb, isTbd := parseTypeDefBody(p).Break()
 	if !isTbd {
 		return data.PassErs[mainElement](es)
 	}
@@ -771,14 +784,9 @@ func parseTypeDefOrTyping(p Parser, t typing) data.Either[data.Ers, mainElement]
 		return data.PassErs[mainElement](esDeriving)
 	}
 
-	return data.Ok(mainElement(typeDef{
-		// this serves two purposes: adding the value and incorporating the where Position
-		annotations: data.Nothing[annotations](where),
-		// constructed and b/c 'Nothing' needs a Position arg
-		visibility: data.Nothing[visibility](where),
-		typedef:    tdb,
-		deriving:   mDeriving,
-	}))
+	td := makeTypeDef(t, tdb, mDeriving)
+	td.Position = td.Update(where)
+	return data.Ok[mainElement](td)
 }
 
 // rule:

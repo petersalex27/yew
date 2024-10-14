@@ -10,28 +10,31 @@ import (
 //	```
 //	header = [module], {{"\n"}, [annotations_], import} ;
 //	```
-func parseHeader(p Parser) data.Either[data.Ers, header] {
+func parseHeader(p Parser) data.Either[data.Ers, data.Maybe[header]] {
 	origin := getOrigin(p)
 	annotEs, mAnnots, isMAnnots := parseAnnotations(p).Break()
 	if !isMAnnots {
-		return data.PassErs[header](annotEs)
+		return data.PassErs[data.Maybe[header]](annotEs)
 	}
 
 	es, mod, ok := parseModule(p).Break()
 	if !ok {
-		return data.PassErs[header](es)
+		return data.PassErs[data.Maybe[header]](es)
 	}
 
 	var imports data.List[importStatement]
 	var isImports bool
 
-	if !mod.IsNothing() && !mAnnots.IsNothing() {
-		// attach annotations to module, whether they actually target the module or not
-		// will be determined later
+	moduleExists, somethingIsAnnotated := !mod.IsNothing(), !mAnnots.IsNothing()
+	annotateModule := moduleExists && somethingIsAnnotated
+	
+	if annotateModule {
 		m, _ := mod.Break()
-		m.annotate(mAnnots)
+		m.annotate(mAnnots) // whether annots target mod. will be determined later
 		mod = data.Just(m)
-	} else if !mAnnots.IsNothing() {
+	}
+	
+	if !annotateModule && somethingIsAnnotated {
 		// give annotations to imports if no module is present
 		es, imports, isImports = parseImportsHelper(p, mAnnots).Break()
 	} else {
@@ -39,22 +42,21 @@ func parseHeader(p Parser) data.Either[data.Ers, header] {
 	}
 
 	if !isImports {
-		return data.PassErs[header](es)
+		return data.PassErs[data.Maybe[header]](es)
 	} else if mod.IsNothing() && imports.IsEmpty() && !mAnnots.IsNothing() {
 		// reset to the position before the annotations
 		//lint:ignore SA4006 ignore unused variable warning
 		p = resetOrigin(p, origin)
 	}
-	return data.Ok(data.EMakePair[header](mod, imports))
+	
+	return data.Ok(makePossibleHeader(mod, imports))
 }
 
-// rule:
-//
-//	```
-//	header = [module], {{"\n"}, [annotations_], import} ;
-//	```
-func (ys *yewSource) parseHeader(p Parser) Parser {
-	return runCases(p, parseHeader, writeErrors, ys.writeHeader)
+func makePossibleHeader(mod data.Maybe[module], imports data.List[importStatement]) data.Maybe[header] {
+	if mod.IsNothing() && imports.IsEmpty() {
+		return data.Nothing[header]()
+	}
+	return data.Just(data.EMakePair[header](mod, imports))
 }
 
 func parseModule(p Parser) data.Either[data.Ers, data.Maybe[module]] {
@@ -238,14 +240,4 @@ func maybeParsePackageImport(p Parser) (*data.Ers, data.Maybe[packageImport]) {
 
 	pi := data.EMakePair[packageImport](path, selections)
 	return nil, data.Just(pi)
-}
-
-func (ys *yewSource) writeHeader(p Parser, h header) Parser {
-	if h.Fst().IsNothing() && h.Snd().IsEmpty() {
-		ys.acceptHeader(data.Nothing[header](p)) // don't put an empty header in the AST
-	} else {
-		ys.acceptHeader(data.Just(h))
-	}
-	p.dropNewlines()
-	return p
 }

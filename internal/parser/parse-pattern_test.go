@@ -188,7 +188,7 @@ func TestMaybeParseName(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		p := &ParserState{state: state{tokens: test.input}, ast: nil}
+		p := &ParserState{state: state{tokens: test.input}}
 		actual := maybeParseName(p)
 		if !equals(actual, test.want) {
 			t.Errorf("expected \n%v\n, got \n%v\n", test.want, actual)

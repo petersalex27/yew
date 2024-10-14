@@ -14,27 +14,27 @@ func TestParseHeader(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  header
+		want  data.Maybe[header]
 	}{
 		{
 			"empty",
 			[]api.Token{}, //
-			data.EMakePair[header](data.Nothing[module](), data.Nil[importStatement]()),
+			data.Nothing[header](),
 		},
 		{
 			"just module",
 			[]api.Token{moduleTok, id_x_tok}, // module x
-			data.EMakePair[header](data.Just(module_x), data.Nil[importStatement]()),
+			data.Just(data.EMakePair[header](data.Just(module_x), data.Nil[importStatement]())),
 		},
 		{
 			"just import",
 			[]api.Token{importTok, importPathTok}, // import "a/b/c"
-			data.EMakePair[header](data.Nothing[module](), data.Nil[importStatement](1).Snoc(importStmtNode)),
+			data.Just(data.EMakePair[header](data.Nothing[module](), data.Nil[importStatement](1).Snoc(importStmtNode))),
 		},
 		{
 			"module and import",
 			[]api.Token{moduleTok, id_x_tok, newline, importTok, importPathTok}, // module x\nimport "a/b/c"
-			data.EMakePair[header](data.Just(module_x), data.Nil[importStatement](1).Snoc(importStmtNode)),
+			data.Just(data.EMakePair[header](data.Just(module_x), data.Nil[importStatement](1).Snoc(importStmtNode))),
 		},
 	}
 

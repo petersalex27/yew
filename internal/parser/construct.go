@@ -34,13 +34,9 @@ func assembleLetExpr(let api.Token, binders letBinding, in api.Token, expr expr)
 }
 
 func constructAlias(aliasToken api.Token, n name, equalToken api.Token, ty typ) typeAlias {
-	alias := data.MakePair(n, ty)
-	return typeAlias{
-		alias:       alias,
-		annotations: data.Nothing[annotations](aliasToken),
-		visibility:  data.Nothing[visibility](aliasToken),
-		Position:    api.WeakenRangeOver[api.Node](aliasToken, ty, alias, equalToken),
-	}
+	alias := makeAlias(n, ty)
+	alias.Position = alias.Position.Update(aliasToken).Update(equalToken)
+	return alias
 }
 
 func makeFunc(lhs typ, rhs typ) typ {
@@ -114,4 +110,12 @@ func makeBindingSyntaxRuleIdent(id ident) syntaxRuleIdent {
 
 func makeStdSyntaxRuleIdent(id ident) syntaxRuleIdent {
 	return syntaxRuleIdent{false, id, id.GetPos()}
+}
+
+func makeEmptyYewSource() yewSource {
+	return makeYewSource(
+		data.Nothing[header](),
+		data.Nothing[body](),
+		data.Nothing[annotations](),
+	)
 }

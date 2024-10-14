@@ -320,10 +320,10 @@ func parseOptionalSpecDependency(p Parser) data.Either[data.Ers, data.Maybe[patt
 
 	es, pat, isPat := ParsePattern(p).Break()
 	if !isPat {
-		return data.Inl[data.Maybe[pattern]](es)
+		return data.PassErs[data.Maybe[pattern]](es)
 	}
 
-	return data.Ok(data.Just[pattern](pat.updatePosPattern(fromToken)))
+	return data.Ok(data.Just(pat.updatePosPattern(fromToken)))
 }
 
 // rule:
@@ -416,7 +416,7 @@ func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[req
 
 	es, reqBody, isReqBody := parseGroup[struct{ data.NonEmpty[def] }](p, ExpectedDef, parseMaybeAnnotatedDef).Break()
 	if !isReqBody {
-		return data.Inl[data.Maybe[requiringClause]](es)
+		return data.PassErs[data.Maybe[requiringClause]](es)
 	}
 	reqBody.Position = reqBody.Update(req)
 	return data.Ok(data.Just(reqBody.NonEmpty))
@@ -430,42 +430,34 @@ func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[req
 //	spec inst member group = spec member | "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
 //	```
 func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
-	var si specInst
-
 	inst, found := getKeywordAtCurrent(p, token.Inst)
 	if !found {
 		return data.Fail[specInst](ExpectedSpecInst, p)
 	}
-	si.Position = si.Update(inst)
 
 	es, sh, isSH := parseSpecHead(p).Break()
 	if !isSH {
-		return data.Inl[specInst](es)
+		return data.PassErs[specInst](es)
 	}
-	si.Position = si.Update(sh)
-	si.head = sh
 
 	p.dropNewlines()
 	esTarget, target, isTarget := parseOptionalSpecInstTarget(p).Break()
 	if !isTarget {
-		return data.Inl[specInst](esTarget)
+		return data.PassErs[specInst](esTarget)
 	}
-	si.Position = si.Update(target)
-	si.target = target
 
 	where, foundWhere := getKeywordAtCurrent(p, token.Where)
 	if !foundWhere {
 		return data.Fail[specInst](ExpectedInstWhere, target)
 	}
-	si.Position = si.Update(where)
 
 	esBody, specBod, isBody := parseSpecBody(p).Break()
 	if !isBody {
-		return data.Inl[specInst](esBody)
+		return data.PassErs[specInst](esBody)
 	}
-	si.Position = si.Update(specBod)
-	si.body = specBod
 
+	si := makeSpecInst(sh, target, specBod)
+	si.Position = si.Update(inst).Update(where)
 	return data.Ok(si)
 }
 
@@ -482,7 +474,7 @@ func parseOptionalSpecInstTarget(p Parser) data.Either[data.Ers, data.Maybe[cons
 
 	es, c, isC := parseConstrainer(p, false).Break()
 	if !isC {
-		return data.Inl[data.Maybe[constrainer]](es)
+		return data.PassErs[data.Maybe[constrainer]](es)
 	}
 	c.Position = c.Update(equal)
 	return data.Ok(data.Just(c))

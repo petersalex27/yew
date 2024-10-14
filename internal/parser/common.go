@@ -19,7 +19,6 @@ var (
 
 	matchCurrentWith        = matchCurrent(token.With)
 	matchCurrentId          = matchCurrent(token.Id)
-	matchCurrentEndOfTokens = matchCurrent(token.EndOfTokens)
 	matchCurrentEqual       = matchCurrent(token.Equal)
 	matchCurrentBackslash   = matchCurrent(token.Backslash)
 	matchCurrentLeftParen   = matchCurrent(token.LeftParen)
@@ -29,10 +28,6 @@ var (
 	matchCurrentInfix       = matchCurrent(token.Infix)
 	matchCurrentRawString   = matchCurrent(token.RawStringValue)
 	matchCurrentMethodId    = matchCurrent(token.MethodSymbol)
-
-	notMatchCurrent = func(t token.Type) func(Parser) bool {
-		return func(p Parser) bool { return !matchCurrent(t)(p) }
-	}
 
 	literalLAs = []token.Type{token.IntValue, token.FloatValue, token.StringValue, token.RawStringValue, token.ImportPath, token.CharValue}
 
@@ -185,7 +180,7 @@ func getKeywordAtCurrent(p Parser, keyword token.Type) (token api.Token, found b
 }
 
 func writeErrors(p Parser, es data.Ers) Parser {
-	var out Parser
+	var out Parser = p
 	for _, e := range es.Elements() {
 		out = p.report(parseError(p, e), e.Fatal())
 	}
@@ -256,7 +251,8 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 
 	var xs data.NonEmpty[a]
 	var es *data.Ers
-	if found { // if '(' was found, parse multiple elements and then ')'
+	if found { 
+		// if '(' was found, parse multiple elements and then ')'
 		es, xs, _ = parseOneOrMore(p, first, true, maybeParse)
 		if es != nil {
 			return data.PassErs[ne](*es)
@@ -267,7 +263,8 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 			return data.Fail[ne](ExpectedRightParen, p)
 		}
 		xs.Position = xs.Update(rp)
-	} else { // otherwise, just return the first element
+	} else { 
+		// otherwise, just return the first element
 		xs = data.Singleton(first)
 	}
 

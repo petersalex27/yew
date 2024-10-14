@@ -21,7 +21,7 @@ type state struct {
 // State for parsing
 type ParserState struct {
 	state
-	ast *yewSource
+	ast yewSource
 }
 
 func createState(scanner api.ScannerPlus) state {
@@ -39,6 +39,11 @@ type ParserState_optional struct {
 	*ParserState
 }
 
+func (p *ParserState_optional) acceptRoot(ys yewSource) Parser {
+	p.ast = ys
+	return p
+}
+
 // kinda noop--panics if called when timesMarked <= 0
 func (p *ParserState_optional) report(e error, fatal bool) Parser {
 	if p.timesMarked <= 0 {
@@ -50,6 +55,11 @@ func (p *ParserState_optional) report(e error, fatal bool) Parser {
 		panic("optional parser was de-marked more times than it was marked")
 	}
 	return p // ignore the error, as the thing that was being parsed was optional
+}
+
+func (p *ParserState) acceptRoot(ys yewSource) Parser {
+	p.ast = ys
+	return p
 }
 
 func (p *ParserState) markOptional() Parser {
@@ -106,7 +116,7 @@ func (p *ParserState) bind(f func(Parser) Parser) Parser { return f(p) }
 func (p *ParserState) report(e error, fatal bool) Parser {
 	p.AddError(e)
 	if fatal {
-		return &ParserStateFail{bad: *p}
+		return &ParserStateFail{bad: p}
 	}
 	return p
 }

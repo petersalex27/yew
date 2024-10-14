@@ -6,7 +6,12 @@ import (
 )
 
 type ParserStateFail struct {
-	bad ParserState
+	bad *ParserState
+}
+
+// noop
+func (p *ParserStateFail) acceptRoot(yewSource) Parser {
+	return p
 }
 
 // noop
