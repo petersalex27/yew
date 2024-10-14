@@ -717,7 +717,7 @@ func parseBasicBodyStructure(p Parser, vis data.Maybe[visibility]) data.Either[d
 	msg := attempted.getErrorMessageForAttempted(vis)
 	var e data.Err
 	if msg != "" {
-		e = mkErr(msg, api.WeakenRangeOver[api.Positioned](res, startPosition))
+		e = data.MkErr(msg, api.WeakenRangeOver[api.Positioned](res, startPosition))
 	}
 
 	if e.Msg() == "" {

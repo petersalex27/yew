@@ -215,7 +215,7 @@ func parseMaybeBindingGroupMember(p Parser) (*data.Ers, data.Maybe[bindingGroupM
 		typingMem := data.Inr[binderMember](data.MakePair(r, mExpression))
 		return nil, data.Just(typingMem)
 	} else if mExpression.IsNothing() { // error, expression is required for a let-binding
-		e := data.Ers(data.Nil[data.Err](1).Snoc(mkErr(ExpectedBoundExpr, mExpression)))
+		e := data.Ers(data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedBoundExpr, mExpression)))
 		return &e, data.Nothing[bindingGroupMember](p)
 	}
 
@@ -244,7 +244,7 @@ func parseMaybeCaseExpr(p Parser) (*data.Ers, data.Maybe[caseExpr]) {
 	p.dropNewlines()
 	of, found := getKeywordAtCurrent(p, token.Of)
 	if !found {
-		es := data.Ers(data.Nil[data.Err](1).Snoc(mkErr(ExpectedOf, p)))
+		es := data.Ers(data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedOf, p)))
 		return &es, data.Nothing[caseExpr](p)
 	}
 
@@ -315,7 +315,7 @@ func parseMaybeEnclosedExpr(p Parser) (*data.Ers, data.Maybe[expr]) {
 
 	var rparen api.Token
 	if rparen, found = getKeywordAtCurrent(p, token.RightParen); !found {
-		es := data.Ers(data.Nil[data.Err](1).Snoc(mkErr(ExpectedRightParen, p)))
+		es := data.Ers(data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedRightParen, p)))
 		return &es, data.Nothing[expr](p) // error, right paren is required
 	}
 

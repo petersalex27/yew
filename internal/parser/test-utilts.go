@@ -218,11 +218,11 @@ var (
 
 	// spec inst/def nodes
 
-	constrainerNode  = data.EMakePair[constrainer](MyId_as_upper, pattern(name_x))                                                // MyId x
-	vConstraintNode  = data.EConstruct[constraintVerified](data.MakePair(data.Nil[upperIdent](), constrainerNode))                // MyId x
+	constrainerNode  = data.EMakePair[constrainer](MyId_as_upper, pattern(name_x))                                    // MyId x
+	vConstraintNode  = data.EConstruct[constraintVerified](data.MakePair(data.Nil[upperIdent](), constrainerNode))    // MyId x
 	vConstraint2Node = data.EConstruct[constraintVerified](data.MakePair(data.Makes(MyId_as_upper), constrainerNode)) // MyId, MyId x
-	specDefBodyNode  = data.EConstruct[specBody](data.Inr[def](typingNode))                                                       // where x : x
-	specInstBodyNode = data.EConstruct[specBody](data.Inl[typing](defNode))                                                       // where x = x
+	specDefBodyNode  = data.EConstruct[specBody](data.Inr[def](typingNode))                                           // where x : x
+	specInstBodyNode = data.EConstruct[specBody](data.Inl[typing](defNode))                                           // where x = x
 
 	// body nodes
 
@@ -243,7 +243,7 @@ var (
 	idSymNode          = data.Inl[syntaxRawKeyword](makeStdSyntaxRuleIdent(lowerId))                                        // x
 	syntaxRuleNode     = data.EConstruct[syntaxRule](rawSym, idSymNode)                                                     // `my` x
 	syntaxNode         = makeSyntax(syntaxRuleNode, expr(name_x))                                                           // syntax `my` x = x
-	aliasNode          = makeAlias(name_x, typ_x)                                                                           // alias x = x
+	aliasNode          = makeAlias(name_MyId, name_MyId)                                                                    // alias MyId = MyId
 	typeConsNode       = makeCons(name_MyId, typ_x)                                                                         // MyId : x
 	_consGroup         = data.Construct(typeConsNode)                                                                       // MyId : x
 	typeDefNode        = makeTypeDef(upperTypingNode, data.Inl[impossible](_consGroup), data.Nothing[deriving]())           // MyId : x where MyId : x
@@ -253,7 +253,7 @@ var (
 	body_specDef       = body{data.Makes[bodyElement](specDefNode)}                                                         // spec MyId x where x : x
 	body_specInst      = body{data.Makes[bodyElement](specInstNode)}                                                        // inst MyId x where x = x
 	body_syntax        = body{data.Makes[bodyElement](syntaxNode)}                                                          // syntax `my` x = x
-	body_alias         = body{data.Makes[bodyElement](aliasNode)}                                                           // alias x = x
+	body_alias         = body{data.Makes[bodyElement](aliasNode)}                                                           // alias MyId = MyId
 	body_typeDef       = body{data.Makes[bodyElement](typeDefNode)}                                                         // type x = x
 	body_annotTyping   = body{data.Makes[bodyElement](annotTypingNode)}                                                     // --@test\nx : x
 )

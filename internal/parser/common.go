@@ -124,6 +124,27 @@ func lookahead2(p Parser, types ...[2]token.Type) bool {
 	return false
 }
 
+func maybeParseParenEnclosed[a api.Node](p Parser, parseFunc func(Parser) (*data.Ers, data.Maybe[a])) (*data.Ers, api.Position, data.Maybe[a]) {
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
+	if !found {
+		return nil, p.GetPos(), data.Nothing[a](p)
+	}
+
+	es, res := parseFunc(p)
+	if es != nil {
+		return es, p.GetPos(), data.Nothing[a](p)
+	}
+
+	rparen, found := getKeywordAtCurrent(p, token.RightParen)
+	if !found {
+		e := data.MkErr(ExpectedRightParen, p)
+		es := data.Nil[data.Err](1).Snoc(e)
+		return &es, p.GetPos(), data.Nothing[a](p)
+	}
+
+	return nil, api.ZeroPosition().Update(lparen).Update(rparen), res
+}
+
 // if the current token's type matches `keyword`, updates the position at `pos` and returns
 // true; otherwise, returns false and leaves `pos` unchanged.
 //
@@ -180,46 +201,41 @@ func maybeParseName(p Parser) data.Maybe[name] {
 	return data.Just(data.EOne[name](t))
 }
 
-func createLowerIdent(_ Parser, t api.Token) data.Maybe[lowerIdent] {
-	if name := t.String(); !common.Is_camelCase(name) {
-		return data.Nothing[lowerIdent](t)
+type embedsToken = interface{api.Node; ~struct{data.Solo[api.Token]}}
+func parseTokenHelper[solo embedsToken](p Parser, ty token.Type, predicate func(string) bool) data.Maybe[solo] {
+	t := p.current()
+	if !ty.Match(t) {
+		return data.Nothing[solo](t)
 	}
-	return data.Just(data.EOne[lowerIdent](t))
+	if name := t.String(); !predicate(name) {
+		return data.Nothing[solo](t)
+	}
+
+	p.advance()
+	return data.Just(solo{data.One(t)})
 }
 
-func createUpperIdent(t api.Token) func(Parser) data.Maybe[upperIdent] {
-	return func(p Parser) data.Maybe[upperIdent] {
-		if name := t.String(); !common.Is_PascalCase(name) {
-			return data.Nothing[upperIdent](t)
-		}
-		return data.Just(upperIdent{data.One(t)})
-	}
+func parseUpperIdent(p Parser) data.Maybe[upperIdent] {
+	return parseTokenHelper[upperIdent](p, token.Id, common.Is_PascalCase)
 }
 
 var liftGenLowerIdent = fun.Compose(data.Just, data.Inl[upperIdent, lowerIdent])
 var liftGenUpperIdent = fun.Compose(data.Just, data.Inr[lowerIdent, upperIdent])
 
 func parseIdent(p Parser) data.Maybe[ident] {
-	t := p.current()
-	if !token.Id.Match(t) {
-		return data.Nothing[ident](t)
+	upper, isUpper := parseUpperIdent(p).Break()
+	if isUpper {
+		return liftGenUpperIdent(upper)
 	}
-	p.advance()
-	upper := thunk(p, createUpperIdent(t))
-	res := bind(createLowerIdent(p, t), liftGenLowerIdent)
-	if res.IsNothing() {
-		return bind(upper(), liftGenUpperIdent)
+	lower, isLower := parseLowerIdent(p).Break()
+	if isLower {
+		return liftGenLowerIdent(lower)
 	}
-	return res
+	return data.Nothing[ident](p.current())
 }
 
 func parseLowerIdent(p Parser) data.Maybe[lowerIdent] {
-	t := p.current()
-	if !token.Id.Match(t) {
-		return data.Nothing[lowerIdent](t)
-	}
-	p.advance()
-	return createLowerIdent(p, t)
+	return parseTokenHelper[lowerIdent](p, token.Id, common.Is_camelCase)
 }
 
 // parses a rule pattern `group` (parameterized by `mem`):
@@ -256,14 +272,6 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 	}
 
 	return data.Ok(ne{xs})
-}
-
-func actionThunk[a, b any](x a, f func(a) b) func() b {
-	return func() b { return f(x) }
-}
-
-func thunk[a any](p Parser, f func(Parser) a) func() a {
-	return actionThunk(p, f)
 }
 
 // lhs - the thing returned if there is no rhs; otherwise, the first thing in the non-empty list

@@ -2,7 +2,6 @@ package parser
 
 import (
 	"github.com/petersalex27/yew/api"
-	"github.com/petersalex27/yew/api/util/fun"
 	"github.com/petersalex27/yew/common/data"
 )
 
@@ -95,25 +94,10 @@ func passParseErs[b api.Node](_ Parser, x data.Ers) data.Either[data.Ers, b] {
 	return data.PassErs[b](x)
 }
 
-func passParseRight[a, b api.Node](_ Parser, x b) data.Either[a, b] { return data.Inr[a](x) }
-
 func runCases[a, b api.Node, c any](p Parser, disjointAct func(Parser) data.Either[a, b], left func(Parser, a) c, right func(Parser, b) c) c {
 	l, r, isR := disjointAct(p).Break()
 	if isR {
 		return right(p, r)
 	}
 	return left(p, l)
-}
-
-func twoCases[a, b, c api.Node, d any](
-	eab data.Either[a, b],
-	ecd data.Either[a, c],
-	f func(a, a) d, g func(a, c) d,
-	h func(b, a) d, i func(b, c) d,
-) d {
-	l, r, isR := eab.Break()
-	if isR {
-		return data.Cases(ecd, fun.Curry(h)(r), fun.Curry(i)(r))
-	}
-	return data.Cases(ecd, fun.Curry(f)(l), fun.Curry(g)(l))
 }

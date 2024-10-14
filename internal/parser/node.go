@@ -59,6 +59,8 @@ type (
 		asConstraint() constraint
 	}
 
+	constraintElem = data.Pair[data.List[upperIdent], constrainer]
+
 	constraintUnverified struct{ data.Solo[typ] }
 
 	constraintVerified struct {

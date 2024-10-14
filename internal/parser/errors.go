@@ -82,13 +82,10 @@ const (
 	UnexpectedEOF                   = "unexpected end of file"                                                       // unexpected-eof
 	UnexpectedStructure             = "unexpected structure in source body"                                          // unexpected-structure
 	UnexpectedToken                 = "unexpected token"                                                             // unexpected-token
+	ExpectedConstraintElem          = "expected constraint element"                                                  // expected-constraint-elem
 )
 
 var makePos = (api.Positioned).GetPos
-
-func mkErr(msg string, positioned api.Positioned) data.Err {
-	return data.MkErr(msg, makePos(positioned))
-}
 
 func parseError(p Parser, e data.Err) error {
 	start, end := e.Pos()

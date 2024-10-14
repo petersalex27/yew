@@ -3,6 +3,7 @@ package parser
 import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
+	"github.com/petersalex27/yew/api/util/fun"
 	"github.com/petersalex27/yew/common/data"
 )
 
@@ -58,46 +59,36 @@ func parseConstrainer(p Parser, enclosed bool) data.Either[data.Ers, constrainer
 	return data.Fail[constrainer](ExpectedConstrainer, p)
 }
 
+// helper function, not a rule--encodes a one-time-enclosed constrainer
+func parseMaybeOneTimeEnclosedConstrainer(p Parser) (*data.Ers, data.Maybe[constrainer]) {
+	f := fun.BinBind1st_PairTarget(maybeParseConstrainer, true)
+	es, pos, res := maybeParseParenEnclosed(p, f)
+	if es != nil {
+		return es, data.Nothing[constrainer](p)
+	} else if c, just := res.Break(); just {
+		c.Position = c.Update(pos)
+		res = data.Just(c) // re-lift
+	}
+	return nil, res
+}
+
 // rule:
 //
 //	```
-//	constrainer = upper ident, pattern ;
+//	constrainer = upper ident, pattern | "(", {"\n"}, upper ident, {"\n"}, pattern {"\n"}, ")" ;
 //	```
 func maybeParseConstrainer(p Parser, enclosed bool) (*data.Ers, data.Maybe[constrainer]) {
-	currentIsLeftParen := matchCurrentLeftParen(p)
-	if !enclosed && currentIsLeftParen {
-		origin := getOrigin(p)
-		lparen := p.current()
-		p.advance()
-		p.dropNewlines()
-		if !currentIsUpperIdent(p) {
-			p = resetOrigin(p, origin)
-			return nil, data.Nothing[constrainer](p)
-		}
-
-		es, c, isC := parseConstrainer(p, true).Break()
-		if !isC {
-			return &es, data.Nothing[constrainer](p)
-		}
-
-		rparen, found := getKeywordAtCurrent(p, token.RightParen)
-		if !found {
-			e := data.Nil[data.Err](1).Snoc(mkErr(ExpectedRightParen, p))
-			return &e, data.Nothing[constrainer](p)
-		}
-
-		c.Position = c.Update(lparen)
-		c.Position = c.Update(rparen)
-		return nil, data.Just(c)
-	} else if enclosed && currentIsLeftParen {
-		// if enclosed already, this is an error--extraneous parens
-		e := data.Nil[data.Err](1).Snoc(mkErr(IllegalMultipleEnclosure, p))
-		return &e, data.Nothing[constrainer](p)
+	if isLP := matchCurrentLeftParen(p); !enclosed && isLP {
+		return parseMaybeOneTimeEnclosedConstrainer(p)
+	} else if enclosed && isLP { // if enclosed already, this is an error--extraneous parens
+		e := data.MkErr(IllegalMultipleEnclosure, p)
+		es := data.Nil[data.Err](1).Snoc(e)
+		return &es, data.Nothing[constrainer](p)
 	}
 
 	// get upper ident
-	upper, isSomething := createUpperIdent(p.current())(p).Break()
-	if !isSomething {
+	upper, just := parseUpperIdent(p).Break()
+	if !just {
 		return nil, data.Nothing[constrainer](p)
 	}
 
@@ -129,8 +120,8 @@ func parseUpperIdSequence(p Parser) data.List[upperIdent] {
 	for constraintElemLA(p) {
 		upper := p.current()
 		p.advance()
-		p.dropNewlines()
 
+		p.dropNewlines()
 		comma, found := getKeywordAtCurrent(p, token.Comma)
 		if !found {
 			panic("verification was incorrect")
@@ -143,93 +134,79 @@ func parseUpperIdSequence(p Parser) data.List[upperIdent] {
 	return upperIds
 }
 
-type constraintElem = data.Pair[data.List[upperIdent], constrainer]
-
 // rule:
 //
 //	```
-//	constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, constrainer ;
-//	enc constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
+//	constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
 //	```
-func parseConstraintElem(p Parser, enclosed bool) data.Either[data.Ers, constraintElem] {
-	upperIds := parseUpperIdSequence(p)
-	es, c, isC := parseConstrainer(p, enclosed).Break()
-	if !isC {
-		return data.Inl[constraintElem](es)
-	}
-	return data.Ok(data.MakePair(upperIds, c))
-}
-
 func maybeParseConstraintElem(p Parser) (*data.Ers, data.Maybe[constraintElem]) {
-	// this will return an empty data.List if no upper idents followed by ',' are found
-	//
-	// so, this is safe to call b/c on a non-zero length the next call is
-	// required to be a constrainer. If it's not a zero-length data.List, the
-	// next call is optional.
+	// this will return an empty list if no upper idents followed by ',' are found
 	upperIds := parseUpperIdSequence(p)
-	if upperIds.Len() != 0 {
-		es, c, isC := parseConstrainer(p, false).Break()
-		if !isC { // requirement not met
-			return &es, data.Nothing[constraintElem](p)
-		}
-
-		return nil, data.Just(data.MakePair(upperIds, c))
-	}
-
-	// else, constrainer is optional--if 'data.Nothing', then return data.Nothing
-	// 	- NOTE: upperIds is empty
-
-	es, mC := maybeParseConstrainer(p, false)
+	es, mC := maybeParseConstrainer(p, true)
 	if es != nil {
 		return es, data.Nothing[constraintElem](p)
+	} else if c, just := mC.Break(); !just && upperIds.Len() != 0 {
+		e := data.MkErr(ExpectedConstrainer, p)
+		es := data.Nil[data.Err](1).Snoc(e)
+		return &es, data.Nothing[constraintElem](p)
+	} else if just {
+		return nil, data.Just(data.MakePair(upperIds, c)) // w/ possibly empty upperIds list
 	}
-
-	if c, just := mC.Break(); just {
-		return nil, data.Just(data.MakePair(upperIds, c))
-	}
-	return nil, data.Nothing[constraintElem](p)
+	return nil, data.Nothing[constraintElem](p) // nothing found (no upper ident seq and no constrainer)
 }
 
 // rule:
 //
 //	```
-//	constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constraint elem ;
-//		constraint group = enc constraint elem, {{"\n"}, ",", {"\n"}, enc constraint elem}, [{"\n"}, ",", {"\n"}] ;
-//		constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, constrainer ;
-//		enc constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
+//	constraint group = constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}] ;
 //	```
-//
-// inlining rules:
+func maybeParseConstraintGroup(p Parser) (*data.Ers, data.Maybe[data.NonEmpty[constraintElem]]) {
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
+	if !found {
+		return nil, data.Nothing[data.NonEmpty[constraintElem]](p) // no constraint group, return data.Nothing
+	}
+
+	// require at least one constraint elem
+	res := parseGroup[constraintVerified](p, ExpectedConstraintElem, maybeParseConstraintElem)
+	rparen, found := getKeywordAtCurrent(p, token.RightParen)
+	if !found {
+		e := data.MkErr(ExpectedRightParen, p)
+		es := data.Nil[data.Err](1).Snoc(e)
+		return &es, data.Nothing[data.NonEmpty[constraintElem]](p)
+	}
+
+	es, c, isC := res.Break()
+	if !isC {
+		return &es, data.Nothing[data.NonEmpty[constraintElem]](p)
+	}
+
+	c.NonEmpty.Position = c.NonEmpty.Position.Update(lparen).Update(rparen)
+	return nil, data.Just(c.NonEmpty)
+}
+
+// rule:
 //
 //	```
-//	constraint =
-//		constraint elem
-//		| "(", {"\n"}, constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}], {"\n"}, ")" ;
+//	constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constrainer ;
 //	```
 func parseConstraint(p Parser) data.Either[data.Ers, constraintVerified] {
-	if matchCurrentLeftParen(p) {
-		lparen, _ := getKeywordAtCurrent(p, token.LeftParen)
-
-		res := parseSepSequenced[constraintVerified](p, ExpectedConstraint, token.Comma, maybeParseConstraintElem)
-		if res.IsLeft() {
-			return res
-		}
-		res = res.Update(lparen) // even if it's an error, update
-
-		rparen, found := getKeywordAtCurrent(p, token.RightParen)
-		if !found {
-			return data.Fail[constraintVerified](ExpectedRightParen, lparen)
-		}
-		res = res.Update(rparen)
-
-		return res
+	es, mCG := maybeParseConstraintGroup(p)
+	if es != nil {
+		return data.Inl[constraintVerified](*es)
+	} else if cg, just := mCG.Break(); just {
+		return data.Ok(constraintVerified{cg})
 	}
 
-	es, c, isC := parseConstraintElem(p, false).Break()
-	if !isC {
-		return data.Inl[constraintVerified](es)
+	esC, c := maybeParseConstrainer(p, false)
+	if esC != nil {
+		return data.Inl[constraintVerified](*esC)
+	} else if c, just := c.Break(); just {
+		ce := data.MakePair(data.Nil[upperIdent](), c) // constraint elem
+		cg := data.Singleton(ce)                       // constraint group
+		return data.Ok(constraintVerified{cg})
+	} else {
+		return data.Fail[constraintVerified](ExpectedConstraint, p)
 	}
-	return data.Ok(data.EConstruct[constraintVerified](c))
 }
 
 // rule:
@@ -245,11 +222,11 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 	// a full constraint (w/o  the "=>")
 	//
 	// case A.
-	//	- this is the case when `len(c.rest) == 0 && len(c.first.first.elements) == 0`
+	//	- this is the case when `c.Tail().Len() == 0 && c.Head().Fst().Len() == 0`
 	//	- if a "=>" does NOT follow, this is the non-optional `constrainer` in `c.first.second`
 	//	- else, fallthrough to case B.
 	// case B.
-	//	- this is the case otherwise (it must have more than a single constraint b/c it didn't data.Fail
+	//	- this is the case otherwise (it must have more than a single constraint b/c it didn't fail
 	//	  and isn't case A.).
 	es, c, isC := parseConstraint(p).Break()
 	if !isC {
@@ -260,13 +237,14 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 	// this is okay, it will be used here, by `spec def` before `spec dependency`, or by spec def
 	// before `where`
 	p.dropNewlines()
-
-	if c.Tail().Len() == 0 && c.Head().Fst().Len() == 0 { // case A.
-		var found bool
-		if thickArrow, found = getKeywordAtCurrent(p, token.Arrow); !found {
+	isCaseA := c.Tail().Len() == 0 && c.Head().Fst().Len() == 0
+	if isCaseA {
+		ta, found := getKeywordAtCurrent(p, token.Arrow)
+		if !found {
 			sh = data.EMakePair[specHead](data.Nothing[constraint](p), c.Head().Snd())
 			return data.Ok(sh)
 		} // else found, fall out of branch
+		thickArrow = ta
 	} // else, case B.
 
 	// parse a constrainer for the rhs of "=>"
@@ -289,52 +267,47 @@ type requiringClause = data.NonEmpty[def]
 //	spec def = "spec", {"\n"}, spec head, [{"\n"}, spec dependency], {"\n"}, "where", {"\n"}, spec body, [{"\n"}, requiring clause] ;
 //	```
 func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
-	var sd specDef
+	//var sd specDef
+	position := api.ZeroPosition()
 	if specToken, found := getKeywordAtCurrent(p, token.Spec); !found {
 		return data.Fail[specDef](ExpectedSpecDef, p)
 	} else { // use of `else` allows use of 'found' later, keeping it out of scope
-		sd.Position = sd.Update(specToken)
+		position = position.Update(specToken)
 	}
 
 	es, sh, isSH := parseSpecHead(p).Break()
 	if !isSH {
 		return data.Inl[specDef](es)
 	}
-	sd.Position = sd.Update(sh)
-	sd.specHead = sh
 
 	p.dropNewlines()
 	esDep, dep, isDep := parseOptionalSpecDependency(p).Break()
 	if !isDep {
 		return data.Inl[specDef](esDep)
 	}
-	sd.Position = sd.Update(dep)
-	sd.dependency = dep
 
 	// redundant if dep.IsNothing(), but dropNewlines is idempotent (when 'p' is used only in a single
 	// thread)--so this keeps the code simpler
 	p.dropNewlines()
 	if whereToken, found := getKeywordAtCurrent(p, token.Where); !found {
-		return data.Fail[specDef](ExpectedSpecWhere, dep)
+		return data.Fail[specDef](ExpectedSpecWhere, p)
 	} else {
-		sd.Position = sd.Update(whereToken)
+		position = position.Update(whereToken)
 	}
 
 	esBody, body, isBody := parseSpecBody(p).Break()
 	if !isBody {
 		return data.Inl[specDef](esBody)
 	}
-	sd.Position = sd.Update(body)
-	sd.specBody = body
 
 	p.dropNewlines()
 	esReq, req, isReq := parseOptionalRequiringClause(p).Break()
 	if !isReq {
 		return data.Inl[specDef](esReq)
 	}
-	sd.Position = sd.Update(req)
-	sd.requiring = req
 
+	sd := makeSpecDef(sh, dep, body, req)
+	sd.Position = sd.Position.Update(position) // update w/ 'spec' and 'where' positions
 	return data.Ok(sd)
 }
 
