@@ -107,3 +107,11 @@ func makeCons(n name, ty typ) typeConstructor {
 		api.WeakenRangeOver[api.Node](n, ty),
 	}
 }
+
+func makeBindingSyntaxRuleIdent(id ident) syntaxRuleIdent {
+	return syntaxRuleIdent{true, id, id.GetPos()}
+}
+
+func makeStdSyntaxRuleIdent(id ident) syntaxRuleIdent {
+	return syntaxRuleIdent{false, id, id.GetPos()}
+}

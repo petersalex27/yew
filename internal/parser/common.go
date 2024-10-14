@@ -34,13 +34,23 @@ var (
 		return func(p Parser) bool { return !matchCurrent(t)(p) }
 	}
 
-	literalL1s = []token.Type{token.IntValue, token.FloatValue, token.StringValue, token.RawStringValue, token.ImportPath, token.CharValue}
+	literalLAs = []token.Type{token.IntValue, token.FloatValue, token.StringValue, token.RawStringValue, token.ImportPath, token.CharValue}
 
-	exprInTypeL1s = append(([]token.Type{token.Backslash, token.Id, token.Infix}), literalL1s...)
+	exprAtomLAs = append(([]token.Type{token.Backslash, token.Id, token.Infix}), literalLAs...)
 
-	boundIdentL2 = [][2]token.Type{{token.LeftBrace, token.Id}}
+	boundSyntaxIdentLAs = [][2]token.Type{{token.LeftBrace, token.Id}}
 
-	typingL2 = [][2]token.Type{{token.Id, token.Colon}, {token.Infix, token.Colon}}
+	bodyKeywordsLAs = []token.Type{token.Spec, token.Inst, token.Alias, token.Syntax}
+
+	bindingTypingLAs = [][2]token.Type{{token.Id, token.Colon}}
+
+	unverifiedConstraintLAs = [][2]token.Type{{token.Id, token.Comma}}
+
+	typingLAs = [][2]token.Type{{token.Id, token.Colon}, {token.Infix, token.Colon}, {token.MethodSymbol, token.Colon}}
+
+	typeTermExceptionLAs = []token.Type{token.Underscore, token.EmptyParenEnclosure, token.Equal}
+
+	visibilityLAs = []token.Type{token.Public, token.Open}
 )
 
 func bind[a, b api.Node](ma data.Maybe[a], f func(a) data.Maybe[b]) data.Maybe[b] {

@@ -124,6 +124,10 @@ func TestParseSyntax(t *testing.T) {
 
 }
 
+func TestParseSyntaxBindingSymbol(t *testing.T) {
+	
+}
+
 func TestParseSyntaxRule(t *testing.T) {
 
 }

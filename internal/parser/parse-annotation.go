@@ -47,13 +47,13 @@ func parseOptionalEnclosedAnnotation(p Parser) data.Either[data.Ers, data.Maybe[
 		}
 
 		if openBrackets == 0 {
-			p.advance() // consume ']' and don't add it to the data.List
+			p.advance() // consume ']' and don't add it to the List
 			break
 		} else if token.EndOfTokens.Match(cur) {
 			return data.Fail[data.Maybe[enclosedAnnotation]](UnexpectedEOF, cur)
 		}
 
-		// add token to the data.List, including enclosed brackets
+		// add token to the List, including enclosed brackets
 		tokens = tokens.Snoc(cur)
 		p.advance() // consume token
 	}
@@ -90,7 +90,7 @@ func parseAnnotation(p Parser) data.Either[data.Ers, data.Maybe[annotation]] {
 	} else if unit, just := res.Break(); !just {
 		return data.Inr[data.Ers](data.Nothing[annotation](res))
 	} else {
-		// lift the result into an data.Either after generalizing the annotation
+		// lift the result into an Either after generalizing the annotation
 		return data.Inr[data.Ers](data.Just(data.Inr[flatAnnotation](unit)))
 	}
 }
@@ -107,7 +107,7 @@ func annotationIteration(p Parser) data.Either[data.Ers, data.Maybe[annotation]]
 func parseAnnotations(p Parser) data.Either[data.Ers, data.Maybe[annotations]] {
 	cur := p.current()
 	if !token.FlatAnnotation.Match(cur) && !token.LeftBracketAt.Match(cur) {
-		return data.Ok(data.Nothing[annotations](p)) // data.Ok result, data.Just no annotations found
+		return data.Ok(data.Nothing[annotations](p)) // Ok result, Just no annotations found
 	}
 
 	var annots data.NonEmpty[annotation]

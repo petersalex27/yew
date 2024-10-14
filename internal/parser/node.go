@@ -74,7 +74,7 @@ type (
 		api.Position
 	}
 
-	// body of a function definition: data.Either something that can be computed/proven or something impossible
+	// body of a function definition: Either something that can be computed/proven or something impossible
 	defBody struct {
 		data.Either[impossible, defBodyPossible]
 	}
@@ -125,7 +125,7 @@ type (
 	// a footer of a yew source file
 	footer struct{ data.Maybe[annotations] }
 
-	// a data.List of binders for a forall type
+	// a List of binders for a forall type
 	forallBinders struct{ data.NonEmpty[ident] }
 
 	// a forall type, e.g., `Forall a => a -> a`
@@ -242,7 +242,7 @@ type (
 		data.Pair[importPathIdent, data.Maybe[selections]]
 	}
 
-	// EITHER as clause OR data.List of exported names
+	// EITHER as clause OR List of exported names
 	selections = data.Either[lowerIdent, data.Maybe[data.NonEmpty[name]]]
 
 	// a representation of an expression that can be scrutinized
@@ -349,7 +349,7 @@ type (
 	specInst struct {
 		annotations data.Maybe[annotations]
 		visibility  data.Maybe[visibility]
-		// part following 'spec', data.Either:
+		// part following 'spec', Either:
 		//	1. a constraint placed on (2.) or (3.)--if so, this will be a non-`nothing` value on the lhs of `head`
 		//	2. the spec being instantiated, rhs of `head`, target will be `nothing`
 		//  3. the name of the spec instance, rhs of `head` _AND_ `target` will not be `nothing`
@@ -384,8 +384,15 @@ type (
 	syntaxRawKeyword struct{ data.Solo[rawString] }
 
 	syntaxRule struct{ data.NonEmpty[syntaxSymbol] }
+	
+	syntaxRuleIdent struct {
+		binding bool
+		id ident
+		api.Position
+	}
 
-	syntaxSymbol = data.Either[ident, syntaxRawKeyword]
+	syntaxSymbol = data.Either[syntaxRuleIdent, syntaxRawKeyword]
+	
 
 	// a type
 	typ interface {

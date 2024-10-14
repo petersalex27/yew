@@ -79,6 +79,7 @@ func (n specDef) Type() api.NodeType             { return t.SpecDef }
 func (n specInst) Type() api.NodeType            { return t.SpecInst }
 func (n syntax) Type() api.NodeType              { return t.Syntax }
 func (n syntaxRule) Type() api.NodeType          { return t.SyntaxRule }
+func (n syntaxRuleIdent) Type() api.NodeType     { return t.SyntaxRuleIdent }
 func (n typeAlias) Type() api.NodeType           { return t.TypeAlias }
 func (n typeConstructor) Type() api.NodeType     { return t.TypeConstructor }
 func (n typeDef) Type() api.NodeType             { return t.TypeDef }
@@ -254,6 +255,13 @@ func (n syntax) Describe() (string, []api.Node) {
 }
 func (n syntaxRule) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
+}
+func (n syntaxRuleIdent) Describe() (string, []api.Node) {
+	s := "binding "
+	if !n.binding {
+		s = ""
+	}
+	return s + n.Type().String(), n.id.Children()
 }
 func (n typeAlias) Describe() (string, []api.Node) {
 	return n.Type().String(), []api.Node{n.annotations, n.visibility, n.alias}

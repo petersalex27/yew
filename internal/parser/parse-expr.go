@@ -183,7 +183,7 @@ type typingMember = data.Pair[typing, data.Maybe[expr]]
 //	```
 func parseMaybeBindingGroupMember(p Parser) (*data.Ers, data.Maybe[bindingGroupMember]) {
 	var lhs data.Either[binder, typing]
-	isTyping := lookahead2(p, [2]token.Type{token.Id, token.Colon}, [2]token.Type{token.Infix, token.Colon})
+	isTyping := lookahead2(p, bindingTypingLAs...)
 	if isTyping {
 		es, typing, isTyping := parseTypeSig(p).Break()
 		if !isTyping {
@@ -330,7 +330,7 @@ func parseMaybeEnclosedExpr(p Parser) (*data.Ers, data.Maybe[expr]) {
 //	expr atom = pattern atom | lambda abstraction ;
 //	```
 func parseMaybeExprAtom(p Parser) (*data.Ers, data.Maybe[exprAtom]) {
-	if lookahead1(p, exprInTypeL1s...) {
+	if lookahead1(p, exprAtomLAs...) {
 		es, e, isRight := parseExprAtom(p).Break()
 		if !isRight {
 			return &es, data.Nothing[exprAtom](p)

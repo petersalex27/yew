@@ -107,38 +107,64 @@ func parseTypeDefBodyTypeCons(p Parser) data.Either[data.Ers, typeConstructor] {
 // rule:
 //
 //	```
-//	type cons = typing ;
+//	constructor name = infix upper ident | upper ident | symbol | upper ident ;
 //	```
-func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, typeConstructor] {
-	return twoCases(
-		data.SeqResult[name](ExpectedTypeConstructorName)(maybeParseName(p)),
-		runCases(p, ParseType, passParseErs[typ], passParseRight[data.Ers, typ]),
-		constInl[typeConstructor, data.Ers, data.Ers],
-		constInl[typeConstructor, data.Ers, typ],
-		constInlSwap[typeConstructor, name, data.Ers],
-		assembleTypeConstructor(as),
-	)
-}
-
-func constInl[c, a, b api.Node](x a, _ b) data.Either[a, c] { return data.Inl[c](x) }
-
-func constInlSwap[c, a, b api.Node](_ a, y b) data.Either[b, c] { return data.Inl[c](y) }
-
-func assembleTypeConstructor(as data.Maybe[annotations]) func(n name, typ typ) data.Either[data.Ers, typeConstructor] {
-	return func(n name, typ typ) data.Either[data.Ers, typeConstructor] {
-		tc := typeConstructor{constructor: data.MakePair(n, typ)}
-		(&tc).annotate(as)
-		return data.Ok(tc)
+func parseConstructorName(p Parser) data.Either[data.Ers, name] {
+	isMethod := lookahead1(p, token.MethodSymbol)
+	if isMethod { // type constructor cannot have a method name
+		return data.Fail[name](IllegalMethodTypeConstructor, p)
 	}
+
+	n, isN := maybeParseName(p).Break()
+	if !isN { // no name found
+		return data.Fail[name](ExpectedTypeConstructorName, p)
+	}
+
+	// validate: just make sure it's not lowercase; method names were previously disallowed
+	// 		- hacky, but guaranteed to be a token due to the type of the embedded `Solo`
+	tok := n.Solo.Children()[0].(api.Token)
+	if common.Is_camelCase2(tok) {
+		return data.Fail[name](IllegalLowercaseConstructorName, tok)
+	}
+
+	return data.Ok(n)
 }
 
 // rule:
 //
 //	```
-//	data.Maybe visibility = [("open" | "public"), {"\n"}] ;
+//	type cons = typing ;
+//	```
+func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, typeConstructor] {
+	esCName, cName, isCName := parseConstructorName(p).Break()
+	if !isCName {
+		return data.PassErs[typeConstructor](esCName)
+	}
+
+	p.dropNewlines()
+	colon, found := getKeywordAtCurrent(p, token.Colon)
+	if !found {
+		return data.Fail[typeConstructor](ExpectedTypeJudgment, p)
+	}
+
+	es, ty, isTy := ParseType(p).Break()
+	if !isTy {
+		return data.PassErs[typeConstructor](es)
+	}
+
+	tc := makeCons(cName, ty)
+	tc.Position = tc.Update(colon)
+	(&tc).annotate(as)
+	return data.Ok(tc)
+}
+
+// rule:
+//
+//	```
+//	maybe visibility = [("open" | "public"), {"\n"}] ;
 //	```
 func parseOptionalVisibility(p Parser) (mv data.Maybe[visibility]) {
-	if lookahead1(p, token.Open, token.Public) {
+	if lookahead1(p, visibilityLAs...) {
 		visibilityToken := p.current()
 		mv = data.Just(data.EOne[visibility](visibilityToken))
 		p.advance()
@@ -267,10 +293,10 @@ func maybeParseDef(p Parser) (*data.Ers, data.Maybe[def]) {
 	es, pat := _parseDef_ParsePattern(p)
 	p = p.demarkOptional()
 	if es != nil {
-		// reset the origin and return data.Nothing (no error)
+		// reset the origin and return Nothing (no error)
 		p = resetOrigin(p, origin)
 		return nil, data.Nothing[def](p)
-	} // else, keep origin and enforce non-data.Nothing result. This must be a def
+	} // else, keep origin and enforce non-Nothing result. This must be a def
 
 	es2, d, isDef := _finishParseDef(p, pat).Break()
 	if !isDef {
@@ -321,7 +347,7 @@ func runDefBodyWhereClause(p Parser, possibleLeft data.Either[withClause, expr])
 func parseOptionalWhereClause(p Parser) data.Either[data.Ers, data.Maybe[whereClause]] {
 	whereToken, found := getKeywordAtCurrent(p, token.Where)
 	if !found {
-		return data.Ok(data.Nothing[whereClause](p)) // no where clause, return data.Nothing
+		return data.Ok(data.Nothing[whereClause](p)) // no where clause, return Nothing
 	}
 
 	es, whereBody, isWhereBody := parseWhereBody(p).Break()
@@ -375,15 +401,15 @@ func parseMainElem(p Parser) data.Either[data.Ers, mainElement] {
 	}
 }
 
-// helper function for `parseMainElem` that transforms an `data.Either[data.Ers, a]` to an
-// `data.Either[data.Ers, mainElem]` where `a` implements `mainElem`
+// helper function for `parseMainElem` that transforms an `Either[Ers, a]` to an
+// `Either[Ers, mainElem]` where `a` implements `mainElem`
 func knownCase[a mainElement](elemRes data.Either[data.Ers, a]) data.Either[data.Ers, mainElement] {
 	return data.Cases(elemRes, data.Inl[mainElement, data.Ers], fun.Compose(data.Ok, (a).pureMainElem))
 }
 
 // parses a spec, alias, inst, or syntax definition when given the corresponding token type `tt`
 //
-// if `tt` is not data.One of the following this function will panic:
+// if `tt` is not One of the following this function will panic:
 //   - token.Spec
 //   - token.Alias
 //   - token.Inst
@@ -509,15 +535,16 @@ func validRawSyntaxSymbol(t api.Token) bool {
 //	```
 func maybeParseSyntaxSymbol(p Parser) (*data.Ers, data.Maybe[syntaxSymbol]) {
 	if matchCurrentRawString(p) && validRawSyntaxSymbol(p.current()) {
-		return nil, data.Just[syntaxSymbol](parseRawSyntaxSymbolFromCurrent(p))
-	} else if lookahead2(p, boundIdentL2...) {
+		return nil, data.Just(parseRawSyntaxSymbolFromCurrent(p))
+	} else if lookahead2(p, boundSyntaxIdentLAs...) {
 		es, sym, isSym := parseSyntaxBindingSymbol(p).Break()
 		if !isSym {
 			return &es, data.Nothing[syntaxSymbol](p)
 		}
-		return nil, data.Just[syntaxSymbol](sym)
+		return nil, data.Just(sym)
 	} else if unit, just := parseIdent(p).Break(); just {
-		return nil, data.Just[syntaxSymbol](data.Inl[syntaxRawKeyword](unit))
+		id := makeStdSyntaxRuleIdent(unit)
+		return nil, data.Just(data.Inl[syntaxRawKeyword](id))
 	}
 	return nil, data.Nothing[syntaxSymbol](p)
 }
@@ -527,7 +554,7 @@ func parseRawSyntaxSymbolFromCurrent(p Parser) syntaxSymbol {
 	rawKey := p.current()
 	p.advance()
 	key := data.EOne[syntaxRawKeyword](data.EOne[rawString](rawKey))
-	return data.Inr[ident](key)
+	return data.Inr[syntaxRuleIdent](key)
 }
 
 // rule:
@@ -551,40 +578,23 @@ func parseSyntaxBindingSymbol(p Parser) data.Either[data.Ers, syntaxSymbol] {
 	}
 
 	id = id.Update(rb)
-
-	symbol := data.Inl[syntaxRawKeyword](id)
+	sri := makeBindingSyntaxRuleIdent(id)
+	symbol := data.Inl[syntaxRawKeyword](sri)
 	return data.Inr[data.Ers](symbol)
 }
 
-type structureParseAttempt uint32
+type structureParseAttempt byte
 
 const (
-	attemptedNothing structureParseAttempt = 0 // always excluded
-	attemptedDef                           = 1 << (iota - 1)
+	attemptedDef structureParseAttempt = iota
 	attemptedSpecDef
 	attemptedSpecInst
 	attemptedTypeDef
 	attemptedTypeAlias
 	attemptedTyping
 	attemptedSyntax
-	attemptedGenericStructure = attemptedSyntax<<1 - 1 // all of the above
+	attemptedGenericStructure
 )
-
-type exclusionMask uint32
-
-const (
-	publicVisModExclusion exclusionMask = exclusionMask(attemptedGenericStructure &^ attemptedDef)
-	openVisModExclusion   exclusionMask = exclusionMask(attemptedTypeDef)
-	xxx                   exclusionMask = attemptedGenericStructure &^ openVisModExclusion
-	noVisModExclusion     exclusionMask = 0 // this will, literally, exclude *attempting data.Nothing* from being valid
-	excludeAll            exclusionMask = exclusionMask(attemptedGenericStructure)
-)
-
-func (attempt structureParseAttempt) isNecessarilyExcludedBy(mask exclusionMask) bool {
-	// generic structure is only excluded by `excludeAll`--think of this function as telling us that something is necessarily excluded
-	// if it's only possible, then this will return false
-	return (attempt &^ structureParseAttempt(mask)) == attempt
-}
 
 func recastMainElementAsBodyElement[a mainElement](me a) data.Either[data.Ers, bodyElement] {
 	return data.Inr[data.Ers, bodyElement](me)
@@ -605,32 +615,44 @@ func attemptedWhat(tt token.Type) structureParseAttempt {
 	}
 }
 
-func (attempted structureParseAttempt) getErrorMessageForAttempted(exclusion exclusionMask) string {
-	if !attempted.isNecessarilyExcludedBy(exclusion) { // not excluded from having the given visibility modifier
-		return ""
+func (attempted structureParseAttempt) getErrorMessageForAttempted(vis data.Maybe[visibility]) string {
+	v, just := vis.Break()
+	if !just {
+		return "" // no visibility modifier given, no additional error can be given
 	}
-	if exclusion == openVisModExclusion {
+
+	switch v.Type() {
+	case token.Open:
 		switch attempted {
 		case attemptedSpecInst,
 			attemptedSpecDef,
 			attemptedTypeAlias,
 			attemptedSyntax:
 			return IllegalOpenModifier
-		case attemptedDef:
-			return IllegalVisibleDef
+		case attemptedTypeDef:
+			return IllegalOpenModifierTyping
 		case attemptedTyping:
 			return IllegalOpenModifierTyping
 		}
-	} else if exclusion == publicVisModExclusion {
-		// for 'public' visibility modifier
-		switch attempted {
-		case attemptedDef:
+	case token.Public:
+		if attempted == attemptedDef {
 			return IllegalVisibleDef
 		}
 	}
 	return UnexpectedStructure
 }
 
+// Tries to parse any of the top-level body structures, returning the result and a value encoding
+// the closest type of structure that an attempt was made to parse.
+//
+// The top-level body structures are:
+//   - function definition
+//   - spec definition
+//   - spec instance
+//   - data type definition
+//   - type alias
+//   - typing
+//   - syntax
 func parseBasicBodyStructureHelper(p Parser) (res data.Either[data.Ers, bodyElement], attempted structureParseAttempt) {
 	/*
 	 * `spec def`, `spec inst`, `type alias`, and `syntax` can all be distinguished with lookahead of 1.
@@ -646,14 +668,14 @@ func parseBasicBodyStructureHelper(p Parser) (res data.Either[data.Ers, bodyElem
 	 */
 
 	// 1. lookahead 1
-	if tt, found := lookahead1Report(p, token.Spec, token.Inst, token.Alias, token.Syntax); found {
+	if tt, found := lookahead1Report(p, bodyKeywordsLAs...); found {
 		res := parseKnownMainElem(p, tt)
 		return data.Cases(res, data.Inl[bodyElement, data.Ers], recastMainElementAsBodyElement), attemptedWhat(tt)
 	}
 
 	// 2. lookahead 2
-	if found := lookahead2(p, typingL2...); found {
-		// put as attempted typing since typing is the only data.One that actually matters. `attempted` is
+	if found := lookahead2(p, typingLAs...); found {
+		// put as attempted typing since typing is the only One that actually matters. `attempted` is
 		// used for visibility related error messages, but a type def can have any visibility modifier
 		res := runCases(p, parseTypeSig, passParseErs[mainElement], parseTypeDefOrTyping)
 		return data.Cases(res, data.PassErs[bodyElement], recastMainElementAsBodyElement), attemptedTyping
@@ -661,19 +683,6 @@ func parseBasicBodyStructureHelper(p Parser) (res data.Either[data.Ers, bodyElem
 
 	// 3. try to parse `def`
 	return data.Cases(parseDef(p), data.PassErs[bodyElement], recastMainElementAsBodyElement), attemptedDef
-}
-
-func visToExclusion(v data.Maybe[visibility]) exclusionMask {
-	if v.IsNothing() {
-		return noVisModExclusion
-	}
-	theV, _ := v.Break()
-	if token.Open.Match(theV) {
-		return openVisModExclusion
-	} else if token.Public.Match(theV) {
-		return publicVisModExclusion
-	}
-	return excludeAll
 }
 
 var typeToStructureTypeMap = map[api.NodeType]structureParseAttempt{
@@ -698,14 +707,14 @@ func strengthenStructureType(b bodyElement, weaker structureParseAttempt) struct
 func parseBasicBodyStructure(p Parser, vis data.Maybe[visibility]) data.Either[data.Ers, bodyElement] {
 	startPosition := p.current().GetPos()
 	res, attempted := parseBasicBodyStructureHelper(p)
-	lhs, rhs, isRight := res.Break()
+	es, structure, isRight := res.Break()
 	// if res has no errors, we can get a more specific error message if needed
 	if isRight {
-		attempted = strengthenStructureType(rhs, attempted)
+		attempted = strengthenStructureType(structure, attempted)
 	}
 
 	// see if an additional error message is needed
-	msg := attempted.getErrorMessageForAttempted(visToExclusion(vis))
+	msg := attempted.getErrorMessageForAttempted(vis)
 	var e data.Err
 	if msg != "" {
 		e = mkErr(msg, api.WeakenRangeOver[api.Positioned](res, startPosition))
@@ -714,7 +723,7 @@ func parseBasicBodyStructure(p Parser, vis data.Maybe[visibility]) data.Either[d
 	if e.Msg() == "" {
 		return res
 	} else if !isRight {
-		res = data.PassErs[bodyElement](lhs.Snoc(e)) // add the error to the existing errors
+		res = data.PassErs[bodyElement](es.Snoc(e)) // add the error to the existing errors
 	} else {
 		// replace the result with the error since it was marked as excluded
 		// due to visibility modifier attempted to be given to it
@@ -765,7 +774,7 @@ func parseTypeDefOrTyping(p Parser, t typing) data.Either[data.Ers, mainElement]
 	return data.Ok(mainElement(typeDef{
 		// this serves two purposes: adding the value and incorporating the where Position
 		annotations: data.Nothing[annotations](where),
-		// constructed and b/c 'data.Nothing' needs a Position arg
+		// constructed and b/c 'Nothing' needs a Position arg
 		visibility: data.Nothing[visibility](where),
 		typedef:    tdb,
 		deriving:   mDeriving,
@@ -830,7 +839,7 @@ func maybeParseWithClauseArm(p Parser) (*data.Ers, data.Maybe[withClauseArm]) {
 	es, pat := maybeParsePattern(p, false)
 	if es != nil { // pattern found, but error while parsing it
 		return es, data.Nothing[withClauseArm](p)
-	} else if pat.IsNothing() { // no pattern found, return data.Nothing
+	} else if pat.IsNothing() { // no pattern found, return Nothing
 		return nil, data.Nothing[withClauseArm](p)
 	}
 

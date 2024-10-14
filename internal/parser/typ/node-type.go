@@ -85,6 +85,7 @@ const (
 	Syntax
 	SyntaxRawKeyword
 	SyntaxRule
+	SyntaxRuleIdent
 	TypeAlias
 	TypeConstructor
 	TypeDef
@@ -229,6 +230,8 @@ func (nt nodeType) String() string {
 		return "syntax keyword"
 	case SyntaxRule:
 		return "syntax rule"
+	case SyntaxRuleIdent:
+		return "syntax rule ident"
 	case TypeAlias:
 		return "type alias definition"
 	case TypeConstructor:

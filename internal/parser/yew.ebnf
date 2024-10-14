@@ -163,7 +163,7 @@ ident = lower ident | upper ident ;
 symbol = ? REGEX "(?![-=]>\B|[.]{1,2}\B|:\B|\?\|)[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\)" ? ;
 method symbol = ? REGEX "\([.]([a-z][A-Z0-9']*|[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\))\)" ? ;
 infix name = infix lower ident | infix upper ident | infix symbol ;
-constructor name = infix upper ident | upper ident | symbol | upper ident ;
+constructor name = infix upper ident | upper ident | infix symbol |  symbol ;
 name = ident | symbol | infix name | method symbol ;
 import path = ? REGEX "\"([a-z][a-zA-Z0-9']*)(/[a-z][a-zA-Z0-9']*)*\"" ? ;
 

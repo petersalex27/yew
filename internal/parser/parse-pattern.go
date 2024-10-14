@@ -29,7 +29,7 @@ func parsePatternAtom(p Parser) data.Either[data.Ers, patternAtom] {
 
 func maybePatternAtom(p Parser) (*data.Ers, data.Maybe[patternAtom]) {
 	// pattern atom as literal
-	if lookahead1(p, literalL1s...) {
+	if lookahead1(p, literalLAs...) {
 		lit := literalAsPatternAtom(p.current())
 		p.advance()
 		return nil, data.Just(lit)

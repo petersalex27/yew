@@ -19,7 +19,6 @@ import (
 //
 // most of it will fail type checking though, assuming reasonable definitions paired with the tokens
 
-
 var (
 	// tokens (as api.Token interface)
 	id_x_tok         api.Token = token.Id.MakeValued("x")                   // x
@@ -221,7 +220,7 @@ var (
 
 	constrainerNode  = data.EMakePair[constrainer](MyId_as_upper, pattern(name_x))                                                // MyId x
 	vConstraintNode  = data.EConstruct[constraintVerified](data.MakePair(data.Nil[upperIdent](), constrainerNode))                // MyId x
-	vConstraint2Node = data.EConstruct[constraintVerified](data.MakePair(data.Makes[upperIdent](MyId_as_upper), constrainerNode)) // MyId, MyId x
+	vConstraint2Node = data.EConstruct[constraintVerified](data.MakePair(data.Makes(MyId_as_upper), constrainerNode)) // MyId, MyId x
 	specDefBodyNode  = data.EConstruct[specBody](data.Inr[def](typingNode))                                                       // where x : x
 	specInstBodyNode = data.EConstruct[specBody](data.Inl[typing](defNode))                                                       // where x = x
 
@@ -239,23 +238,24 @@ var (
 	specInstNode       = makeSpecInst(specHeadNode, data.Nothing[constrainer](), specInstBodyNode)                          // spec MyId x where x = x
 	rawStringNode      = data.EOne[rawString](raw_my_tok)                                                                   // `my`
 	rawKeyNode         = data.EOne[syntaxRawKeyword](rawStringNode)                                                         // `my`
-	rawSym             = data.Inr[ident](rawKeyNode)                                                                        // `my`
-	idSymNode          = data.Inl[syntaxRawKeyword](lowerId)                                                                // x
+	rawSym             = data.Inr[syntaxRuleIdent](rawKeyNode)                                                              // `my`
+	boundIdSymNode     = data.Inr[syntaxRuleIdent](makeBindingSyntaxRuleIdent(lowerId))                                     // {x}
+	idSymNode          = data.Inl[syntaxRawKeyword](makeStdSyntaxRuleIdent(lowerId))                                        // x
 	syntaxRuleNode     = data.EConstruct[syntaxRule](rawSym, idSymNode)                                                     // `my` x
 	syntaxNode         = makeSyntax(syntaxRuleNode, expr(name_x))                                                           // syntax `my` x = x
 	aliasNode          = makeAlias(name_x, typ_x)                                                                           // alias x = x
 	typeConsNode       = makeCons(name_MyId, typ_x)                                                                         // MyId : x
-	_consGroup         = data.Construct[typeConstructor](typeConsNode)                                                      // MyId : x
+	_consGroup         = data.Construct(typeConsNode)                                                                       // MyId : x
 	typeDefNode        = makeTypeDef(upperTypingNode, data.Inl[impossible](_consGroup), data.Nothing[deriving]())           // MyId : x where MyId : x
 	body_typing        = body{data.Makes[bodyElement](typingNode)}                                                          // x : x
 	body_def           = body{data.Makes[bodyElement](defNode)}                                                             // x = x
 	body_defImpossible = body{data.Makes[bodyElement](defImpossibleNode)}                                                   // x impossible
-	body_specDef       = body{data.Makes[bodyElement]()}                                                                    // spec x = x
-	body_specInst      = body{data.Makes[bodyElement](specInstNode)}                                                        // spec MyId x where x = x
+	body_specDef       = body{data.Makes[bodyElement](specDefNode)}                                                         // spec MyId x where x : x
+	body_specInst      = body{data.Makes[bodyElement](specInstNode)}                                                        // inst MyId x where x = x
 	body_syntax        = body{data.Makes[bodyElement](syntaxNode)}                                                          // syntax `my` x = x
 	body_alias         = body{data.Makes[bodyElement](aliasNode)}                                                           // alias x = x
 	body_typeDef       = body{data.Makes[bodyElement](typeDefNode)}                                                         // type x = x
-	body_annotTyping   = body{data.Makes[bodyElement]()}
+	body_annotTyping   = body{data.Makes[bodyElement](annotTypingNode)}                                                     // --@test\nx : x
 )
 
 // a very simple function that creates a test source from a list of tokens

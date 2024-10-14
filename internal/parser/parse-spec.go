@@ -114,7 +114,7 @@ func maybeParseConstrainer(p Parser, enclosed bool) (*data.Ers, data.Maybe[const
 }
 
 func constraintElemLA(p Parser) bool {
-	return lookahead2(p, [2]token.Type{token.Id, token.Comma})
+	return currentIsUpperIdent(p) && lookahead2(p, unverifiedConstraintLAs...)
 }
 
 // this is not an actual rule in the grammar, data.Just a helper function for `parseConstraintElem`;
@@ -126,7 +126,7 @@ func constraintElemLA(p Parser) bool {
 func parseUpperIdSequence(p Parser) data.List[upperIdent] {
 	upperIds := data.Nil[upperIdent]()
 
-	for currentIsUpperIdent(p) && constraintElemLA(p) {
+	for constraintElemLA(p) {
 		upper := p.current()
 		p.advance()
 		p.dropNewlines()
@@ -384,7 +384,7 @@ func parseMaybeSpecMember(p Parser) (*data.Ers, data.Maybe[specMember]) {
 	}
 
 	// check for typing
-	isTyping := lookahead2(p, [2]token.Type{token.Id, token.Colon}, [2]token.Type{token.Infix, token.Colon})
+	isTyping := lookahead2(p, typingLAs...)
 	if isTyping {
 		es, t, isT := parseTypeSig(p).Break()
 		if !isT {

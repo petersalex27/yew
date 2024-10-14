@@ -144,7 +144,7 @@ func parseTypeTail(p Parser, enclosed bool) data.Either[data.Ers, typ] {
 	return data.Fail[typ](ExpectedType, p)
 }
 
-// constructs data.Either a function or constrained type (constrained by an unverified constraint)
+// constructs Either a function or constrained type (constrained by an unverified constraint)
 //
 // the constraint will be verified during type checking
 func constructFunction(lhs typ, isFunctionType bool) func(Parser, typ) data.Either[data.Ers, typ] {
@@ -223,11 +223,11 @@ func maybeParseTypeTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[typ]) {
 			return es, data.Nothing[typ](p)
 		}
 		lhsTerm = data.Ok[typ](acc)
-	} else if lookahead1(p, exprInTypeL1s...) {
+	} else if lookahead1(p, exprAtomLAs...) {
 		lhsTerm = data.Cases(parseExprAtom(p), data.PassErs[typ], exprAtomAsExprRes)
-	} else if lookahead1(p, token.Underscore, token.EmptyParenEnclosure, token.Equal) {
+	} else if lookahead1(p, typeTermExceptionLAs...) {
 		lhsTerm = parseTypeTermException(p) // "_", "()", or "="
-	} else if lookahead1(p, token.LeftParen) || lookahead1(p, token.LeftBrace) {
+	} else if lookahead1(p, token.LeftParen, token.LeftBrace) {
 		lhsTerm = parseEnclosedType(p)
 	} else {
 		return nil, data.Nothing[typ](p)
@@ -240,7 +240,7 @@ func maybeParseTypeTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[typ]) {
 	return nil, data.Just(lhs)
 }
 
-// ASSUMPTION: the current token is data.Either "_", "()", "="
+// ASSUMPTION: the current token is Either "_", "()", "="
 func parseTypeTermException(p Parser) data.Either[data.Ers, typ] {
 	tok, found := getKeywordAtCurrent(p, token.Underscore)
 	if found {
@@ -298,7 +298,7 @@ func parseOptionalModality(p Parser) data.Maybe[modality] {
 		mode, found = getKeywordAtCurrent(p, token.Once)
 	}
 
-	// set modality to non-'data.Nothing' value if found
+	// set modality to non-'Nothing' value if found
 	if found {
 		mModality = data.Just(data.EOne[modality](mode))
 	}
@@ -413,21 +413,6 @@ func assembleInnerTyping(modality data.Maybe[modality], lhs innerTypeTerms, colo
 		return data.Ok(it)
 	}
 }
-
-// func parseModalIdAsSigHead(p Parser) (es *data.Ers, head innerTypeTerms) {
-// 	if matchCurrentUnderscore(p) {
-// 		return nil, data.EConstruct[innerTypeTerms](typ(wildcard{data.One(p.current())})) // "_" case
-// 	}
-
-// 	// otherwise, parse head an id
-// 	id, isSomething := parseIdent(p).Break()
-// 	if !isSomething {
-// 		// error--modalities must be followed by and id
-// 		e := data.Nil[data.Err](1).Snoc(mkErr(ExpectedModalId, p))
-// 		return &e, head
-// 	}
-// 	return nil, data.Cases(id.Either, lowerIdentAsInnerTypeTerms, upperIdentAsInnerTypeTerms)
-// }
 
 // rule:
 //

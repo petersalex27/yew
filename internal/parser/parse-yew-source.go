@@ -6,11 +6,6 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-// func (ys *yewSource) acceptMeta(m data.Maybe[meta]) {
-// 	ys.meta = m
-// 	ys.Position = ys.Update(m)
-// }
-
 func (ys *yewSource) acceptHeader(h data.Maybe[header]) {
 	ys.header = h
 	ys.Position = ys.Update(h)
@@ -55,22 +50,6 @@ func assertEOF(p Parser) Parser {
 	}
 	return p
 }
-
-// = meta ==========================================================================================
-// func (ys *yewSource) parseMeta(p Parser) Parser {
-// 	return runCases(p, parseAnnotations, writeErrors, ys.writeMeta)
-// }
-
-//func makeMeta(as annotations) meta { return meta{as} }
-
-// func (ys *yewSource) writeMeta(p Parser, m data.Maybe[annotations]) Parser {
-// 	res := bind(m, fun.Compose(data.Just, makeMeta))
-// 	if !res.IsNothing() {
-// 		p.dropNewlines() // only drop newlines if meta was parsed
-// 	}
-// 	ys.acceptMeta(res)
-// 	return p
-// }
 
 func (ys *yewSource) writeBody(p Parser, mb data.Maybe[body]) Parser {
 	p.dropNewlines()
