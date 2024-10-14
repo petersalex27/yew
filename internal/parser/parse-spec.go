@@ -259,8 +259,6 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 	return data.Ok(sh)
 }
 
-type requiringClause = data.NonEmpty[def]
-
 // rule:
 //
 //	```

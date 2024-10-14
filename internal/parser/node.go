@@ -272,6 +272,8 @@ type (
 	// a raw string, e.g., `hello`
 	rawString struct{ data.Solo[api.Token] }
 
+	requiringClause = data.NonEmpty[def]
+
 	// a spec definition body
 	specBody struct{ data.NonEmpty[specMember] }
 
