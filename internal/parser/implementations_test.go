@@ -11,18 +11,18 @@ import (
 
 // ensure all these implement bodyElement
 
-func Test_assert_bodyElement(*testing.T) {
-	var (
-		_ bodyElement = typing{}
-		_ bodyElement = typeDef{}
-		_ bodyElement = specDef{}
-		_ bodyElement = specInst{}
-		_ bodyElement = typeAlias{}
-		_ bodyElement = syntax{}
-		_ bodyElement = def{}
-	)
-	// yippee!
-}
+// func Test_assert_bodyElement(*testing.T) {
+// 	var (
+// 		_ bodyElement = typing{}
+// 		_ bodyElement = typeDef{}
+// 		_ bodyElement = specDef{}
+// 		_ bodyElement = specInst{}
+// 		_ bodyElement = typeAlias{}
+// 		_ bodyElement = syntax{}
+// 		_ bodyElement = def{}
+// 	)
+// 	// yippee!
+// }
 
 func Test_assert_constraint(*testing.T) {
 	var (

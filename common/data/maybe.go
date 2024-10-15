@@ -12,11 +12,11 @@ type (
 		maybe()
 	}
 
-	nothing[a api.Node] struct{
+	nothing[a api.Node] struct {
 		api.Position
 	}
 
-	just[a api.Node] struct{
+	just[a api.Node] struct {
 		unit a
 		api.Position
 	}
@@ -64,10 +64,25 @@ func (j just[a]) Update(p api.Positioned) Maybe[a] {
 	return j
 }
 
-
 func (j just[a]) IsNothing() bool { return false }
 
 func (j just[a]) Break() (unit a, isJust bool) {
 	return j.unit, true
 }
 
+func Bind[b, a api.Node](m Maybe[a], f func(a) Maybe[b]) Maybe[b] {
+	if x, just := m.Break(); !just {
+		return Nothing[b](m)
+	} else {
+		return f(x)
+	}
+}
+
+func MapMaybe[a, b api.Node](f func(a) b) func(Maybe[a]) Maybe[b] {
+	return func(m Maybe[a]) Maybe[b] {
+		if x, just := m.Break(); just {
+			return Just(f(x))
+		}
+		return Nothing[b](m)
+	}
+}

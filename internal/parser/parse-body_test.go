@@ -58,19 +58,19 @@ func TestParseBody(t *testing.T) {
 			"def",
 			// x = x
 			[]api.Token{id_x_tok, equal, id_x_tok},
-			data.EMakes[body](bodyElement(defNode)),
+			data.EMakes[body](defNode.asBodyElement()),
 		},
 		{
 			"annotated",
 			// --@test\nx : x
 			[]api.Token{annot, newline, id_x_tok, colon, id_x_tok},
-			data.EMakes[body](bodyElement(annotTypingNode)),
+			data.EMakes[body](annotTypingNode.asBodyElement()),
 		},
 		{
 			"multiple",
 			// x : x\nx = x
 			[]api.Token{id_x_tok, colon, id_x_tok, newline, id_x_tok, equal, id_x_tok},
-			data.EMakes[body](bodyElement(typingNode), bodyElement(defNode)),
+			data.EMakes[body](typingNode.asBodyElement(), defNode.asBodyElement()),
 		},
 	}
 
@@ -143,7 +143,7 @@ func TestParseBodyElement_TestMaybeParseMainElement(t *testing.T) {
 	t.Run("TestParseBodyElement", func(t *testing.T) {
 		fut := fun.Bind1stOf2(parseBodyElement, data.Nothing[annotations]())
 		for _, test := range tests {
-			t.Run(test.name, resultOutputFUT_endCheck(test.input, bodyElement(test.want), fut, -1))
+			t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want.asBodyElement(), fut, -1))
 		}
 	})
 
@@ -630,6 +630,54 @@ func TestParseTyping(t *testing.T) {
 
 func TestParseVisibleBodyElement(t *testing.T) {
 
+}
+
+// rule:
+//
+//	```
+//	where body = main elem | "(", {"\n"}, main elem, {{"\n"}, main elem}, {"\n"}, ")" ;
+//	```
+func TestParseWhereBody(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  whereClause
+	}{
+		{
+			"single",
+			[]api.Token{id_x_tok, colon, id_x_tok},
+			data.EConstruct[whereClause](mainElement(typingNode)),
+		},
+		{
+			"enclosed - 00",
+			[]api.Token{lparen, id_x_tok, colon, id_x_tok, rparen},
+			data.EConstruct[whereClause](mainElement(typingNode)),
+		},
+		{
+			"enclosed - 01",
+			[]api.Token{lparen, id_x_tok, colon, id_x_tok, newline, rparen},
+			data.EConstruct[whereClause](mainElement(typingNode)),
+		},
+		{
+			"enclosed - 10",
+			[]api.Token{lparen, newline, id_x_tok, colon, id_x_tok, rparen},
+			data.EConstruct[whereClause](mainElement(typingNode)),
+		},
+		{
+			"enclosed - 11",
+			[]api.Token{lparen, newline, id_x_tok, colon, id_x_tok, newline, rparen},
+			data.EConstruct[whereClause](mainElement(typingNode)),
+		},
+		{
+			"multiple",
+			[]api.Token{lparen, newline, id_x_tok, colon, id_x_tok, newline, id_x_tok, colon, id_x_tok, newline, rparen},
+			data.EConstruct[whereClause](mainElement(typingNode), mainElement(typingNode)),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseWhereBody, -1))
+	}
 }
 
 func TestParseWhereClause(t *testing.T) {

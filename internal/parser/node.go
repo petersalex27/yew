@@ -31,9 +31,8 @@ type (
 	body struct{ data.List[bodyElement] }
 
 	// a body element, e.g., a function definition, typing, or spec definition
-	bodyElement interface {
-		api.DescribableNode
-		setAnnotation(data.Maybe[annotations]) bodyElement
+	bodyElement struct {
+		data.Either[def, visibleBodyElement]
 	}
 
 	caseArm struct{ data.Pair[pattern, defBody] }
@@ -217,8 +216,9 @@ type (
 
 	mainElement interface {
 		api.DescribableNode
-		bodyElement
-		pureMainElement() mainElement
+		asBodyElement() bodyElement
+		asMainElement() mainElement
+		setAnnotation(data.Maybe[annotations]) mainElement
 	}
 
 	// meta struct{ annotations }
@@ -447,8 +447,8 @@ type (
 
 	visibleBodyElement interface {
 		api.DescribableNode
-		bodyElement
-		setVisibility(v data.Maybe[visibility]) bodyElement
+		mainElement
+		setVisibility(v data.Maybe[visibility]) mainElement
 	}
 
 	// where clause

@@ -68,6 +68,9 @@ func (xs List[a]) Len() int {
 }
 
 func (xs List[a]) Snoc(e a) List[a] {
+	if xs.elements == nil {
+		xs.elements = make([]a, 0, 1)
+	}
 	xs.elements = append(xs.elements, e)
 	xs.Position = xs.Update(e)
 	return xs

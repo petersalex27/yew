@@ -76,13 +76,15 @@ func (ty constrainedType) updatePosTyp(p api.Positioned) typ {
 // = def ===========================================================================================
 
 // def implements bodyElement
-func (def def) setAnnotation(as data.Maybe[annotations]) bodyElement {
+func (def def) setAnnotation(as data.Maybe[annotations]) mainElement {
 	def.annotate(as)
 	return def
 }
 
+func (def def) asBodyElement() bodyElement { return data.EInl[bodyElement](def) }
+
 // def implements mainElement
-func (def def) pureMainElement() mainElement { return def }
+func (def def) asMainElement() mainElement { return def }
 
 // = enclosedType ==================================================================================
 
@@ -267,16 +269,18 @@ func (enclosed patternEnclosed) updatePosPattern(p api.Positioned) pattern {
 // = specDef =======================================================================================
 
 // specDef implements bodyElement
-func (spec specDef) setAnnotation(as data.Maybe[annotations]) bodyElement {
+func (spec specDef) setAnnotation(as data.Maybe[annotations]) mainElement {
 	spec.annotate(as)
 	return spec
 }
 
+func (spec specDef) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(spec)) }
+
 // specDef implements mainElement
-func (spec specDef) pureMainElement() mainElement { return spec }
+func (spec specDef) asMainElement() mainElement { return spec }
 
 // specDef implements visibleBodyElement
-func (spec specDef) setVisibility(mv data.Maybe[visibility]) bodyElement {
+func (spec specDef) setVisibility(mv data.Maybe[visibility]) mainElement {
 	spec.visibility = mv
 	spec.Position = spec.Update(mv)
 	return spec
@@ -285,16 +289,18 @@ func (spec specDef) setVisibility(mv data.Maybe[visibility]) bodyElement {
 // = specInst ======================================================================================
 
 // specInst implements bodyElement
-func (inst specInst) setAnnotation(as data.Maybe[annotations]) bodyElement {
+func (inst specInst) setAnnotation(as data.Maybe[annotations]) mainElement {
 	inst.annotate(as)
 	return inst
 }
 
+func (inst specInst) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(inst)) }
+
 // specInst implements mainElement
-func (inst specInst) pureMainElement() mainElement { return inst }
+func (inst specInst) asMainElement() mainElement { return inst }
 
 // specInst implements visibleBodyElement
-func (inst specInst) setVisibility(mv data.Maybe[visibility]) bodyElement {
+func (inst specInst) setVisibility(mv data.Maybe[visibility]) mainElement {
 	inst.visibility = mv
 	inst.Position = inst.Update(mv)
 	return inst
@@ -303,16 +309,18 @@ func (inst specInst) setVisibility(mv data.Maybe[visibility]) bodyElement {
 // = syntax ========================================================================================
 
 // syntax implements bodyElement
-func (syntax syntax) setAnnotation(as data.Maybe[annotations]) bodyElement {
+func (syntax syntax) setAnnotation(as data.Maybe[annotations]) mainElement {
 	syntax.annotate(as)
 	return syntax
 }
 
+func (syntax syntax) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(syntax)) }
+
 // syntax implements mainElement
-func (syntax syntax) pureMainElement() mainElement { return syntax }
+func (syntax syntax) asMainElement() mainElement { return syntax }
 
 // syntax implements visibleBodyElement
-func (syntax syntax) setVisibility(mv data.Maybe[visibility]) bodyElement {
+func (syntax syntax) setVisibility(mv data.Maybe[visibility]) mainElement {
 	syntax.visibility = mv
 	syntax.Position = syntax.Update(mv)
 	return syntax
@@ -321,16 +329,18 @@ func (syntax syntax) setVisibility(mv data.Maybe[visibility]) bodyElement {
 // = typeAlias =====================================================================================
 
 // typeAlias implements bodyElement
-func (alias typeAlias) setAnnotation(as data.Maybe[annotations]) bodyElement {
+func (alias typeAlias) setAnnotation(as data.Maybe[annotations]) mainElement {
 	alias.annotate(as)
 	return alias
 }
 
+func (alias typeAlias) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(alias)) }
+
 // typeAlias implements mainElement
-func (typeAlias typeAlias) pureMainElement() mainElement { return typeAlias }
+func (typeAlias typeAlias) asMainElement() mainElement { return typeAlias }
 
 // typeAlias implements visibleBodyElement
-func (alias typeAlias) setVisibility(mv data.Maybe[visibility]) bodyElement {
+func (alias typeAlias) setVisibility(mv data.Maybe[visibility]) mainElement {
 	alias.visibility = mv
 	alias.Position = alias.Update(mv)
 	return alias
@@ -339,16 +349,18 @@ func (alias typeAlias) setVisibility(mv data.Maybe[visibility]) bodyElement {
 // = typeDef =======================================================================================
 
 // typeDef implements bodyElement
-func (typeDef typeDef) setAnnotation(as data.Maybe[annotations]) bodyElement {
+func (typeDef typeDef) setAnnotation(as data.Maybe[annotations]) mainElement {
 	typeDef.annotate(as)
 	return typeDef
 }
 
+func (typeDef typeDef) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(typeDef)) }
+
 // typeDef implements mainElement
-func (typeDef typeDef) pureMainElement() mainElement { return typeDef }
+func (typeDef typeDef) asMainElement() mainElement { return typeDef }
 
 // typeDef implements visibleBodyElement
-func (typeDef typeDef) setVisibility(mv data.Maybe[visibility]) bodyElement {
+func (typeDef typeDef) setVisibility(mv data.Maybe[visibility]) mainElement {
 	typeDef.visibility = mv
 	typeDef.Position = typeDef.Update(mv)
 	return typeDef
@@ -357,16 +369,18 @@ func (typeDef typeDef) setVisibility(mv data.Maybe[visibility]) bodyElement {
 // = typing ========================================================================================
 
 // typing implements bodyElement
-func (typing typing) setAnnotation(as data.Maybe[annotations]) bodyElement {
+func (typing typing) setAnnotation(as data.Maybe[annotations]) mainElement {
 	typing.annotate(as)
 	return typing
 }
 
+func (typing typing) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(typing)) }
+
 // typing implements mainElement
-func (typing typing) pureMainElement() mainElement { return typing }
+func (typing typing) asMainElement() mainElement { return typing }
 
 // typing implements visibleBodyElement
-func (typing typing) setVisibility(mv data.Maybe[visibility]) bodyElement {
+func (typing typing) setVisibility(mv data.Maybe[visibility]) mainElement {
 	typing.visibility = mv
 	typing.Position = typing.Update(mv)
 	return typing
