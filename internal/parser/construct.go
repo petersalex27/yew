@@ -137,3 +137,17 @@ func constructConstructor(as data.Maybe[annotations], colon api.Token, ty typ) f
 		return tc
 	}
 }
+
+var makeWithClause = data.EMakePair[withClause]
+
+func makeWithArmLhs(pat pattern) withArmLhs {
+	return data.Inl[data.Pair[pattern, pattern]](pat)
+}
+
+func makeWithArmLhsRefined(pat1, pat2 pattern) withArmLhs {
+	return data.Inr[pattern](data.MakePair(pat1, pat2))
+}
+
+func makeWithClauseArm(lhs withArmLhs, db defBody) withClauseArm {
+	return data.EMakePair[withClauseArm](lhs, db)
+}

@@ -266,6 +266,12 @@ var (
 	derivingNode            = data.EConstruct[deriving](constrainerNode)                                                         // deriving MyId x
 	derivingNode2           = data.EConstruct[deriving](constrainerNode, constrainerNode)                                        // deriving (MyId x, MyId x)
 	typeDefNodeWithDeriving = makeTypeDef(upperTypingNode, data.Inl[impossible](singleConsNode), data.Just(derivingNode))        // MyId : x where MyId : x deriving MyId x
+	withArmLhsNode          = data.Inl[data.Pair[pattern, pattern]](pattern(name_x))                                             // x
+	withArmLhsVRNode        = makeWithArmLhsRefined(pattern(name_x), pattern(name_x))                                            // x | x
+	withClauseArmNode       = makeWithClauseArm(withArmLhsNode, defBodyNode)                                                     // x => x
+	withClauseVRNode        = makeWithClauseArm(withArmLhsVRNode, defBodyNode)                                                   // x | x => x
+	withClauseArmsNode      = data.EConstruct[withClauseArms](withClauseArmNode)                                                 // x => x
+	withClauseNode          = makeWithClause(pattern(name_x), withClauseArmsNode)                                                // with x of x => x
 )
 
 // a very simple function that creates a test source from a list of tokens

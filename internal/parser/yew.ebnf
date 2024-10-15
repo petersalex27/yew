@@ -108,7 +108,8 @@ body = {{"\n"}, [annotations_], body elem} ;
       with clause arms = 
           "(", {"\n"}, with clause arm, {with clause arm}, {"\n"}, ")" 
           | with clause arm ;
-      with clause arm = [pattern, {"\n"}, "|", {"\n"}], pattern, {"\n"}, def body thick arrow ;
+      with clause arm = [view refined pattern, {"\n"}], pattern, {"\n"}, def body thick arrow ;
+      view refined pattern = pattern, {"\n"}, "|" ;
   pattern atom = literal | name | "[]" | hole ;
   pattern = pattern term, {pattern term rhs} ;
   access = ".", {"\n"}, name ;

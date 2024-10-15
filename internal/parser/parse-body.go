@@ -824,33 +824,28 @@ func parseTypeDefOrTyping(p Parser) data.Either[data.Ers, mainElement] {
 //	with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
 //	```
 func parseWithClause(p Parser) data.Either[data.Ers, withClause] {
-	with := withClause{}
-
 	withToken, found := getKeywordAtCurrent(p, token.With, dropAfter)
 	if !found {
 		return data.Fail[withClause](ExpectedWithClause, p)
 	}
-	with.Position = with.Update(withToken)
 
 	es, pat, isPat := ParsePattern(p).Break()
 	if !isPat {
 		return data.PassErs[withClause](es)
 	}
-	with.Position = with.Update(pat)
 
 	ofToken, found := getKeywordAtCurrent(p, token.Of, dropBeforeAndAfter)
 	if !found {
 		return data.Fail[withClause](ExpectedOf, pat)
 	}
-	with.Position = with.Update(ofToken)
 
 	esArms, arms, isArms := parseWithClauseArms(p).Break()
 	if !isArms {
 		return data.PassErs[withClause](esArms)
 	}
-	with.Position = with.Update(arms)
-	with.Pair = data.MakePair(pat, arms)
 
+	with := makeWithClause(pat, arms)
+	with.Position = with.Update(withToken).Update(ofToken)
 	return data.Ok(with)
 }
 
@@ -862,43 +857,58 @@ func parseWithClause(p Parser) data.Either[data.Ers, withClause] {
 //		| with clause arm ;
 //	```
 func parseWithClauseArms(p Parser) data.Either[data.Ers, withClauseArms] {
-	return parseGroup[withClauseArms, withClauseArm](p, ExpectedWithClauseArm, maybeParseWithClauseArm)
+	return parseGroup[withClauseArms](p, ExpectedWithClauseArm, maybeParseWithClauseArm)
+}
+
+func maybeParseWithArmLhs(p Parser) (*data.Ers, data.Maybe[withArmLhs]) {
+	es, mViewRefined := maybeParsePattern(p, false)
+	if es != nil { // pattern found, but error while parsing it
+		return es, data.Nothing[withArmLhs](p)
+	}
+	if mViewRefined.IsNothing() { // no pattern found, return Nothing
+		return nil, data.Nothing[withArmLhs](p)
+	}
+
+	// if "|" is found, parse the intermediate pattern scrutinee
+	if bar, found := getKeywordAtCurrent(p, token.Bar, dropBeforeAndAfter); found {
+		pEs, scrutinee, isScrutinee := ParsePattern(p).Break()
+		if !isScrutinee {
+			return &pEs, data.Nothing[withArmLhs](p)
+		}
+		viewRefined, _ := mViewRefined.Break() // guaranteed by earlier check
+		wLhs := makeWithArmLhsRefined(viewRefined, scrutinee)
+		wLhs = wLhs.Update(bar)
+		return nil, data.Just(wLhs)
+	}
+	// first pattern was not the view refined pattern, so it must be intermediate pattern scrutinee
+	scrutinee, _ := mViewRefined.Break() // guaranteed by earlier check
+	return nil, data.Just(makeWithArmLhs(scrutinee))
 }
 
 // rule:
 //
 //	```
-//	with clause arm = [pattern, {"\n"}, "|", {"\n"}], pattern, {"\n"}, def body thick arrow ;
+//	with clause arm = [view refined pattern, {"\n"}], pattern, {"\n"}, def body thick arrow ;
+//	view refined pattern = pattern, {"\n"}, "|" ;
 //	```
 func maybeParseWithClauseArm(p Parser) (*data.Ers, data.Maybe[withClauseArm]) {
-	wca := withClauseArm{}
-	es, pat := maybeParsePattern(p, false)
-	if es != nil { // pattern found, but error while parsing it
+	es, mLhs := maybeParseWithArmLhs(p)
+	if es != nil {
 		return es, data.Nothing[withClauseArm](p)
-	} else if pat.IsNothing() { // no pattern found, return Nothing
+	} 
+	
+	lhs, justLhs := mLhs.Break()
+	if !justLhs {
 		return nil, data.Nothing[withClauseArm](p)
 	}
+	
 
 	p.dropNewlines()
-	// check for '|': if found, parse the second pattern; otherwise, parse the def body
-	found := parseKeywordAtCurrent(p, token.Bar, &wca.Position)
-	var first withArmLhs
-	if found {
-		pEs, patRhs, isPatRhs := ParsePattern(p).Break()
-		if !isPatRhs {
-			return &pEs, data.Nothing[withClauseArm](p)
-		}
-		wca.Position = wca.Update(patRhs)
-		unit, _ := pat.Break()
-		first = data.Inr[pattern](data.MakePair(unit, patRhs))
-		p.dropNewlines()
-	}
-
 	esDb, db, isDb := parsePatternBoundBody(p, token.ThickArrow).Break()
 	if !isDb {
 		return &esDb, data.Nothing[withClauseArm](p)
 	}
-	wca.Position = wca.Update(db)
-	wca.Pair = data.MakePair(first, db)
-	return nil, data.Just(wca)
+	
+	wc := makeWithClauseArm(lhs, db)
+	return nil, data.Just(wc)
 }

@@ -869,14 +869,124 @@ func TestParseOptionalWhereClause(t *testing.T) {
 	}
 }
 
+// rule:
+//
+//	```
+//	with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
+//	```
 func TestParseWithClause(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  withClause
+	}{
+		{
+			"000",
+			[]api.Token{with, id_x_tok, of, id_x_tok, thickArrow, id_x_tok},
+			withClauseNode,
+		},
+		{
+			"001",
+			[]api.Token{with, id_x_tok, of, newline, id_x_tok, thickArrow, id_x_tok},
+			withClauseNode,
+		},
+		{
+			"010",
+			[]api.Token{with, id_x_tok, newline, of, id_x_tok, thickArrow, id_x_tok},
+			withClauseNode,
+		},
+		{
+			"011",
+			[]api.Token{with, id_x_tok, newline, of, newline, id_x_tok, thickArrow, id_x_tok},
+			withClauseNode,
+		},
+		{
+			"100",
+			[]api.Token{with, newline, id_x_tok, of, id_x_tok, thickArrow, id_x_tok},
+			withClauseNode,
+		},
+		{
+			"101",
+			[]api.Token{with, newline, id_x_tok, of, newline, id_x_tok, thickArrow, id_x_tok},
+			withClauseNode,
+		},
+		{
+			"110",
+			[]api.Token{with, newline, id_x_tok, newline, of, id_x_tok, thickArrow, id_x_tok},
+			withClauseNode,
+		},
+		{
+			"111",
+			[]api.Token{with, newline, id_x_tok, newline, of, newline, id_x_tok, thickArrow, id_x_tok},
+			withClauseNode,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseWithClause, -1))
+	}
 }
 
-func TestParseWithClauseArms(t *testing.T) {
+// nothing to test, just wraps a call to parseGroup--if other functions for with clause work, this one is correct
+// under the assumption that parseGroup is correct
+// - func TestParseWithClauseArms(t *testing.T)
 
-}
 
-func TestParseWithClauseArm(t *testing.T) {
+// rule:
+//
+//	```
+//	with clause arm = [view refined pattern, {"\n"}], pattern, {"\n"}, def body thick arrow ;
+//	view refined pattern = pattern, {"\n"}, "|" ;
+//	```
+func TestMaybeParseWithClauseArm(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  data.Maybe[withClauseArm]
+	}{
+		{
+			"no view refined - 0",
+			[]api.Token{id_x_tok, thickArrow, id_x_tok},
+			data.Just(withClauseArmNode),
+		},
+		{
+			"no view refined - 1",
+			[]api.Token{id_x_tok, newline, thickArrow, id_x_tok},
+			data.Just(withClauseArmNode),
+		},
+		{
+			"view refined - 000",
+			[]api.Token{id_x_tok, bar, id_x_tok, thickArrow, id_x_tok},
+			data.Just(withClauseVRNode),
+		},
+		{
+			"view refined - 001",
+			[]api.Token{id_x_tok, bar, id_x_tok, newline, thickArrow, id_x_tok},
+			data.Just(withClauseVRNode),
+		},
+		{
+			"view refined - 010",
+			[]api.Token{id_x_tok, bar, newline, id_x_tok, thickArrow, id_x_tok},
+			data.Just(withClauseVRNode),
+		},
+		{
+			"view refined - 011",
+			[]api.Token{id_x_tok, bar, newline, id_x_tok, newline, thickArrow, id_x_tok},
+			data.Just(withClauseVRNode),
+		},
+		{
+			"view refined - 100",
+			[]api.Token{id_x_tok, newline, bar, id_x_tok, thickArrow, id_x_tok},
+			data.Just(withClauseVRNode),	
+		},
+		{
+			"view refined - 101",
+			[]api.Token{id_x_tok, newline, bar, id_x_tok, newline, thickArrow, id_x_tok},
+			data.Just(withClauseVRNode),
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, maybeOutputFUT_endCheck(test.input, test.want, maybeParseWithClauseArm, -1))
+	}
 }
