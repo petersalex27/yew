@@ -42,7 +42,6 @@ const (
 	DefBody
 	DefaultExpr
 	Deriving
-	DerivingBody
 	EnclosedAnnotation
 	EnclosedType
 	Error
@@ -145,8 +144,6 @@ func (nt nodeType) String() string {
 		return "default expression"
 	case Deriving:
 		return "deriving clause"
-	case DerivingBody:
-		return "deriving clause body"
 	case EnclosedAnnotation:
 		return "enclosed annotation"
 	case EnclosedType:

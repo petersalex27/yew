@@ -749,13 +749,57 @@ func maybeParseMainElement(p Parser) (*data.Ers, data.Maybe[mainElement]) {
 	return nil, mme
 }
 
+// rule:
+//
+//	```
+//	deriving clause = "deriving", {"\n"}, deriving body ;
+//	```
+func parseOptionalDerivingClause(p Parser) data.Either[data.Ers, data.Maybe[deriving]] {
+	derivingToken, found := getKeywordAtCurrent(p, token.Deriving, dropAfter)
+	if !found {
+		return data.Ok(data.Nothing[deriving](p))
+	}
+
+	es, db, isDB := parseDerivingBody(p).Break()
+	if !isDB {
+		return data.Inl[data.Maybe[deriving]](es)
+	}
+
+	d := db
+	d.Position = d.Update(derivingToken)
+	return data.Ok(data.Just(d))
+}
+
+// rule:
+//
+//	```
+//	deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
+//	```
+func parseDerivingBody(p Parser) data.Either[data.Ers, deriving] {
+	if !matchCurrentLeftParen(p) {
+		es, res := nonEnclosedMaybeParseConstrainer(p)
+		if es != nil {
+			return data.PassErs[deriving](*es)
+		} else if res.IsNothing() {
+			return data.Fail[deriving](ExpectedDerivingBody, p)
+		}
+		bod, _ := res.Break()
+		return data.Ok(data.EConstruct[deriving](bod))
+	}
+	es, res, ok := parseSepSequencedGroup(p, ExpectedDerivingBody, token.Comma, nonEnclosedMaybeParseConstrainer).Break()
+	if !ok {
+		return data.PassErs[deriving](es)
+	}
+	return data.Ok(deriving{res})
+}
+
 func parseTypeDefOrTyping(p Parser) data.Either[data.Ers, mainElement] {
 	sigEs, sig, isSig := parseTypeSig(p).Break()
 	if !isSig {
 		return data.PassErs[mainElement](sigEs)
 	}
 
-	where, found := getKeywordAtCurrent(p, token.Where, dropAfter)
+	where, found := getKeywordAtCurrent(p, token.Where, dropBeforeAndAfter)
 	if !found {
 		return data.Inr[data.Ers, mainElement](sig)
 	}

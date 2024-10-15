@@ -364,3 +364,23 @@ func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, er
 func parseSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, emptyErrorMsg string, sep token.Type, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, b] {
 	return parseHandledSepSequenced[b](p, fun.Constant[api.Token](emptyErrorMsg), sep, maybeParse)
 }
+
+func parseSepSequencedGroup[a api.Node](p Parser, emptyErrorMsg string, sep token.Type, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, data.NonEmpty[a]] {
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
+	if !found {
+		return data.Fail[data.NonEmpty[a]](ExpectedLeftParen, p)
+	}
+
+	type groupType struct{ data.NonEmpty[a] }
+	es, group, isGroup := parseHandledSepSequenced[groupType](p, fun.Constant[api.Token](emptyErrorMsg), sep, maybeParse).Break()
+	if !isGroup {
+		return data.PassErs[data.NonEmpty[a]](es)
+	}
+
+	rparen, rFound := getKeywordAtCurrent(p, token.RightParen, dropBefore)
+	if !rFound {
+		return data.Fail[data.NonEmpty[a]](ExpectedRightParen, p)
+	}
+	group.NonEmpty.Position = group.Update(lparen).Update(rparen)
+	return data.Ok(group.NonEmpty)
+}

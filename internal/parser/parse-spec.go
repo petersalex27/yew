@@ -7,36 +7,6 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-// rule:
-//
-//	```
-//	deriving clause = "deriving", {"\n"}, deriving body ;
-//	```
-func parseOptionalDerivingClause(p Parser) data.Either[data.Ers, data.Maybe[deriving]] {
-	derivingToken, found := getKeywordAtCurrent(p, token.Deriving, dropAfter)
-	if !found {
-		return data.Ok(data.Nothing[deriving](p))
-	}
-
-	es, db, isDB := parseDerivingBody(p).Break()
-	if !isDB {
-		return data.Inl[data.Maybe[deriving]](es)
-	}
-
-	d := data.EOne[deriving](db)
-	d.Position = d.Update(derivingToken)
-	return data.Ok(data.Just[deriving](d))
-}
-
-// rule:
-//
-//	```
-//	deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
-//	```
-func parseDerivingBody(p Parser) data.Either[data.Ers, derivingBody] {
-	return parseSepSequenced[derivingBody](p, ExpectedDerivingBody, token.Comma, nonEnclosedMaybeParseConstrainer)
-}
-
 func nonEnclosedMaybeParseConstrainer(p Parser) (*data.Ers, data.Maybe[constrainer]) {
 	return maybeParseConstrainer(p, false)
 }
@@ -47,8 +17,8 @@ func nonEnclosedMaybeParseConstrainer(p Parser) (*data.Ers, data.Maybe[constrain
 //	constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer {"\n"}, ")" ;
 //	enc constrainer = upper ident, {"\n"}, pattern ;
 //	```
-func parseConstrainer(p Parser, enclosed bool) data.Either[data.Ers, constrainer] {
-	es, mC := maybeParseConstrainer(p, enclosed)
+func parseConstrainer(p Parser) data.Either[data.Ers, constrainer] {
+	es, mC := maybeParseConstrainer(p, false)
 	if es != nil {
 		return data.Inl[constrainer](*es)
 	}
@@ -235,7 +205,7 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 	} // else, case B.
 
 	// parse a constrainer for the rhs of "=>"
-	esRhs, rhs, isRhs := parseConstrainer(p, false).Break()
+	esRhs, rhs, isRhs := parseConstrainer(p).Break()
 	if !isRhs {
 		return data.Inl[specHead](esRhs)
 	}
@@ -458,7 +428,7 @@ func parseOptionalSpecInstTarget(p Parser) data.Either[data.Ers, data.Maybe[cons
 		return data.Ok(data.Nothing[constrainer](p))
 	}
 
-	es, c, isC := parseConstrainer(p, false).Break()
+	es, c, isC := parseConstrainer(p).Break()
 	if !isC {
 		return data.PassErs[data.Maybe[constrainer]](es)
 	}

@@ -83,6 +83,7 @@ const (
 	UnexpectedToken                 = "unexpected token"                                                             // unexpected-token
 	ExpectedConstraintElem          = "expected constraint element"                                                  // expected-constraint-elem
 	ExpectedRawKeyword              = "syntax rules must contain at least one raw-string keyword declaration"        // expected-raw-keyword
+	ExpectedLeftParen               = "expected '('"                                                                 // expected-left-paren
 )
 
 func parseError(p Parser, e data.Err) error {

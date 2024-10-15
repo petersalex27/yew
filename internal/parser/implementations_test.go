@@ -110,7 +110,6 @@ func Test_assert_DescribableNode(t *testing.T) {
 		_ api.DescribableNode = defBodyPossible{}
 		_ api.DescribableNode = defaultExpr{}
 		_ api.DescribableNode = deriving{}
-		_ api.DescribableNode = derivingBody{}
 		_ api.DescribableNode = enclosedAnnotation{}
 		_ api.DescribableNode = enclosedType{}
 		_ api.DescribableNode = exprApp{}

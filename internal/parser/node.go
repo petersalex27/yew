@@ -90,10 +90,7 @@ type (
 	defaultExpr struct{ data.Solo[expr] }
 
 	// a deriving clause of a data type definition
-	deriving struct{ data.Solo[derivingBody] }
-
-	//
-	derivingBody struct{ data.NonEmpty[constrainer] }
+	deriving struct{ data.NonEmpty[constrainer] }
 
 	// an annotation enclosed by `[...]`
 	enclosedAnnotation struct {

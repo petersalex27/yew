@@ -23,7 +23,6 @@ func (n defBody) Type() api.NodeType              { return n.Either.Type() }
 func (n defBodyPossible) Type() api.NodeType      { return t.DefBody }
 func (n defaultExpr) Type() api.NodeType          { return t.DefaultExpr }
 func (n deriving) Type() api.NodeType             { return t.Deriving }
-func (n derivingBody) Type() api.NodeType         { return t.DerivingBody }
 func (n enclosedType) Type() api.NodeType {
 	return ifThenElse(n.implicit, t.ImplicitType, t.EnclosedType)
 }
@@ -140,9 +139,6 @@ func (n defaultExpr) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n deriving) Describe() (string, []api.Node) {
-	return n.Type().String(), n.Children()
-}
-func (n derivingBody) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n enclosedType) Describe() (string, []api.Node) {

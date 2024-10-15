@@ -251,20 +251,20 @@ var (
 	typeConsNode            = makeCons(name_MyId, typ_x)                                                                         // MyId : x
 	_consGroup              = data.Construct(typeConsNode)                                                                       // MyId : x
 	typeDefNode             = makeTypeDef(upperTypingNode, data.Inl[impossible](_consGroup), data.Nothing[deriving]())           // MyId : x where MyId : x
-	body_typing             = body{data.Makes[bodyElement](typingNode.asBodyElement())}                                          // x : x
-	body_def                = body{data.Makes[bodyElement](defNode.asBodyElement())}                                             // x = x
-	body_defImpossible      = body{data.Makes[bodyElement](defImpossibleNode.asBodyElement())}                                   // x impossible
-	body_specDef            = body{data.Makes[bodyElement](specDefNode.asBodyElement())}                                         // spec MyId x where x : x
-	body_specInst           = body{data.Makes[bodyElement](specInstNode.asBodyElement())}                                        // inst MyId x where x = x
-	body_syntax             = body{data.Makes[bodyElement](syntaxNode.asBodyElement())}                                          // syntax `my` x = x
-	body_alias              = body{data.Makes[bodyElement](aliasNode.asBodyElement())}                                           // alias MyId = MyId
-	body_typeDef            = body{data.Makes[bodyElement](typeDefNode.asBodyElement())}                                         // type x = x
-	body_annotTyping        = body{data.Makes[bodyElement](annotTypingNode.asBodyElement())}                                     // --@test\nx : x
+	body_typing             = body{data.Makes(typingNode.asBodyElement())}                                                       // x : x
+	body_def                = body{data.Makes(defNode.asBodyElement())}                                                          // x = x
+	body_defImpossible      = body{data.Makes(defImpossibleNode.asBodyElement())}                                                // x impossible
+	body_specDef            = body{data.Makes(specDefNode.asBodyElement())}                                                      // spec MyId x where x : x
+	body_specInst           = body{data.Makes(specInstNode.asBodyElement())}                                                     // inst MyId x where x = x
+	body_syntax             = body{data.Makes(syntaxNode.asBodyElement())}                                                       // syntax `my` x = x
+	body_alias              = body{data.Makes(aliasNode.asBodyElement())}                                                        // alias MyId = MyId
+	body_typeDef            = body{data.Makes(typeDefNode.asBodyElement())}                                                      // type x = x
+	body_annotTyping        = body{data.Makes(annotTypingNode.asBodyElement())}                                                  // --@test\nx : x
 	singleConsNode          = data.Construct(typeConsNode)                                                                       // MyId : x
 	multiConsNode           = data.Construct(typeConsNode, typeConsNode)                                                         // MyId, MyId : x
 	impossibleNode          = data.EOne[impossible](impossibleTok)                                                               // impossible
-	derivingBodyNode        = data.EConstruct[derivingBody](constrainerNode)                                                     // MyId x
-	derivingNode            = data.EOne[deriving](derivingBodyNode)                                                              // deriving MyId x
+	derivingNode            = data.EConstruct[deriving](constrainerNode)                                                         // deriving MyId x
+	derivingNode2           = data.EConstruct[deriving](constrainerNode, constrainerNode)                                        // deriving (MyId x, MyId x)
 	typeDefNodeWithDeriving = makeTypeDef(upperTypingNode, data.Inl[impossible](singleConsNode), data.Just(derivingNode))        // MyId : x where MyId : x deriving MyId x
 )
 

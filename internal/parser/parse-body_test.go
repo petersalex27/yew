@@ -320,12 +320,56 @@ func TestParseDefBody(t *testing.T) {
 
 }
 
+// rule:
+//
+//	```
+//	deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
+//	```
 func TestParseDerivingBody(t *testing.T) {
 
 }
 
+// rule:
+//
+//	```
+//	deriving clause = "deriving", {"\n"}, deriving body ;
+//	```
 func TestParseDerivingClause(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  deriving
+	}{
+		{
+			"single",
+			[]api.Token{derivingTok, id_MyId_tok, id_x_tok},
+			derivingNode,
+		},
+		{
+			"enclosed single",
+			[]api.Token{derivingTok, lparen, id_MyId_tok, id_x_tok, rparen},
+			derivingNode,
+		},
+		{
+			"enclosed single trailing comma",
+			[]api.Token{derivingTok, lparen, id_MyId_tok, id_x_tok, comma, rparen},
+			derivingNode,
+		},
+		{
+			"multiple",
+			[]api.Token{derivingTok, lparen, id_MyId_tok, id_x_tok, comma, id_MyId_tok, id_x_tok, rparen},
+			derivingNode2,
+		},
+		{
+			"multiple trailing comma",
+			[]api.Token{derivingTok, lparen, id_MyId_tok, id_x_tok, comma, id_MyId_tok, id_x_tok, comma, rparen},
+			derivingNode2,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, data.Just(test.want), parseOptionalDerivingClause, -1))
+	}
 }
 
 func TestParseMainElement(t *testing.T) {
@@ -796,7 +840,7 @@ func TestParseOptionalWhereClause(t *testing.T) {
 		name  string
 		input []api.Token
 		want  data.Maybe[whereClause]
-		end int
+		end   int
 	}{
 		{
 			"empty",
@@ -806,7 +850,7 @@ func TestParseOptionalWhereClause(t *testing.T) {
 		},
 		{
 			"non-empty",
-			[]api.Token{where,  id_x_tok, colon, id_x_tok},
+			[]api.Token{where, id_x_tok, colon, id_x_tok},
 			data.Just(data.EConstruct[whereClause](mainElement(typingNode))),
 			-1,
 		},
