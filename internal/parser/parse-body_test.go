@@ -268,7 +268,46 @@ func TestParseSyntax(t *testing.T) {
 }
 
 func TestParseSyntaxBindingSymbol(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  syntaxSymbol
+	}{
+		{
+			"binding syntax lower ident",
+			[]api.Token{lbrace, id_x_tok, rbrace},
+			bindingIdSymNode,
+		},
+		{
+			"binding syntax upper ident",
+			[]api.Token{lbrace, id_MyId_tok, rbrace},
+			data.Inl[syntaxRawKeyword](makeBindingSyntaxRuleIdent(upperId)),
+		},
+		{
+			"binding syntax ident - 00",
+			[]api.Token{lbrace, id_x_tok, rbrace},
+			bindingIdSymNode,
+		},
+		{
+			"binding syntax ident - 01",
+			[]api.Token{lbrace, id_x_tok, newline, rbrace},
+			bindingIdSymNode,
+		},
+		{
+			"binding syntax ident - 10",
+			[]api.Token{lbrace, newline, id_x_tok, rbrace},
+			bindingIdSymNode,
+		},
+		{
+			"binding syntax ident - 11",
+			[]api.Token{lbrace, newline, id_x_tok, newline, rbrace},
+			bindingIdSymNode,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseSyntaxBindingSymbol, -1))
+	}
 }
 
 // rule:
@@ -289,23 +328,8 @@ func TestMaybeParseSyntaxSymbol(t *testing.T) {
 			data.Just(idSymNode),
 		},
 		{
-			"binging syntax ident - 00",
+			"binging syntax ident",
 			[]api.Token{lbrace, id_x_tok, rbrace},
-			data.Just(bindingIdSymNode),
-		},
-		{
-			"binging syntax ident - 01",
-			[]api.Token{lbrace, id_x_tok, newline, rbrace},
-			data.Just(bindingIdSymNode),
-		},
-		{
-			"binging syntax ident - 10",
-			[]api.Token{lbrace, newline, id_x_tok, rbrace},
-			data.Just(bindingIdSymNode),
-		},
-		{
-			"binging syntax ident - 11",
-			[]api.Token{lbrace, newline, id_x_tok, newline, rbrace},
 			data.Just(bindingIdSymNode),
 		},
 		{
