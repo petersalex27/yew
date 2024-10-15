@@ -537,8 +537,62 @@ func TestParseSyntaxRule(t *testing.T) {
 	}
 }
 
+// rule:
+//
+//	```
+//	"alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
+//	```
 func TestParseTypeAlias(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  typeAlias
+	}{
+		{
+			"000",
+			[]api.Token{alias, id_MyId_tok, equal, id_MyId_tok},
+			aliasNode,
+		},
+		{
+			"001",
+			[]api.Token{alias, id_MyId_tok, equal, newline, id_MyId_tok},
+			aliasNode,
+		},
+		{
+			"010",
+			[]api.Token{alias, id_MyId_tok, newline, equal, id_MyId_tok},
+			aliasNode,
+		},
+		{
+			"011",
+			[]api.Token{alias, id_MyId_tok, newline, equal, newline, id_MyId_tok},
+			aliasNode,
+		},
+		{
+			"100",
+			[]api.Token{alias, newline, id_MyId_tok, equal, id_MyId_tok},
+			aliasNode,
+		},
+		{
+			"101",
+			[]api.Token{alias, newline, id_MyId_tok, equal, newline, id_MyId_tok},
+			aliasNode,
+		},
+		{
+			"110",
+			[]api.Token{alias, newline, id_MyId_tok, newline, equal, id_MyId_tok},
+			aliasNode,
+		},
+		{
+			"111",
+			[]api.Token{alias, newline, id_MyId_tok, newline, equal, newline, id_MyId_tok},
+			aliasNode,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeAlias, -1))
+	}
 }
 
 func TestParseTypeConstructor(t *testing.T) {
@@ -688,26 +742,31 @@ func TestParseOptionalWhereClause(t *testing.T) {
 		name  string
 		input []api.Token
 		want  data.Maybe[whereClause]
+		end int
 	}{
 		{
 			"empty",
 			[]api.Token{},
 			data.Nothing[whereClause](),
+			-1,
 		},
 		{
 			"non-empty",
-			[]api.Token{where, id_x_tok, colon, id_x_tok},
+			[]api.Token{where,  id_x_tok, colon, id_x_tok},
 			data.Just(data.EConstruct[whereClause](mainElement(typingNode))),
+			-1,
 		},
 		{
 			"non-where clause",
 			[]api.Token{id_x_tok, colon, id_x_tok},
 			data.Nothing[whereClause](),
+			0,
 		},
 		{
 			"where clause, followed by more",
 			[]api.Token{where, id_x_tok, colon, id_x_tok, newline, id_x_tok, colon, id_x_tok},
 			data.Just(data.EConstruct[whereClause](mainElement(typingNode))),
+			5, // should read newline
 		},
 	}
 
