@@ -648,7 +648,7 @@ func optionalParseBasicStructureHelper(p Parser) (res data.Either[data.Ers, data
 	 *	2. otherwise, lookahead 2 for `typing` and `type def`, then check for `where` to determine if it is a `type def`
 	 *	3. otherwise, if 1. and 2. data.Fail, try to parse `def`
 	 */
-// 1. lookahead 1
+	// 1. lookahead 1
 	if tt, found := lookahead1Report(p, bodyKeywordsLAs...); found {
 		res := parseKnownMainElement(p, tt)
 		return data.Cases(res, data.PassErs[data.Maybe[mainElement]], okJustMainElement), attemptedWhat(tt)
@@ -658,8 +658,7 @@ func optionalParseBasicStructureHelper(p Parser) (res data.Either[data.Ers, data
 	if found := lookahead2(p, typingLAs...); found {
 		// put as attempted typing since typing is the only One that actually matters. `attempted` is
 		// used for visibility related error messages, but a type def can have any visibility modifier
-		res := runCases(p, parseTypeSig, passParseErs[mainElement], parseTypeDefOrTyping)
-		return data.Cases(res, data.PassErs[data.Maybe[mainElement]], okJustMainElement), attemptedTyping
+		return data.Cases(parseTypeDefOrTyping(p), data.PassErs[data.Maybe[mainElement]], okJustMainElement), attemptedTyping
 	}
 
 	// else, 3. try to parse `def`
@@ -750,10 +749,15 @@ func maybeParseMainElement(p Parser) (*data.Ers, data.Maybe[mainElement]) {
 	return nil, mme
 }
 
-func parseTypeDefOrTyping(p Parser, t typing) data.Either[data.Ers, mainElement] {
+func parseTypeDefOrTyping(p Parser) data.Either[data.Ers, mainElement] {
+	sigEs, sig, isSig := parseTypeSig(p).Break()
+	if !isSig {
+		return data.PassErs[mainElement](sigEs)
+	}
+
 	where, found := getKeywordAtCurrent(p, token.Where, dropAfter)
 	if !found {
-		return data.Inr[data.Ers, mainElement](t)
+		return data.Inr[data.Ers, mainElement](sig)
 	}
 	es, tdb, isTbd := parseTypeDefBody(p).Break()
 	if !isTbd {
@@ -765,7 +769,7 @@ func parseTypeDefOrTyping(p Parser, t typing) data.Either[data.Ers, mainElement]
 		return data.PassErs[mainElement](esDeriving)
 	}
 
-	td := makeTypeDef(t, tdb, mDeriving)
+	td := makeTypeDef(sig, tdb, mDeriving)
 	td.Position = td.Update(where)
 	return data.Ok[mainElement](td)
 }

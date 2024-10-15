@@ -248,7 +248,7 @@ func TestParseConstructorName(t *testing.T) {
 //	```
 //	type constructor = constructor name, {{"\n"}, ",", {"\n"}, constructor name}, {"\n"}, ":", {"\n"}, type ;
 //	```
-func TestParseConstructor(t *testing.T) {
+func TestParseTypeConstructor(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
@@ -595,8 +595,62 @@ func TestParseTypeAlias(t *testing.T) {
 	}
 }
 
-func TestParseTypeConstructor(t *testing.T) {
+// rule:
+//
+//	```
+//	type def = typing, {"\n"}, "where", {"\n"}, type def body, [{"\n"}, deriving clause] ;
+//	```
+func TestParseTypeDef(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  mainElement
+	}{
+		{
+			"00",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
+			typeDefNode,
+		},
+		{
+			"01",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, where, newline, id_MyId_tok, colon, id_x_tok},
+			typeDefNode,
+		},
+		{
+			"10",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, newline, where, id_MyId_tok, colon, id_x_tok},
+			typeDefNode,
+		},
+		{
+			"11",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, newline, where, newline, id_MyId_tok, colon, id_x_tok},
+			typeDefNode,
+		},
+		{
+			"with deriving - 00",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, derivingTok, id_MyId_tok, id_x_tok},
+			typeDefNodeWithDeriving,
+		},
+		{
+			"with deriving - 01",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, derivingTok, newline, id_MyId_tok, id_x_tok},
+			typeDefNodeWithDeriving,
+		},
+		{
+			"with deriving - 10",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, newline, derivingTok, id_MyId_tok, id_x_tok},
+			typeDefNodeWithDeriving,
+		},
+		{
+			"with deriving - 11",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, newline, derivingTok, newline, id_MyId_tok, id_x_tok},
+			typeDefNodeWithDeriving,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeDefOrTyping, -1))
+	}
 }
 
 func TestParseTypeDefBody(t *testing.T) {
