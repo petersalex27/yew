@@ -327,8 +327,39 @@ func TestParseTypeDefBody(t *testing.T) {
 	}
 }
 
+// not much to test here, just make sure the name parse, colon parse, and type parse are 
+// correctly sequenced to allow for newlines in appropriate places
 func TestParseTyping(t *testing.T) {
+	tests := []struct {
+		name string
+		input []api.Token
+		want typing
+	}{
+		{
+			"00",
+			[]api.Token{id_x_tok, colon, id_x_tok},
+			typingNode,
+		},
+		{
+			"01",
+			[]api.Token{id_x_tok, colon, newline, id_x_tok},
+			typingNode,
+		},
+		{
+			"10",
+			[]api.Token{id_x_tok, newline, colon, id_x_tok},
+			typingNode,
+		},
+		{
+			"11",
+			[]api.Token{id_x_tok, newline, colon, newline, id_x_tok},
+			typingNode,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeSig, -1))
+	}
 }
 
 func TestParseVisibleBodyElement(t *testing.T) {

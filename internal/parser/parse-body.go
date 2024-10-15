@@ -25,16 +25,15 @@ var (
 // a subset of the more general "typing". A type signature can only have a "name" node appear to the
 // left of ':'.
 func parseTypeSig(p Parser) data.Either[data.Ers, typing] {
-	var t typing
 	n, isN := maybeParseName(p).Break()
 	if !isN {
 		return data.Fail[typing](ExpectedName, p)
 	}
-	t.Position = t.Update(n)
 
 	p.dropNewlines()
-	if !parseKeywordAtCurrent(p, token.Colon, &t.Position) {
-		return data.Fail[typing](ExpectedTyping, n)
+	colon, found := getKeywordAtCurrent(p, token.Colon)
+	if !found {
+		return data.Fail[typing](ExpectedTypeJudgment, n)
 	}
 
 	es, ty, isTy := ParseType(p).Break()
@@ -42,10 +41,8 @@ func parseTypeSig(p Parser) data.Either[data.Ers, typing] {
 		return data.PassErs[typing](es)
 	}
 
-	t.Position = t.Update(ty)
-	t.typing = data.MakePair(n, ty)
-	t.annotations = data.Nothing[annotations](p)
-	t.visibility = data.Nothing[visibility](p)
+	t := makeTyping(n, ty)
+	t.Position = t.Position.Update(colon)
 	return data.Ok(t)
 }
 

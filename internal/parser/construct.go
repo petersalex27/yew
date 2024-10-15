@@ -86,6 +86,15 @@ func makeAlias(n name, ty typ) typeAlias {
 	}
 }
 
+func makeTyping(n name, ty typ) typing {
+	return typing{
+		data.Nothing[annotations](),
+		data.Nothing[visibility](),
+		data.MakePair(n, ty),
+		api.WeakenRangeOver[api.Node](n, ty),
+	}
+}
+
 func makeTypeDef(head typing, body typeDefBody, der data.Maybe[deriving]) typeDef {
 	return typeDef{
 		data.Nothing[annotations](),
