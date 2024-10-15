@@ -13,7 +13,7 @@ import (
 //	deriving clause = "deriving", {"\n"}, deriving body ;
 //	```
 func parseOptionalDerivingClause(p Parser) data.Either[data.Ers, data.Maybe[deriving]] {
-	derivingToken, found := getKeywordAtCurrent(p, token.Deriving)
+	derivingToken, found := getKeywordAtCurrent(p, token.Deriving, dropAfter)
 	if !found {
 		return data.Ok(data.Nothing[deriving](p))
 	}
@@ -121,8 +121,7 @@ func parseUpperIdSequence(p Parser) data.List[upperIdent] {
 		upper := p.current()
 		p.advance()
 
-		p.dropNewlines()
-		comma, found := getKeywordAtCurrent(p, token.Comma)
+		comma, found := getKeywordAtCurrent(p, token.Comma, dropBeforeAndAfter)
 		if !found {
 			panic("verification was incorrect")
 		}
@@ -161,26 +160,18 @@ func maybeParseConstraintElem(p Parser) (*data.Ers, data.Maybe[constraintElem]) 
 //	constraint group = constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}] ;
 //	```
 func maybeParseConstraintGroup(p Parser) (*data.Ers, data.Maybe[data.NonEmpty[constraintElem]]) {
-	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
-	if !found {
+	if !lookahead1(p, token.LeftParen) {
 		return nil, data.Nothing[data.NonEmpty[constraintElem]](p) // no constraint group, return data.Nothing
 	}
 
 	// require at least one constraint elem
 	res := parseGroup[constraintVerified](p, ExpectedConstraintElem, maybeParseConstraintElem)
-	rparen, found := getKeywordAtCurrent(p, token.RightParen)
-	if !found {
-		e := data.MkErr(ExpectedRightParen, p)
-		es := data.Nil[data.Err](1).Snoc(e)
-		return &es, data.Nothing[data.NonEmpty[constraintElem]](p)
-	}
 
 	es, c, isC := res.Break()
 	if !isC {
 		return &es, data.Nothing[data.NonEmpty[constraintElem]](p)
 	}
 
-	c.NonEmpty.Position = c.NonEmpty.Position.Update(lparen).Update(rparen)
 	return nil, data.Just(c.NonEmpty)
 }
 
@@ -190,7 +181,8 @@ func maybeParseConstraintGroup(p Parser) (*data.Ers, data.Maybe[data.NonEmpty[co
 //	constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constrainer ;
 //	```
 func parseConstraint(p Parser) data.Either[data.Ers, constraintVerified] {
-	es, mCG := maybeParseConstraintGroup(p)
+	// if constraint group, parens are handled in call--note that this doesn't follow the rule exactly ...
+	es, mCG := maybeParseConstraintGroup(p) 
 	if es != nil {
 		return data.Inl[constraintVerified](*es)
 	} else if cg, just := mCG.Break(); just {
@@ -232,12 +224,9 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 	}
 
 	var thickArrow api.Token
-	// this is okay, it will be used here, by `spec def` before `spec dependency`, or by spec def
-	// before `where`
-	p.dropNewlines()
 	isCaseA := c.Tail().Len() == 0 && c.Head().Fst().Len() == 0
 	if isCaseA {
-		ta, found := getKeywordAtCurrent(p, token.ThickArrow)
+		ta, found := getKeywordAtCurrent(p, token.ThickArrow, dropBeforeAndAfter)
 		if !found {
 			sh = data.EMakePair[specHead](data.Nothing[constraintVerified](p), c.Head().Snd())
 			return data.Ok(sh)
@@ -265,7 +254,7 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
 	//var sd specDef
 	position := api.ZeroPosition()
-	if specToken, found := getKeywordAtCurrent(p, token.Spec); !found {
+	if specToken, found := getKeywordAtCurrent(p, token.Spec, dropAfter); !found {
 		return data.Fail[specDef](ExpectedSpecDef, p)
 	} else { // use of `else` allows use of 'found' later, keeping it out of scope
 		position = position.Update(specToken)
@@ -282,10 +271,7 @@ func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
 		return data.Inl[specDef](esDep)
 	}
 
-	// redundant if dep.IsNothing(), but dropNewlines is idempotent (when 'p' is used only in a single
-	// thread)--so this keeps the code simpler
-	p.dropNewlines()
-	if whereToken, found := getKeywordAtCurrent(p, token.Where); !found {
+	if whereToken, found := getKeywordAtCurrent(p, token.Where, dropBeforeAndAfter); !found {
 		return data.Fail[specDef](ExpectedSpecWhere, p)
 	} else {
 		position = position.Update(whereToken)
@@ -313,7 +299,7 @@ func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
 //	spec dependency = "from", {"\n"}, pattern ;
 //	```
 func parseOptionalSpecDependency(p Parser) data.Either[data.Ers, data.Maybe[pattern]] {
-	fromToken, found := getKeywordAtCurrent(p, token.From)
+	fromToken, found := getKeywordAtCurrent(p, token.From, dropAfter)
 	if !found {
 		return data.Ok(data.Nothing[pattern](p))
 	}
@@ -409,7 +395,7 @@ func parseMaybeAnnotatedDef(p Parser) (*data.Ers, data.Maybe[def]) {
 //		) ;
 //	```
 func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[requiringClause]] {
-	req, found := getKeywordAtCurrent(p, token.Requiring)
+	req, found := getKeywordAtCurrent(p, token.Requiring, dropAfter)
 	if !found {
 		return data.Ok(data.Nothing[requiringClause](p)) // no requiring clause, return data.Nothing
 	}
@@ -430,7 +416,7 @@ func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[req
 //	spec inst member group = spec member | "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
 //	```
 func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
-	inst, found := getKeywordAtCurrent(p, token.Inst)
+	inst, found := getKeywordAtCurrent(p, token.Inst, dropAfter)
 	if !found {
 		return data.Fail[specInst](ExpectedSpecInst, p)
 	}
@@ -446,7 +432,7 @@ func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
 		return data.PassErs[specInst](esTarget)
 	}
 
-	where, foundWhere := getKeywordAtCurrent(p, token.Where)
+	where, foundWhere := getKeywordAtCurrent(p, token.Where, dropBeforeAndAfter)
 	if !foundWhere {
 		return data.Fail[specInst](ExpectedInstWhere, target)
 	}
@@ -467,7 +453,7 @@ func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
 //	spec inst target = "=", {"\n"}, constrainer ;
 //	```
 func parseOptionalSpecInstTarget(p Parser) data.Either[data.Ers, data.Maybe[constrainer]] {
-	equal, found := getKeywordAtCurrent(p, token.Equal)
+	equal, found := getKeywordAtCurrent(p, token.Equal, dropAfter)
 	if !found {
 		return data.Ok(data.Nothing[constrainer](p))
 	}

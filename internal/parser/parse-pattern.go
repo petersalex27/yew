@@ -102,8 +102,13 @@ func closeEnclosedPattern(p Parser, opener api.Token, closerType token.Type) fun
 	}
 }
 
+// rule:
+//
+//	```
+//	access = ".", {"\n"}, name ;
+//	```
 func parseAccess(p Parser) (_ *data.Ers, acc access) {
-	dot, found := getKeywordAtCurrent(p, token.Dot)
+	dot, found := getKeywordAtCurrent(p, token.Dot, dropAfter)
 	if !found {
 		e := data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedAccessDot, p))
 		return &e, acc

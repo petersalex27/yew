@@ -278,7 +278,46 @@ func TestParseSyntaxBindingSymbol(t *testing.T) {
 //	raw keyword = ? RAW STRING OF JUST A VALID NON INFIX ident OR symbol ? ;
 //	```
 func TestMaybeParseSyntaxSymbol(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  data.Maybe[syntaxSymbol]
+	}{
+		{
+			"ident",
+			[]api.Token{id_x_tok},
+			data.Just(idSymNode),
+		},
+		{
+			"binging syntax ident - 00",
+			[]api.Token{lbrace, id_x_tok, rbrace},
+			data.Just(bindingIdSymNode),
+		},
+		{
+			"binging syntax ident - 01",
+			[]api.Token{lbrace, id_x_tok, newline, rbrace},
+			data.Just(bindingIdSymNode),
+		},
+		{
+			"binging syntax ident - 10",
+			[]api.Token{lbrace, newline, id_x_tok, rbrace},
+			data.Just(bindingIdSymNode),
+		},
+		{
+			"binging syntax ident - 11",
+			[]api.Token{lbrace, newline, id_x_tok, newline, rbrace},
+			data.Just(bindingIdSymNode),
+		},
+		{
+			"raw keyword",
+			[]api.Token{raw_my_tok},
+			data.Just(rawSym),
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, maybeOutputFUT_endCheck(test.input, test.want, maybeParseSyntaxSymbol, -1))
+	}
 }
 
 // rule:
@@ -338,7 +377,6 @@ func TestParseSyntaxRule(t *testing.T) {
 			data.EConstruct[syntaxRule](idSymNode, rawSym, idSymNode),
 		},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseSyntaxRule, -1))
 	}

@@ -49,7 +49,7 @@ func parseTypeHelper(p Parser, enclosed bool) data.Either[data.Ers, typ] {
 //
 // typeHelper handles deciding b/w a forall type and a type tail
 func parseType(p Parser, enclosed bool) data.Either[data.Ers, typ] {
-	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
 		// not enclosed in this call, parse with inherited `enclosed` value
 		//
@@ -67,7 +67,7 @@ func parseType(p Parser, enclosed bool) data.Either[data.Ers, typ] {
 	ty = ty.updatePosTyp(lparen) // update position to include left paren
 
 	p.dropNewlines()
-	rparen, found := getKeywordAtCurrent(p, token.RightParen)
+	rparen, found := getKeywordAtCurrent(p, token.RightParen, dropBefore)
 	if !found {
 		return data.Fail[typ](ExpectedRightParen, p)
 	}
@@ -242,17 +242,17 @@ func maybeParseTypeTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[typ]) {
 
 // ASSUMPTION: the current token is Either "_", "()", "="
 func parseTypeTermException(p Parser) data.Either[data.Ers, typ] {
-	tok, found := getKeywordAtCurrent(p, token.Underscore)
+	tok, found := getKeywordAtCurrent(p, token.Underscore, dropNone)
 	if found {
 		return data.Ok(typ(data.EOne[wildcard](tok)))
 	}
 
-	tok, found = getKeywordAtCurrent(p, token.Equal)
+	tok, found = getKeywordAtCurrent(p, token.Equal, dropNone)
 	if found {
 		return data.Ok[typ](data.EOne[name](tok))
 	}
 
-	tok, found = getKeywordAtCurrent(p, token.EmptyParenEnclosure)
+	tok, found = getKeywordAtCurrent(p, token.EmptyParenEnclosure, dropNone)
 	if !found {
 		panic("expected '_', '()', '='") // input was not validated before calling
 	}
@@ -283,7 +283,7 @@ func parseJustAppTypeOrJustType(p Parser, lhs typ, enclosed bool) (*data.Ers, ty
 //	forall binding = "forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}
 //	```
 func parseForallBinding(p Parser) data.Either[data.Ers, forallBinders] {
-	forallTok, found := getKeywordAtCurrent(p, token.Forall)
+	forallTok, found := getKeywordAtCurrent(p, token.Forall, dropAfter)
 	if !found {
 		panic("expected 'forall'") // input was not validated before calling
 	}
@@ -293,9 +293,9 @@ func parseForallBinding(p Parser) data.Either[data.Ers, forallBinders] {
 func parseOptionalModality(p Parser) data.Maybe[modality] {
 	mModality := data.Nothing[modality](p)
 	// parse optional multiplicity modality
-	mode, found := getKeywordAtCurrent(p, token.Erase)
+	mode, found := getKeywordAtCurrent(p, token.Erase, dropAfter)
 	if !found {
-		mode, found = getKeywordAtCurrent(p, token.Once)
+		mode, found = getKeywordAtCurrent(p, token.Once, dropAfter)
 	}
 
 	// set modality to non-'Nothing' value if found
@@ -339,7 +339,7 @@ func parseEnclosedType(p Parser) (out data.Either[data.Ers, typ]) {
 		}
 	}
 
-	colon, foundColon := getKeywordAtCurrent(p, token.Colon)
+	colon, foundColon := getKeywordAtCurrent(p, token.Colon, dropBeforeAndAfter)
 	if !foundColon && !mModality.IsNothing() {
 		return data.Fail[typ](ExpectedTypeSig, p)
 		// multiplicity requires term to be typed
@@ -366,7 +366,7 @@ func getColonEqualAtCurrent(p Parser, colonEqual *api.Token) (found bool) {
 	if colonEqual == nil {
 		panic("nil pointer for ':=' token")
 	}
-	*colonEqual, found = getKeywordAtCurrent(p, token.ColonEqual)
+	*colonEqual, found = getKeywordAtCurrent(p, token.ColonEqual, dropBeforeAndAfter)
 	return found
 }
 
@@ -393,14 +393,15 @@ func appendDefaultExpr(de expr) func(innerTyping) data.Either[data.Ers, typ] {
 func closeEnclosedTyp(p Parser, opener api.Token, closerType token.Type) func(typ) data.Either[data.Ers, typ] {
 	return func(t typ) data.Either[data.Ers, typ] {
 		t = t.updatePosTyp(opener)
-		p.dropNewlines()
-		closer, found := getKeywordAtCurrent(p, closerType)
+		closer, found := getKeywordAtCurrent(p, closerType, dropBefore)
 		if !found {
 			isRp := closerType.Match(token.RightParen.Make())
 			return data.Fail[typ](ifThenElse(isRp, ExpectedRightParen, ExpectedRightBrace), p)
 		}
 		et := enclosedType{implicit: token.LeftBrace.Match(opener), typ: t}
-		et.typ = et.updatePosTyp(closer)
+		// NOTE: it's very important to call update on the `typ` field--if it's called on `et`, then the
+		// enclosed type gets enclosed a second time ... lol
+		et.typ = et.typ.updatePosTyp(closer)
 		return data.Ok[typ](et)
 	}
 }

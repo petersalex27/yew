@@ -243,7 +243,7 @@ var (
 	rawStringNode      = data.EOne[rawString](raw_my_tok)                                                                   // `my`
 	rawKeyNode         = data.EOne[syntaxRawKeyword](rawStringNode)                                                         // `my`
 	rawSym             = data.Inr[syntaxRuleIdent](rawKeyNode)                                                              // `my`
-	boundIdSymNode     = data.Inr[syntaxRuleIdent](makeBindingSyntaxRuleIdent(lowerId))                                     // {x}
+	bindingIdSymNode   = data.Inl[syntaxRawKeyword](makeBindingSyntaxRuleIdent(lowerId))                                     // {x}
 	idSymNode          = data.Inl[syntaxRawKeyword](makeStdSyntaxRuleIdent(lowerId))                                        // x
 	syntaxRuleNode     = data.EConstruct[syntaxRule](rawSym, idSymNode)                                                     // `my` x
 	syntaxNode         = makeSyntax(syntaxRuleNode, expr(name_x))                                                           // syntax `my` x = x
@@ -260,9 +260,9 @@ var (
 	body_alias         = body{data.Makes[bodyElement](aliasNode)}                                                           // alias MyId = MyId
 	body_typeDef       = body{data.Makes[bodyElement](typeDefNode)}                                                         // type x = x
 	body_annotTyping   = body{data.Makes[bodyElement](annotTypingNode)}                                                     // --@test\nx : x
-	singleConsNode = data.Construct(typeConsNode)
-	multiConsNode = data.Construct(typeConsNode, typeConsNode)
-	impossibleNode = data.EOne[impossible](impossibleTok)
+	singleConsNode     = data.Construct(typeConsNode)
+	multiConsNode      = data.Construct(typeConsNode, typeConsNode)
+	impossibleNode     = data.EOne[impossible](impossibleTok)
 )
 
 // a very simple function that creates a test source from a list of tokens

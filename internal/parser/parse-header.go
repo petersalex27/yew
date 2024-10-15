@@ -60,7 +60,7 @@ func makePossibleHeader(mod data.Maybe[module], imports data.List[importStatemen
 }
 
 func parseModule(p Parser) data.Either[data.Ers, data.Maybe[module]] {
-	moduleToken, found := getKeywordAtCurrent(p, token.Module)
+	moduleToken, found := getKeywordAtCurrent(p, token.Module, dropAfter)
 	if !found {
 		return data.Ok(data.Nothing[module](p))
 	}
@@ -133,7 +133,7 @@ func parseImports(p Parser) data.Either[data.Ers, data.List[importStatement]] {
 //		| "(", {"\n"}, package import, {{"\n"}, package import}, {"\n"}, ")"
 //		) ;
 func maybeParseImport(p Parser) (*data.Ers, data.Maybe[importing]) {
-	importToken, found := getKeywordAtCurrent(p, token.Import)
+	importToken, found := getKeywordAtCurrent(p, token.Import, dropAfter)
 	if !found {
 		return nil, data.Nothing[importing](p) // no imports, this is okay, return empty list
 	}
@@ -168,14 +168,14 @@ func parseSymbolSelections(p Parser) data.Either[data.Ers, data.Maybe[data.NonEm
 	}
 
 	type group struct{ data.NonEmpty[name] }
-	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	es, symbols, ok := parseSepSequenced[group](p, IllegalEmptyUsingClause, token.Comma, parseMaybeName).Break()
 	if !ok { // error occurred
 		return data.PassErs[data.Maybe[data.NonEmpty[name]]](es)
 	}
 
 	if found {
-		rparen, found := getKeywordAtCurrent(p, token.RightParen)
+		rparen, found := getKeywordAtCurrent(p, token.RightParen, dropBefore)
 		if !found {
 			return data.Fail[data.Maybe[data.NonEmpty[name]]](ExpectedRightParen, p)
 		}
@@ -195,7 +195,7 @@ func parseSymbolSelections(p Parser) data.Either[data.Ers, data.Maybe[data.NonEm
 //		using clause = "using", {"\n"}, "_" | symbol selection group ;
 //	```
 func maybeParseImportSpecification(p Parser) (*data.Ers, data.Maybe[selections]) {
-	if as, foundAs := getKeywordAtCurrent(p, token.As); foundAs {
+	if as, foundAs := getKeywordAtCurrent(p, token.As, dropAfter); foundAs {
 		id, ok := parseLowerIdent(p).Break()
 		if !ok {
 			e := data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedNamespaceAlias, p))
@@ -206,7 +206,7 @@ func maybeParseImportSpecification(p Parser) (*data.Ers, data.Maybe[selections])
 		return nil, data.Just(asClause)
 	}
 
-	using, foundUsing := getKeywordAtCurrent(p, token.Using)
+	using, foundUsing := getKeywordAtCurrent(p, token.Using, dropAfter)
 	if !foundUsing {
 		return nil, data.Nothing[selections](p) // no import specification, this is okay, return empty list
 	}
@@ -226,7 +226,7 @@ func maybeParseImportSpecification(p Parser) (*data.Ers, data.Maybe[selections])
 //	package import = import path, [{"\n"}, import specification] ;
 //	```
 func maybeParsePackageImport(p Parser) (*data.Ers, data.Maybe[packageImport]) {
-	pathLiteral, found := getKeywordAtCurrent(p, token.ImportPath)
+	pathLiteral, found := getKeywordAtCurrent(p, token.ImportPath, dropAfter)
 	if !found {
 		return nil, data.Nothing[packageImport](p)
 	}

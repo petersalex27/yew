@@ -120,7 +120,7 @@ func lookahead2(p Parser, types ...[2]token.Type) bool {
 }
 
 func maybeParseParenEnclosed[a api.Node](p Parser, parseFunc func(Parser) (*data.Ers, data.Maybe[a])) (*data.Ers, api.Position, data.Maybe[a]) {
-	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
 		return nil, p.GetPos(), data.Nothing[a](p)
 	}
@@ -130,7 +130,7 @@ func maybeParseParenEnclosed[a api.Node](p Parser, parseFunc func(Parser) (*data
 		return es, p.GetPos(), data.Nothing[a](p)
 	}
 
-	rparen, found := getKeywordAtCurrent(p, token.RightParen)
+	rparen, found := getKeywordAtCurrent(p, token.RightParen, dropBefore)
 	if !found {
 		e := data.MkErr(ExpectedRightParen, p)
 		es := data.Nil[data.Err](1).Snoc(e)
@@ -152,7 +152,7 @@ func maybeParseParenEnclosed[a api.Node](p Parser, parseFunc func(Parser) (*data
 // SEE: `getKeywordAtCurrent` to return the token and found status instead
 func parseKeywordAtCurrent(p Parser, keyword token.Type, pos *api.Position) (found bool) {
 	var token api.Token
-	if token, found = getKeywordAtCurrent(p, keyword); found {
+	if token, found = getKeywordAtCurrent(p, keyword, dropAfter); found {
 		if pos != nil {
 			*pos = pos.Update( /* keyword */ token)
 		}
@@ -162,19 +162,44 @@ func parseKeywordAtCurrent(p Parser, keyword token.Type, pos *api.Position) (fou
 
 func parseEnclosedOpener(p Parser) (opener api.Token, closerType token.Type, found bool) {
 	closerType = token.RightParen
-	opener, found = getKeywordAtCurrent(p, token.LeftParen)
+	opener, found = getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
 		closerType = token.RightBrace
-		opener, found = getKeywordAtCurrent(p, token.LeftBrace)
+		opener, found = getKeywordAtCurrent(p, token.LeftBrace, dropAfter)
 	}
 	return opener, closerType, found
 }
 
-func getKeywordAtCurrent(p Parser, keyword token.Type) (token api.Token, found bool) {
+type dropNewlineBits byte
+
+const (
+	// don't drop newlines
+	dropNone dropNewlineBits = iota
+	// drop newlines after keyword
+	dropAfter // 0b01
+	// drop newlines before keyword
+	dropBefore // 0b10
+	// drop newlines before and after keyword
+	dropBeforeAndAfter // 0b11, i.e., dropBefore | dropAfter
+)
+
+// drop bits should be ...
+//   - 0b00: no newlines are dropped
+//   - 0b01: newline after the keyword is dropped
+//   - 0b10: newline before the keyword is dropped (and not undone!)
+//   - 0b11: newline before and after the keyword are dropped (and the before newline is not undone!)
+func getKeywordAtCurrent(p Parser, keyword token.Type, dropBits dropNewlineBits) (token api.Token, found bool) {
+	if dropBits&dropBefore != 0 {
+		p.dropNewlines()
+	}
+
 	if found = keyword.Match(p.current()); found {
 		token = p.current()
 		p.advance()
-		p.dropNewlines()
+
+		if dropBits&dropAfter != 0 {
+			p.dropNewlines()
+		}
 	}
 	return token, found
 }
@@ -243,7 +268,7 @@ func parseLowerIdent(p Parser) data.Maybe[lowerIdent] {
 //	group <mem> = mem | "(", {"\n"}, mem, {{"\n"}, mem}, {"\n"}, ")" ;
 //	```
 func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, ne] {
-	leftParen, found := getKeywordAtCurrent(p, token.LeftParen) // parse '('
+	leftParen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter) // parse '('
 	var first a
 	if es, mFirst := maybeParse(p); es != nil {
 		return data.PassErs[ne](*es)
@@ -262,7 +287,7 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 			return data.PassErs[ne](*es)
 		}
 		xs.Position = xs.Update(leftParen)
-		rp, found := getKeywordAtCurrent(p, token.RightParen)
+		rp, found := getKeywordAtCurrent(p, token.RightParen, dropBefore)
 		if !found {
 			return data.Fail[ne](ExpectedRightParen, p)
 		}

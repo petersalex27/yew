@@ -66,8 +66,7 @@ func parseTypeSig(p Parser) data.Either[data.Ers, typing] {
 		return data.Fail[typing](ExpectedName, p)
 	}
 
-	p.dropNewlines()
-	colon, found := getKeywordAtCurrent(p, token.Colon)
+	colon, found := getKeywordAtCurrent(p, token.Colon, dropBeforeAndAfter)
 	if !found {
 		return data.Fail[typing](ExpectedTypeJudgment, n)
 	}
@@ -104,7 +103,7 @@ func parseTypeDefBody(p Parser) data.Either[data.Ers, typeDefBody] {
 	// 	res := parseTypeDefBodyTypeCons(p)
 	// }
 
-	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	var bod data.NonEmpty[typeConstructor]
 	es, tcs, isTC := parseTypeDefBodyTypeCons(p).Break()
 	if !isTC {
@@ -126,7 +125,7 @@ func parseTypeDefBody(p Parser) data.Either[data.Ers, typeDefBody] {
 		p.dropNewlines()
 	}
 
-	rparen, found := getKeywordAtCurrent(p, token.RightParen)
+	rparen, found := getKeywordAtCurrent(p, token.RightParen, dropNone) // newlines already dropped
 	if !found {
 		return data.Fail[typeDefBody](ExpectedRightParen, lparen)
 	}
@@ -174,8 +173,7 @@ func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data
 		return data.PassErs[typeConstructorSeq](es)
 	}
 
-	p.dropNewlines()
-	colon, found := getKeywordAtCurrent(p, token.Colon)
+	colon, found := getKeywordAtCurrent(p, token.Colon, dropBeforeAndAfter)
 	if !found {
 		return data.Fail[typeConstructorSeq](ExpectedTypeJudgment, p)
 	}
@@ -311,12 +309,12 @@ func parseDefBody(p Parser) data.Either[data.Ers, defBody] {
 
 // a more general version of `parseDefBody` that allows for the binding token to be chosen
 func parsePatternBoundBody(p Parser, bindingTokenType token.Type) data.Either[data.Ers, defBody] {
-	if imp, found := getKeywordAtCurrent(p, token.Impossible); found {
+	if imp, found := getKeywordAtCurrent(p, token.Impossible, dropNone); found {
 		return data.Ok(data.EInl[defBody](data.EOne[impossible](imp)))
 	}
 
 	var possibleLeft data.Either[data.Ers, data.Either[withClause, expr]]
-	if bindingToken, found := getKeywordAtCurrent(p, bindingTokenType); found {
+	if bindingToken, found := getKeywordAtCurrent(p, bindingTokenType, dropBeforeAndAfter); found {
 		construct := fun.Compose(data.Ok, data.Inr[withClause, expr])
 		possibleLeft = data.Cases(ParseExpr(p), data.PassErs[data.Either[withClause, expr]], construct)
 		possibleLeft = possibleLeft.Update(bindingToken)
@@ -340,7 +338,7 @@ func runDefBodyWhereClause(p Parser, possibleLeft data.Either[withClause, expr])
 //	where clause = {"\n"}, "where", {"\n"}, where body ;
 //	```
 func parseOptionalWhereClause(p Parser) data.Either[data.Ers, data.Maybe[whereClause]] {
-	whereToken, found := getKeywordAtCurrent(p, token.Where)
+	whereToken, found := getKeywordAtCurrent(p, token.Where, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[whereClause](p)) // no where clause, return Nothing
 	}
@@ -401,7 +399,7 @@ func parseKnownMainElem(p Parser, tt token.Type) data.Either[data.Ers, mainEleme
 //	"alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
 //	```
 func parseTypeAlias(p Parser) data.Either[data.Ers, typeAlias] {
-	aliasToken, found := getKeywordAtCurrent(p, token.Alias)
+	aliasToken, found := getKeywordAtCurrent(p, token.Alias, dropAfter)
 	if !found {
 		return data.Fail[typeAlias](ExpectedTypeAlias, p)
 	}
@@ -411,8 +409,7 @@ func parseTypeAlias(p Parser) data.Either[data.Ers, typeAlias] {
 		return data.Fail[typeAlias](ExpectedTypeAliasName, aliasToken)
 	}
 
-	p.dropNewlines()
-	equalToken, found := getKeywordAtCurrent(p, token.Equal)
+	equalToken, found := getKeywordAtCurrent(p, token.Equal, dropBeforeAndAfter)
 	if !found {
 		return data.Fail[typeAlias](ExpectedAliasBinding, n)
 	}
@@ -432,7 +429,7 @@ func parseTypeAlias(p Parser) data.Either[data.Ers, typeAlias] {
 //	syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
 //	```
 func parseSyntax(p Parser) data.Either[data.Ers, syntax] {
-	syntaxToken, found := getKeywordAtCurrent(p, token.Syntax)
+	syntaxToken, found := getKeywordAtCurrent(p, token.Syntax, dropAfter)
 	if !found {
 		return data.Fail[syntax](ExpectedSyntax, p)
 	}
@@ -442,8 +439,7 @@ func parseSyntax(p Parser) data.Either[data.Ers, syntax] {
 		return data.PassErs[syntax](es)
 	}
 
-	p.dropNewlines()
-	equalToken, found := getKeywordAtCurrent(p, token.Equal)
+	equalToken, found := getKeywordAtCurrent(p, token.Equal, dropBeforeAndAfter)
 	if !found {
 		return data.Fail[syntax](ExpectedSyntaxBinding, rule)
 	}
@@ -484,14 +480,14 @@ func parseSyntaxRule(p Parser) data.Either[data.Ers, syntaxRule] {
 		if sym, hasSymbol = mSym.Break(); hasSymbol {
 			// check if a raw keyword has been found
 			hasRawKeyword = hasRawKeyword || sym.Type().Match(syntaxRawKeyword{})
-			
+
 			ruleInsides = ruleInsides.Snoc(sym)
 			p.dropNewlines()
 		}
 	}
 
 	// attempt to strengthen list -> non-empty list
-	rule, just := ruleInsides.Strengthen().Break(); 
+	rule, just := ruleInsides.Strengthen().Break()
 	if !just {
 		return data.Fail[syntaxRule](ExpectedSyntaxRule, p)
 	}
@@ -546,7 +542,7 @@ func parseRawSyntaxSymbolFromCurrent(p Parser) syntaxSymbol {
 //	syntax binding symbol = "{", {"\n"}, ident, {"\n"}, "}" ;
 //	```
 func parseSyntaxBindingSymbol(p Parser) data.Either[data.Ers, syntaxSymbol] {
-	lb, _ := getKeywordAtCurrent(p, token.LeftBrace)
+	lb, _ := getKeywordAtCurrent(p, token.LeftBrace, dropAfter)
 
 	id, isSomething := parseIdent(p).Break()
 	if !isSomething {
@@ -555,7 +551,8 @@ func parseSyntaxBindingSymbol(p Parser) data.Either[data.Ers, syntaxSymbol] {
 
 	id = id.Update(lb)
 
-	rb, found := getKeywordAtCurrent(p, token.RightBrace)
+	p.dropNewlines()
+	rb, found := getKeywordAtCurrent(p, token.RightBrace, dropBefore)
 	if !found {
 		return data.Fail[syntaxSymbol](ExpectedRightBrace, id)
 	}
@@ -718,13 +715,13 @@ func parseBasicBodyStructure(p Parser, vis data.Maybe[visibility]) data.Either[d
 // rule:
 //
 //	```
-//	main elem = [annotations_], 
-//		( def 
-//		| spec def 
-//		| spec inst 
-//		| type def 
-//		| type alias 
-//		| typing 
+//	main elem = [annotations_],
+//		( def
+//		| spec def
+//		| spec inst
+//		| type def
+//		| type alias
+//		| typing
 //		| syntax
 //		) ;
 //	```
@@ -748,7 +745,7 @@ func maybeParseMainElem(p Parser) (*data.Ers, data.Maybe[mainElement]) {
 }
 
 func parseTypeDefOrTyping(p Parser, t typing) data.Either[data.Ers, mainElement] {
-	where, found := getKeywordAtCurrent(p, token.Where)
+	where, found := getKeywordAtCurrent(p, token.Where, dropAfter)
 	if !found {
 		return data.Inr[data.Ers, mainElement](t)
 	}
@@ -775,7 +772,7 @@ func parseTypeDefOrTyping(p Parser, t typing) data.Either[data.Ers, mainElement]
 func parseWithClause(p Parser) data.Either[data.Ers, withClause] {
 	with := withClause{}
 
-	withToken, found := getKeywordAtCurrent(p, token.With)
+	withToken, found := getKeywordAtCurrent(p, token.With, dropAfter)
 	if !found {
 		return data.Fail[withClause](ExpectedWithClause, p)
 	}
@@ -787,8 +784,7 @@ func parseWithClause(p Parser) data.Either[data.Ers, withClause] {
 	}
 	with.Position = with.Update(pat)
 
-	p.dropNewlines()
-	ofToken, found := getKeywordAtCurrent(p, token.Of)
+	ofToken, found := getKeywordAtCurrent(p, token.Of, dropBeforeAndAfter)
 	if !found {
 		return data.Fail[withClause](ExpectedOf, pat)
 	}

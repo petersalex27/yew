@@ -112,7 +112,7 @@ func parseMaybeExprTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[expr]) 
 //	let expr = "let", {"\n"}, (binding group | binding assignment), {"\n"}, "in", {"\n"}, expr ;
 //	```
 func parseMaybeLetExpr(p Parser) (*data.Ers, data.Maybe[letExpr]) {
-	let, found := getKeywordAtCurrent(p, token.Let)
+	let, found := getKeywordAtCurrent(p, token.Let, dropAfter)
 	if !found {
 		return nil, data.Nothing[letExpr](p)
 	}
@@ -122,8 +122,7 @@ func parseMaybeLetExpr(p Parser) (*data.Ers, data.Maybe[letExpr]) {
 		return &es, data.Nothing[letExpr](p) // error, binders are required
 	}
 
-	p.dropNewlines()
-	in, found := getKeywordAtCurrent(p, token.In)
+	in, found := getKeywordAtCurrent(p, token.In, dropBeforeAndAfter)
 	if !found {
 		// error, 'in' keyword is required
 		es := data.Ers(data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedIn, p)))
@@ -156,7 +155,7 @@ func parseLetBinding(p Parser) data.Either[data.Ers, letBinding] {
 //	colon equal assignment = [":=", {"\n"}, expr] ;
 //	```
 func parseMaybeColonEqualAssignment(p Parser) (*data.Ers, data.Maybe[expr]) {
-	colonEqual, found := getKeywordAtCurrent(p, token.ColonEqual)
+	colonEqual, found := getKeywordAtCurrent(p, token.ColonEqual, dropAfter)
 	if !found { // this is okay, assignment is optional--at least syntactically
 		return nil, data.Nothing[expr](p)
 	}
@@ -231,7 +230,7 @@ func parseMaybeBindingGroupMember(p Parser) (*data.Ers, data.Maybe[bindingGroupM
 //	case expr = "case", {"\n"}, pattern, {"\n"}, "of", {"\n"}, case arms ;
 //	```
 func parseMaybeCaseExpr(p Parser) (*data.Ers, data.Maybe[caseExpr]) {
-	caseToken, found := getKeywordAtCurrent(p, token.Case)
+	caseToken, found := getKeywordAtCurrent(p, token.Case, dropAfter)
 	if !found {
 		return nil, data.Nothing[caseExpr](p)
 	}
@@ -241,8 +240,7 @@ func parseMaybeCaseExpr(p Parser) (*data.Ers, data.Maybe[caseExpr]) {
 		return &es, data.Nothing[caseExpr](p)
 	}
 
-	p.dropNewlines()
-	of, found := getKeywordAtCurrent(p, token.Of)
+	of, found := getKeywordAtCurrent(p, token.Of, dropBeforeAndAfter)
 	if !found {
 		es := data.Ers(data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedOf, p)))
 		return &es, data.Nothing[caseExpr](p)
@@ -301,7 +299,7 @@ func maybeParseCaseArm(p Parser) (*data.Ers, data.Maybe[caseArm]) {
 //	enc expr' = ["(", {"\n"}, enc expr, {"\n"}, ")"] ;
 //	```
 func parseMaybeEnclosedExpr(p Parser) (*data.Ers, data.Maybe[expr]) {
-	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
 		return nil, data.Nothing[expr](p) // fine, not enclosed, return 'data.Nothing'
 	}
@@ -311,10 +309,8 @@ func parseMaybeEnclosedExpr(p Parser) (*data.Ers, data.Maybe[expr]) {
 		return &es, data.Nothing[expr](p) // error, expr is required
 	}
 
-	p.dropNewlines()
-
 	var rparen api.Token
-	if rparen, found = getKeywordAtCurrent(p, token.RightParen); !found {
+	if rparen, found = getKeywordAtCurrent(p, token.RightParen, dropBefore); !found {
 		es := data.Ers(data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedRightParen, p)))
 		return &es, data.Nothing[expr](p) // error, right paren is required
 	}
@@ -360,7 +356,7 @@ func parseExprAtom(p Parser) data.Either[data.Ers, exprAtom] {
 //		lambda binder = binder | "_" ;
 //	```
 func parseLambdaAbstraction(p Parser) data.Either[data.Ers, lambdaAbstraction] {
-	backslash, found := getKeywordAtCurrent(p, token.Backslash)
+	backslash, found := getKeywordAtCurrent(p, token.Backslash, dropAfter)
 	if !found {
 		return data.Fail[lambdaAbstraction](ExpectedLambdaAbstraction, p)
 	}
@@ -375,7 +371,7 @@ func parseLambdaAbstraction(p Parser) data.Either[data.Ers, lambdaAbstraction] {
 	}
 
 	p.dropNewlines()
-	arrow, found := getKeywordAtCurrent(p, token.ThickArrow)
+	arrow, found := getKeywordAtCurrent(p, token.ThickArrow, dropBeforeAndAfter)
 	if !found {
 		return data.Fail[lambdaAbstraction](ExpectedLambdaThickArrow, p)
 	}
