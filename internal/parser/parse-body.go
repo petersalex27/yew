@@ -9,9 +9,45 @@ import (
 	t "github.com/petersalex27/yew/internal/parser/typ"
 )
 
-var (
-	passBodyErrors = fun.BiConstant[Parser](data.Inl[bodyElement, data.Ers])
-)
+// rule:
+//
+//	```
+//	body = {{"\n"}, [annotations_], body elem} ;
+//	```
+func parseBody(p Parser) (theBody data.Either[data.Ers, data.Maybe[body]], mFooterAnnots data.Maybe[annotations]) {
+	const smallBodyCap int = 16
+	sourceBody := body{data.Nil[bodyElement](smallBodyCap)}
+	var es data.Ers
+	var isMAnnots bool
+
+	has2ndTerm := false
+
+	for {
+		p.dropNewlines()
+		es, mFooterAnnots, isMAnnots = parseAnnotations(p).Break()
+		if !isMAnnots { // not just annotations & not nothing -> void
+			return data.PassErs[data.Maybe[body]](es), mFooterAnnots
+		} else if isMAnnots && lookahead1(p, token.EndOfTokens) {
+			// possibly parsed footer annotations, return body and "Maybe" footer annotations
+			theBody = data.Ok(data.Just(sourceBody))
+			break
+		}
+
+		esBE, be, isBE := parseBodyElement(p, mFooterAnnots).Break()
+		if !isBE {
+			return data.PassErs[data.Maybe[body]](esBE), mFooterAnnots
+		}
+		be = be.setAnnotation(mFooterAnnots)
+
+		sourceBody.List = sourceBody.Snoc(be)
+		has2ndTerm = true
+	}
+
+	if !has2ndTerm { // no body elements parsed, return Nothing instead of empty list
+		theBody = data.Ok(data.Nothing[body](sourceBody))
+	}
+	return theBody, mFooterAnnots
+}
 
 // parses a type signature
 //
@@ -101,7 +137,7 @@ func parseTypeDefBody(p Parser) data.Either[data.Ers, typeDefBody] {
 
 func parseTypeDefBodyTypeCons(p Parser) data.Either[data.Ers, data.NonEmpty[typeConstructor]] {
 	return runCases(p, parseAnnotations, passParseErs[data.NonEmpty[typeConstructor]], parseTypeConstructor)
-} 
+}
 
 // rule:
 //
@@ -121,27 +157,6 @@ func maybeParseConstructorName(p Parser) (*data.Ers, data.Maybe[name]) {
 	}
 
 	return nil, maybeParseName(p)
-	// n, isN := maybeParseName(p).Break()
-	// if !isN { // no name found
-	// 	e := data.MkErr(ExpectedTypeConstructorName, p)
-	// 	es := data.Nil[data.Err](1).Snoc(e)
-	// 	return &es, data.Nothing[name](p)
-	// }
-
-	// return nil, data.Just(n)
-}
-
-func constructorName_Error(tok api.Token) string {
-	if token.MethodSymbol.Match(tok) { // type constructor cannot have a method name
-		return IllegalMethodTypeConstructor
-	}
-	// infix ids are not stored w/ parens, so this will work for both infix and non-infix
-	isSomeIdType := token.Id.Match(tok) || token.Infix.Match(tok)
-	if isSomeIdType && common.Is_camelCase2(tok) {
-		return IllegalLowercaseConstructorName
-	}
-
-	return ExpectedTypeConstructorName
 }
 
 type typeConstructorSeq = data.NonEmpty[typeConstructor]
@@ -154,7 +169,7 @@ type typeConstructorSeq = data.NonEmpty[typeConstructor]
 //	```
 func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, data.NonEmpty[typeConstructor]] {
 	type group struct{ data.NonEmpty[name] }
-	es, names, isNames := parseHandledSepSequenced[group](p, constructorName_Error, token.Comma, maybeParseConstructorName).Break()
+	es, names, isNames := parseHandledSepSequenced[group](p, typeConstructorNameError, token.Comma, maybeParseConstructorName).Break()
 	if !isNames {
 		return data.PassErs[typeConstructorSeq](es)
 	}
@@ -173,16 +188,6 @@ func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data
 	tcs := data.MapNonEmpty(constructConstructor(as, colon, ty))(names.NonEmpty)
 	return data.Ok(tcs)
 }
-
-func constructConstructor(as data.Maybe[annotations], colon api.Token, ty typ) func(n name) typeConstructor {
-	return func(n name) typeConstructor {
-		tc := makeCons(n, ty)
-		tc.Position = tc.Update(colon)
-		(&tc).annotate(as)
-		return tc
-	}
-}
-
 
 // rule:
 //
@@ -222,59 +227,17 @@ func parseOneBodyElement(p Parser) data.Either[data.Ers, bodyElement] {
 	return data.Cases(parseBasicBodyStructure(p, vis), data.PassErs[bodyElement], attachVisibility(vis))
 }
 
-func setResultAnnotation(as data.Maybe[annotations]) func(p Parser, be bodyElement) data.Either[data.Ers, bodyElement] {
-	return func(p Parser, be bodyElement) data.Either[data.Ers, bodyElement] {
-		return data.Ok(be.setAnnotation(as))
-	}
-}
-
 // rule:
 //
 //	```
 //	body element = def | visible body element ;
 //	```
 func parseBodyElement(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, bodyElement] {
-	return runCases(p, parseOneBodyElement, passBodyErrors, setResultAnnotation(as))
-}
-
-// rule:
-//
-//	```
-//	body = {{"\n"}, [annotations_], body elem} ;
-//	```
-func parseBody(p Parser) (theBody data.Either[data.Ers, data.Maybe[body]], mFooterAnnots data.Maybe[annotations]) {
-	const smallBodyCap int = 16
-	sourceBody := body{data.Nil[bodyElement](smallBodyCap)}
-	var es data.Ers
-	var isMAnnots bool
-
-	has2ndTerm := false
-
-	for {
-		p.dropNewlines()
-		es, mFooterAnnots, isMAnnots = parseAnnotations(p).Break()
-		if !isMAnnots { // not just annotations & not nothing -> void
-			return data.PassErs[data.Maybe[body]](es), mFooterAnnots
-		} else if isMAnnots && lookahead1(p, token.EndOfTokens) {
-			// possibly parsed footer annotations, return body and "Maybe" footer annotations
-			theBody = data.Ok(data.Just(sourceBody))
-			break
-		}
-
-		esBE, be, isBE := parseBodyElement(p, mFooterAnnots).Break()
-		if !isBE {
-			return data.PassErs[data.Maybe[body]](esBE), mFooterAnnots
-		}
-		be = be.setAnnotation(mFooterAnnots)
-
-		sourceBody.List = sourceBody.Snoc(be)
-		has2ndTerm = true
+	es, be, isBE := parseOneBodyElement(p).Break()
+	if !isBE {
+		return data.PassErs[bodyElement](es)
 	}
-
-	if !has2ndTerm { // no body elements parsed, return Nothing instead of empty list
-		theBody = data.Ok(data.Nothing[body](sourceBody))
-	}
-	return theBody, mFooterAnnots
+	return data.Ok(be.setAnnotation(as))
 }
 
 func assembleDef(pat pattern) func(defBody) data.Either[data.Ers, def] {
@@ -382,55 +345,26 @@ func parseOptionalWhereClause(p Parser) data.Either[data.Ers, data.Maybe[whereCl
 		return data.Ok(data.Nothing[whereClause](p)) // no where clause, return Nothing
 	}
 
-	es, whereBody, isWhereBody := parseWhereBody(p).Break()
+	es, where, isWhereBody := parseWhereBody(p).Break()
 	if !isWhereBody {
 		return data.PassErs[data.Maybe[whereClause]](es)
 	}
 
-	whereBody.Position = whereBody.Update(whereToken)
-	return data.Ok(data.Just[whereClause](data.EOne[whereClause](whereBody)))
+	where.Position = where.Position.Update(whereToken)
+	return data.Ok(data.Just(where))
 }
 
 // rule:
 //
 //	```
-//	where body = main elem | "(", {"\n"}, main elem, {"\n", main elem}, {"\n"}, ")" ;
+//	where body = main elem | "(", {"\n"}, main elem, {{"\n"}, main elem}, {"\n"}, ")" ;
 //	```
-func parseWhereBody(p Parser) data.Either[data.Ers, whereBody] {
-	leftParen, found := getKeywordAtCurrent(p, token.LeftParen)
-	me := parseMainElem(p)
-	return data.Cases(me, data.PassErs[whereBody], func(me mainElement) data.Either[data.Ers, whereBody] {
-		es, ne, _ := parseOneOrMore(p, me, true, parseMaybeMainElem)
-		if es != nil {
-			return data.PassErs[whereBody](*es)
-		}
-		wb := whereBody{ne}
-		if found {
-			wb.Position = wb.Update(leftParen)
-			rp, found := getKeywordAtCurrent(p, token.RightParen)
-			if !found {
-				return data.Fail[whereBody](ExpectedRightParen, leftParen)
-			}
-			wb.Position = wb.Update(rp)
-		}
-		return data.Ok(whereBody{ne})
-	})
-}
-
-// rule:
-//
-//	```
-//	main elem = def | spec def | spec inst | type def | type alias | typing | syntax ;
-//	```
-func parseMainElem(p Parser) data.Either[data.Ers, mainElement] {
-	es, me := parseMaybeMainElem(p)
-	if es != nil {
-		return data.PassErs[mainElement](*es)
-	} else if unit, just := me.Break(); !just {
-		return data.Fail[mainElement](ExpectedMainElement, p)
-	} else {
-		return data.Ok(unit)
+func parseWhereBody(p Parser) data.Either[data.Ers, whereClause] {
+	es, wb, isWB := parseGroup[whereClause](p, ExpectedMainElement, maybeParseMainElem).Break()
+	if !isWB {
+		return data.PassErs[whereClause](es)
 	}
+	return data.Ok(wb)
 }
 
 // helper function for `parseMainElem` that transforms an `Either[Ers, a]` to an
@@ -524,15 +458,20 @@ func parseSyntax(p Parser) data.Either[data.Ers, syntax] {
 	return data.Ok(syn)
 }
 
+// This production rule looks a bit different than the others, but, intuitively, it just
+// accepts a sequence of syntax symbols where _at least_ one of them is a raw keyword; newlines
+// are permitted between each syntax symbol
+//
 // rule:
 //
 //	```
-//	spec def = "spec", {"\n"}, def ;
+//	syntax rule = {syntax symbol, {"\n"}}, raw keyword, {{"\n"}, syntax symbol} ;
 //	```
 func parseSyntaxRule(p Parser) data.Either[data.Ers, syntaxRule] {
 	const smallCap int = 4
 	var sym syntaxSymbol
 	hasSymbol := true
+	hasRawKeyword := false
 
 	ruleInsides := data.Nil[syntaxSymbol](smallCap)
 
@@ -543,16 +482,25 @@ func parseSyntaxRule(p Parser) data.Either[data.Ers, syntaxRule] {
 		}
 
 		if sym, hasSymbol = mSym.Break(); hasSymbol {
+			// check if a raw keyword has been found
+			hasRawKeyword = hasRawKeyword || sym.Type().Match(syntaxRawKeyword{})
+			
 			ruleInsides = ruleInsides.Snoc(sym)
+			p.dropNewlines()
 		}
 	}
 
 	// attempt to strengthen list -> non-empty list
-	if rule, just := ruleInsides.Strengthen().Break(); just {
-		return data.Inr[data.Ers](syntaxRule{rule})
+	rule, just := ruleInsides.Strengthen().Break(); 
+	if !just {
+		return data.Fail[syntaxRule](ExpectedSyntaxRule, p)
 	}
 
-	return data.Fail[syntaxRule](ExpectedSyntaxRule, p)
+	// check if a raw keyword was found
+	if !hasRawKeyword {
+		return data.Fail[syntaxRule](ExpectedRawKeyword, rule)
+	}
+	return data.Inr[data.Ers](syntaxRule{rule})
 }
 
 // assumes the token is the correct type (i.e., `token.RawStringValue`)
@@ -770,9 +718,17 @@ func parseBasicBodyStructure(p Parser, vis data.Maybe[visibility]) data.Either[d
 // rule:
 //
 //	```
-//	main elem = [annotations_], (def | spec def | spec inst | type def | type alias | typing | syntax) ;
+//	main elem = [annotations_], 
+//		( def 
+//		| spec def 
+//		| spec inst 
+//		| type def 
+//		| type alias 
+//		| typing 
+//		| syntax
+//		) ;
 //	```
-func parseMaybeMainElem(p Parser) (*data.Ers, data.Maybe[mainElement]) {
+func maybeParseMainElem(p Parser) (*data.Ers, data.Maybe[mainElement]) {
 	esAnnots, mAnnots, isAnnots := parseAnnotations(p).Break()
 	if !isAnnots {
 		return &esAnnots, data.Nothing[mainElement](p) // error parsing optional annotations

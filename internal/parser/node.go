@@ -452,11 +452,8 @@ type (
 		setVisibility(v data.Maybe[visibility]) bodyElement
 	}
 
-	// where clause body
-	whereBody struct{ data.NonEmpty[mainElement] }
-
 	// where clause
-	whereClause struct{ data.Solo[whereBody] }
+	whereClause struct{ data.NonEmpty[mainElement] }
 
 	// '_' pattern
 	wildcard struct{ data.Solo[api.Token] }

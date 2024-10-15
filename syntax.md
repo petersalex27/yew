@@ -129,7 +129,7 @@ body = {{"\n"}, [annotations_], body elem} ;
       | syntax 
       ) ;
   syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
-    syntax rule = syntax symbol, {syntax symbol} ;
+    syntax rule = {syntax symbol, {"\n"}}, raw keyword, {{"\n"}, syntax symbol} ;
     syntax symbol = ident | "{", {"\n"}, ident, {"\n"}, "}" | raw keyword ;
     raw keyword = ? RAW STRING OF JUST A VALID ident OR symbol ? ;
   type def = typing, {"\n"}, "where", {"\n"}, type def body, [{"\n"}, deriving clause] ;
@@ -137,7 +137,8 @@ body = {{"\n"}, [annotations_], body elem} ;
         "impossible"
         | [annotations_], type constructor
         | "(", {"\n"}, [annotations_], type constructor, {{"\n"}, [annotations_], type constructor}, {"\n"}, ")" ;
-    type constructor = constructor name, {"\n"}, ":", {"\n"}, type ;
+    type constructor = constructor name seq, {"\n"}, ":", {"\n"}, type ;
+    constructor name seq = constructor name, {{"\n"}, ",", {"\n"}, constructor name}, [{"\n"}, ","] ;
     deriving clause = "deriving", {"\n"}, deriving body ;
     deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
   type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
@@ -205,8 +206,9 @@ body = {{"\n"}, [annotations_], body elem} ;
       | "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
     enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
   expr atom = pattern atom | lambda abstraction ;
-  expr = expr term, {expr term | access} ;
-  enc expr = expr term, {{"\n"}, expr term} ;
+  expr = expr term, {expr term rhs} ;
+  enc expr = expr term, {{"\n"}, expr term rhs} ;
+    expr term rhs = expr term | access ;
     expr term = 
         expr atom
         | "(", {"\n"}, enc expr, {"\n"}, ")"
@@ -245,7 +247,7 @@ ident = lower ident | upper ident ;
 symbol = ? REGEX "(?![-=]>\B|[.]{1,2}\B|:\B|\?\|)[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\)" ? ;
 method symbol = ? REGEX "\([.]([a-z][A-Z0-9']*|[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\))\)" ? ;
 infix name = infix lower ident | infix upper ident | infix symbol ;
-constructor name = infix upper ident | upper ident | symbol | upper ident ;
+constructor name = infix upper ident | upper ident | infix symbol | symbol ;
 name = ident | symbol | infix name | method symbol ;
 import path = ? REGEX "\"([a-z][a-zA-Z0-9']*)(/[a-z][a-zA-Z0-9']*)*\"" ? ;
 

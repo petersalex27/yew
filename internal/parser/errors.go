@@ -1,11 +1,10 @@
 package parser
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/petersalex27/yew/api"
+	"github.com/petersalex27/yew/api/token"
 	"github.com/petersalex27/yew/common/data"
+	"github.com/petersalex27/yew/internal/common"
 	"github.com/petersalex27/yew/internal/errors"
 )
 
@@ -83,35 +82,24 @@ const (
 	UnexpectedStructure             = "unexpected structure in source body"                                          // unexpected-structure
 	UnexpectedToken                 = "unexpected token"                                                             // unexpected-token
 	ExpectedConstraintElem          = "expected constraint element"                                                  // expected-constraint-elem
+	ExpectedRawKeyword              = "syntax rules must contain at least one raw-string keyword declaration"        // expected-raw-keyword
 )
-
-var makePos = (api.Positioned).GetPos
 
 func parseError(p Parser, e data.Err) error {
 	start, end := e.Pos()
 	return errors.Syntax(p.srcCode(), e.Msg(), start, end)
 }
 
-func parseErrors(p Parser, es data.Ers) []error {
-	errs := make([]error, es.Len())
-	for i, e := range es.Elements() {
-		errs[i] = parseError(p, e)
+// given a token, report some error relating to a type constructor name
+func typeConstructorNameError(tok api.Token) string {
+	if token.MethodSymbol.Match(tok) { // type constructor cannot have a method name
+		return IllegalMethodTypeConstructor
 	}
-	return errs
-}
+	// infix ids are not stored w/ parens, so this will work for both infix and non-infix
+	isSomeIdType := token.Id.Match(tok) || token.Infix.Match(tok)
+	if isSomeIdType && common.Is_camelCase2(tok) {
+		return IllegalLowercaseConstructorName
+	}
 
-func printErrors(es ...error) {
-	for _, e := range es {
-		fmt.Fprintf(os.Stderr, "%s\n", e.Error())
-	}
-}
-
-func makeError(p Parser, msg string, ps ...api.Positioned) error {
-	var start, end int
-	if len(ps) == 0 {
-		start, end = 0, 0
-	} else {
-		start, end = api.WeakenRangeOver(ps[0], ps[1:]...).Pos()
-	}
-	return errors.Syntax(p.srcCode(), msg, start, end)
+	return ExpectedTypeConstructorName
 }

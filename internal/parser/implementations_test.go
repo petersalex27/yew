@@ -156,7 +156,6 @@ func Test_assert_DescribableNode(t *testing.T) {
 		_ api.DescribableNode = unitType{}
 		_ api.DescribableNode = upperIdent{}
 		_ api.DescribableNode = visibility{}
-		_ api.DescribableNode = whereBody{}
 		_ api.DescribableNode = whereClause{}
 		_ api.DescribableNode = wildcard{}
 		_ api.DescribableNode = withClause{}

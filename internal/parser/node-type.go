@@ -87,7 +87,6 @@ func (n typing) Type() api.NodeType              { return t.Typing }
 func (n unitType) Type() api.NodeType            { return t.UnitType }
 func (n upperIdent) Type() api.NodeType          { return t.UpperIdent }
 func (n visibility) Type() api.NodeType          { return t.Visibility }
-func (n whereBody) Type() api.NodeType           { return t.WhereBody }
 func (n whereClause) Type() api.NodeType         { return t.WhereClause }
 func (n wildcard) Type() api.NodeType            { return t.Wildcard }
 func (n withClause) Type() api.NodeType          { return t.WithClause }
@@ -282,9 +281,6 @@ func (n upperIdent) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n visibility) Describe() (string, []api.Node) {
-	return n.Type().String(), n.Children()
-}
-func (n whereBody) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n whereClause) Describe() (string, []api.Node) {

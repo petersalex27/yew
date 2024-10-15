@@ -392,16 +392,16 @@ func appendDefaultExpr(de expr) func(innerTyping) data.Either[data.Ers, typ] {
 
 func closeEnclosedTyp(p Parser, opener api.Token, closerType token.Type) func(typ) data.Either[data.Ers, typ] {
 	return func(t typ) data.Either[data.Ers, typ] {
-		ps := makePos(t.updatePosTyp(opener))
+		t = t.updatePosTyp(opener)
 		p.dropNewlines()
-		if !parseKeywordAtCurrent(p, closerType, &ps) {
+		closer, found := getKeywordAtCurrent(p, closerType)
+		if !found {
 			isRp := closerType.Match(token.RightParen.Make())
 			return data.Fail[typ](ifThenElse(isRp, ExpectedRightParen, ExpectedRightBrace), p)
 		}
-		return data.Ok[typ](enclosedType{
-			implicit: token.LeftBrace.Match(opener),
-			typ:      t.updatePosTyp(ps),
-		})
+		et := enclosedType{implicit: token.LeftBrace.Match(opener), typ: t}
+		et.typ = et.updatePosTyp(closer)
+		return data.Ok[typ](et)
 	}
 }
 

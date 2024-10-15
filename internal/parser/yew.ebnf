@@ -46,7 +46,7 @@ body = {{"\n"}, [annotations_], body elem} ;
       | syntax 
       ) ;
   syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
-    syntax rule = syntax symbol, {syntax symbol} ;
+    syntax rule = {syntax symbol, {"\n"}}, raw keyword, {{"\n"}, syntax symbol} ;
     syntax symbol = ident | "{", {"\n"}, ident, {"\n"}, "}" | raw keyword ;
     raw keyword = ? RAW STRING OF JUST A VALID ident OR symbol ? ;
   type def = typing, {"\n"}, "where", {"\n"}, type def body, [{"\n"}, deriving clause] ;
@@ -164,7 +164,7 @@ ident = lower ident | upper ident ;
 symbol = ? REGEX "(?![-=]>\B|[.]{1,2}\B|:\B|\?\|)[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\)" ? ;
 method symbol = ? REGEX "\([.]([a-z][A-Z0-9']*|[-/*=<>!@#$%^&|~?+:.]+|\[\]|\(\))\)" ? ;
 infix name = infix lower ident | infix upper ident | infix symbol ;
-constructor name = infix upper ident | upper ident | infix symbol |  symbol ;
+constructor name = infix upper ident | upper ident | infix symbol | symbol ;
 name = ident | symbol | infix name | method symbol ;
 import path = ? REGEX "\"([a-z][a-zA-Z0-9']*)(/[a-z][a-zA-Z0-9']*)*\"" ? ;
 

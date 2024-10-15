@@ -5,6 +5,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -406,4 +407,18 @@ func equals[n1, n2 api.DescribableNode](x n1, y n2) bool {
 		}
 	}
 	return true
+}
+
+func parseErrors(p Parser, es data.Ers) []error {
+	errs := make([]error, es.Len())
+	for i, e := range es.Elements() {
+		errs[i] = parseError(p, e)
+	}
+	return errs
+}
+
+func printErrors(es ...error) {
+	for _, e := range es {
+		fmt.Fprintf(os.Stderr, "%s\n", e.Error())
+	}
 }

@@ -128,3 +128,12 @@ func makeEmptyYewSource() yewSource {
 		data.Nothing[annotations](),
 	)
 }
+
+func constructConstructor(as data.Maybe[annotations], colon api.Token, ty typ) func(n name) typeConstructor {
+	return func(n name) typeConstructor {
+		tc := makeCons(n, ty)
+		tc.Position = tc.Update(colon)
+		(&tc).annotate(as)
+		return tc
+	}
+}

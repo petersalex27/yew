@@ -93,12 +93,11 @@ func TestParseBodyElement(t *testing.T) {
 
 }
 
-
 func TestParseConstructorNameErrors(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input api.Token
-		want string
+		want  string
 	}{
 		{
 			"error - lower ident",
@@ -124,7 +123,7 @@ func TestParseConstructorNameErrors(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res := constructorName_Error(test.input)
+			res := typeConstructorNameError(test.input)
 			if res != test.want {
 				t.Errorf("failed: got %q, want %q", res, test.want)
 			}
@@ -170,16 +169,16 @@ func TestParseConstructorName(t *testing.T) {
 	}
 }
 
-// rule: 
+// rule:
 //
 //	```
 //	type constructor = constructor name, {{"\n"}, ",", {"\n"}, constructor name}, {"\n"}, ":", {"\n"}, type ;
 //	```
 func TestParseConstructor(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input []api.Token
-		want data.NonEmpty[typeConstructor]
+		want  data.NonEmpty[typeConstructor]
 	}{
 		{
 			"single - 00",
@@ -235,7 +234,7 @@ func TestParseConstructor(t *testing.T) {
 
 	for _, test := range tests {
 		fut := fun.Bind1stOf2(parseTypeConstructor, data.Nothing[annotations]())
-		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut , -1))
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut, -1))
 	}
 }
 
@@ -259,15 +258,42 @@ func TestParseMainElement(t *testing.T) {
 
 }
 
+// rule:
+//
+//	```
+//	syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
+//	```
 func TestParseSyntax(t *testing.T) {
 
 }
 
 func TestParseSyntaxBindingSymbol(t *testing.T) {
-	
+
 }
 
+// rule:
+//
+//	```
+//	syntax symbol = ident | "{", {"\n"}, ident, {"\n"}, "}" | raw keyword ;
+//	raw keyword = ? RAW STRING OF JUST A VALID NON INFIX ident OR symbol ? ;
+//	```
+func TestMaybeParseSyntaxSymbol(t *testing.T) {
+
+}
+
+// rule:
+//
+//	```
+//	syntax rule = {syntax symbol, {"\n"}}, raw keyword, {{"\n"}, syntax symbol} ;
+//	```
 func TestParseSyntaxRule(t *testing.T) {
+	// tests := []struct {
+	// 	name  string
+	// 	input []api.Token
+	// 	want  syntaxRule
+	// }{
+	// 	{},
+	// }
 
 }
 
@@ -281,9 +307,9 @@ func TestParseTypeConstructor(t *testing.T) {
 
 func TestParseTypeDefBody(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input []api.Token
-		want typeDefBody
+		want  typeDefBody
 	}{
 		{
 			"impossible",
@@ -327,13 +353,13 @@ func TestParseTypeDefBody(t *testing.T) {
 	}
 }
 
-// not much to test here, just make sure the name parse, colon parse, and type parse are 
+// not much to test here, just make sure the name parse, colon parse, and type parse are
 // correctly sequenced to allow for newlines in appropriate places
 func TestParseTyping(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input []api.Token
-		want typing
+		want  typing
 	}{
 		{
 			"00",

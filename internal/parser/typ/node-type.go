@@ -93,7 +93,6 @@ const (
 	UnitType
 	UpperIdent
 	Visibility
-	WhereBody
 	WhereClause
 	Wildcard
 	WithClause
@@ -246,8 +245,6 @@ func (nt nodeType) String() string {
 		return "upper identifier"
 	case Visibility:
 		return "visibility"
-	case WhereBody:
-		return "where clause body"
 	case WhereClause:
 		return "where clause"
 	case Wildcard:
