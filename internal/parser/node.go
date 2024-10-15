@@ -218,14 +218,14 @@ type (
 	mainElement interface {
 		api.DescribableNode
 		bodyElement
-		pureMainElem() mainElement
+		pureMainElement() mainElement
 	}
 
 	// meta struct{ annotations }
 
-	module struct{
+	module struct {
 		annotations data.Maybe[annotations]
-		name data.Solo[lowerIdent]
+		name        data.Solo[lowerIdent]
 		api.Position
 	}
 
@@ -388,15 +388,14 @@ type (
 	syntaxRawKeyword struct{ data.Solo[rawString] }
 
 	syntaxRule struct{ data.NonEmpty[syntaxSymbol] }
-	
+
 	syntaxRuleIdent struct {
 		binding bool
-		id ident
+		id      ident
 		api.Position
 	}
 
 	syntaxSymbol = data.Either[syntaxRuleIdent, syntaxRawKeyword]
-	
 
 	// a type
 	typ interface {

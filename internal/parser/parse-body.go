@@ -358,17 +358,17 @@ func parseOptionalWhereClause(p Parser) data.Either[data.Ers, data.Maybe[whereCl
 //	where body = main elem | "(", {"\n"}, main elem, {{"\n"}, main elem}, {"\n"}, ")" ;
 //	```
 func parseWhereBody(p Parser) data.Either[data.Ers, whereClause] {
-	es, wb, isWB := parseGroup[whereClause](p, ExpectedMainElement, maybeParseMainElem).Break()
+	es, wb, isWB := parseGroup[whereClause](p, ExpectedMainElement, maybeParseMainElement).Break()
 	if !isWB {
 		return data.PassErs[whereClause](es)
 	}
 	return data.Ok(wb)
 }
 
-// helper function for `parseMainElem` that transforms an `Either[Ers, a]` to an
-// `Either[Ers, mainElem]` where `a` implements `mainElem`
+// helper function for `parseMainElement` that transforms an `Either[Ers, a]` to an
+// `Either[Ers, mainElement]` where `a` implements `mainElement`
 func knownCase[a mainElement](elemRes data.Either[data.Ers, a]) data.Either[data.Ers, mainElement] {
-	return data.Cases(elemRes, data.Inl[mainElement, data.Ers], fun.Compose(data.Ok, (a).pureMainElem))
+	return data.Cases(elemRes, data.Inl[mainElement, data.Ers], fun.Compose(data.Ok, (a).pureMainElement))
 }
 
 // parses a spec, alias, inst, or syntax definition when given the corresponding token type `tt`
@@ -378,7 +378,7 @@ func knownCase[a mainElement](elemRes data.Either[data.Ers, a]) data.Either[data
 //   - token.Alias
 //   - token.Inst
 //   - token.Syntax
-func parseKnownMainElem(p Parser, tt token.Type) data.Either[data.Ers, mainElement] {
+func parseKnownMainElement(p Parser, tt token.Type) data.Either[data.Ers, mainElement] {
 	switch tt {
 	case token.Spec:
 		return knownCase(parseSpecDef(p))
@@ -516,7 +516,7 @@ func maybeParseSyntaxSymbol(p Parser) (*data.Ers, data.Maybe[syntaxSymbol]) {
 	if matchCurrentRawString(p) && validRawSyntaxSymbol(p.current()) {
 		return nil, data.Just(parseRawSyntaxSymbolFromCurrent(p))
 	} else if lookahead2(p, boundSyntaxIdentLAs...) {
-		es, sym, isSym := parseSyntaxBindingSymbol(p).Break()
+		es, sym, isSym := parseBindingSyntaxIdent(p).Break()
 		if !isSym {
 			return &es, data.Nothing[syntaxSymbol](p)
 		}
@@ -539,9 +539,9 @@ func parseRawSyntaxSymbolFromCurrent(p Parser) syntaxSymbol {
 // rule:
 //
 //	```
-//	syntax binding symbol = "{", {"\n"}, ident, {"\n"}, "}" ;
+//	binding syntax ident = "{", {"\n"}, ident, {"\n"}, "}" ;
 //	```
-func parseSyntaxBindingSymbol(p Parser) data.Either[data.Ers, syntaxSymbol] {
+func parseBindingSyntaxIdent(p Parser) data.Either[data.Ers, syntaxSymbol] {
 	lb, _ := getKeywordAtCurrent(p, token.LeftBrace, dropAfter)
 
 	id, isSomething := parseIdent(p).Break()
@@ -649,7 +649,7 @@ func parseBasicBodyStructureHelper(p Parser) (res data.Either[data.Ers, bodyElem
 
 	// 1. lookahead 1
 	if tt, found := lookahead1Report(p, bodyKeywordsLAs...); found {
-		res := parseKnownMainElem(p, tt)
+		res := parseKnownMainElement(p, tt)
 		return data.Cases(res, data.Inl[bodyElement, data.Ers], recastMainElementAsBodyElement), attemptedWhat(tt)
 	}
 
@@ -725,7 +725,7 @@ func parseBasicBodyStructure(p Parser, vis data.Maybe[visibility]) data.Either[d
 //		| syntax
 //		) ;
 //	```
-func maybeParseMainElem(p Parser) (*data.Ers, data.Maybe[mainElement]) {
+func maybeParseMainElement(p Parser) (*data.Ers, data.Maybe[mainElement]) {
 	esAnnots, mAnnots, isAnnots := parseAnnotations(p).Break()
 	if !isAnnots {
 		return &esAnnots, data.Nothing[mainElement](p) // error parsing optional annotations

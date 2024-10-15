@@ -82,7 +82,7 @@ func (def def) setAnnotation(as data.Maybe[annotations]) bodyElement {
 }
 
 // def implements mainElement
-func (def def) pureMainElem() mainElement { return def }
+func (def def) pureMainElement() mainElement { return def }
 
 // = enclosedType ==================================================================================
 
@@ -273,7 +273,7 @@ func (spec specDef) setAnnotation(as data.Maybe[annotations]) bodyElement {
 }
 
 // specDef implements mainElement
-func (spec specDef) pureMainElem() mainElement { return spec }
+func (spec specDef) pureMainElement() mainElement { return spec }
 
 // specDef implements visibleBodyElement
 func (spec specDef) setVisibility(mv data.Maybe[visibility]) bodyElement {
@@ -291,7 +291,7 @@ func (inst specInst) setAnnotation(as data.Maybe[annotations]) bodyElement {
 }
 
 // specInst implements mainElement
-func (inst specInst) pureMainElem() mainElement { return inst }
+func (inst specInst) pureMainElement() mainElement { return inst }
 
 // specInst implements visibleBodyElement
 func (inst specInst) setVisibility(mv data.Maybe[visibility]) bodyElement {
@@ -309,7 +309,7 @@ func (syntax syntax) setAnnotation(as data.Maybe[annotations]) bodyElement {
 }
 
 // syntax implements mainElement
-func (syntax syntax) pureMainElem() mainElement { return syntax }
+func (syntax syntax) pureMainElement() mainElement { return syntax }
 
 // syntax implements visibleBodyElement
 func (syntax syntax) setVisibility(mv data.Maybe[visibility]) bodyElement {
@@ -327,7 +327,7 @@ func (alias typeAlias) setAnnotation(as data.Maybe[annotations]) bodyElement {
 }
 
 // typeAlias implements mainElement
-func (typeAlias typeAlias) pureMainElem() mainElement { return typeAlias }
+func (typeAlias typeAlias) pureMainElement() mainElement { return typeAlias }
 
 // typeAlias implements visibleBodyElement
 func (alias typeAlias) setVisibility(mv data.Maybe[visibility]) bodyElement {
@@ -345,7 +345,7 @@ func (typeDef typeDef) setAnnotation(as data.Maybe[annotations]) bodyElement {
 }
 
 // typeDef implements mainElement
-func (typeDef typeDef) pureMainElem() mainElement { return typeDef }
+func (typeDef typeDef) pureMainElement() mainElement { return typeDef }
 
 // typeDef implements visibleBodyElement
 func (typeDef typeDef) setVisibility(mv data.Maybe[visibility]) bodyElement {
@@ -363,7 +363,7 @@ func (typing typing) setAnnotation(as data.Maybe[annotations]) bodyElement {
 }
 
 // typing implements mainElement
-func (typing typing) pureMainElem() mainElement { return typing }
+func (typing typing) pureMainElement() mainElement { return typing }
 
 // typing implements visibleBodyElement
 func (typing typing) setVisibility(mv data.Maybe[visibility]) bodyElement {

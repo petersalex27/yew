@@ -11,6 +11,7 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
+// TODO: add tests for ensuring visibility modifiers are correctly parsed and applied
 func TestParseBody(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -89,8 +90,81 @@ func TestParseBody(t *testing.T) {
 	}
 }
 
-func TestParseBodyElement(t *testing.T) {
+func TestParseBodyElement_TestMaybeParseMainElement(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  mainElement
+	}{
+		{
+			"typing",
+			// x : x
+			[]api.Token{id_x_tok, colon, id_x_tok},
+			typingNode,
+		},
+		{
+			"type def",
+			// MyId : x where MyId : x
+			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
+			typeDefNode,
+		},
+		{
+			"spec def",
+			// spec MyId x where x : x
+			[]api.Token{spec, id_MyId_tok, id_x_tok, where, id_x_tok, colon, id_x_tok},
+			specDefNode,
+		},
+		{
+			"spec inst",
+			// inst MyId x where x = x
+			[]api.Token{inst, id_MyId_tok, id_x_tok, where, id_x_tok, equal, id_x_tok},
+			specInstNode,
+		},
+		{
+			"type alias",
+			// alias MyId = MyId
+			[]api.Token{alias, id_MyId_tok, equal, id_MyId_tok},
+			aliasNode,
+		},
+		{
+			"syntax",
+			// syntax `my` x = x
+			[]api.Token{syntaxTok, raw_my_tok, id_x_tok, equal, id_x_tok},
+			syntaxNode,
+		},
+		{
+			"def",
+			// x = x
+			[]api.Token{id_x_tok, equal, id_x_tok},
+			defNode,
+		},
+	}
 
+	t.Run("TestParseBodyElement", func(t *testing.T) {
+		fut := fun.Bind1stOf2(parseBodyElement, data.Nothing[annotations]())
+		for _, test := range tests {
+			t.Run(test.name, resultOutputFUT_endCheck(test.input, bodyElement(test.want), fut, -1))
+		}
+	})
+
+	t.Run("TestMaybeParseMainElem", func(t *testing.T) {
+		for _, test := range tests {
+			t.Run(test.name, maybeOutputFUT_endCheck(test.input, data.Just(test.want), maybeParseMainElement, -1))
+		}
+
+		// run one final test that tests for annotations being applied
+		test := struct {
+			name  string
+			input []api.Token
+			want  mainElement
+		}{
+			"annotated",
+			// --@test\nx : x
+			[]api.Token{annot, newline, id_x_tok, colon, id_x_tok},
+			annotTypingNode,
+		}
+		t.Run(test.name, maybeOutputFUT_endCheck(test.input, data.Just(test.want), maybeParseMainElement, -1))
+	})
 }
 
 func TestParseConstructorNameErrors(t *testing.T) {
@@ -263,11 +337,68 @@ func TestParseMainElement(t *testing.T) {
 //	```
 //	syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
 //	```
+//
+// Ensures the following:
+//  1. keywords are read
+//  2. newlines are accounted for b/w the integrated production rules
 func TestParseSyntax(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  syntax
+	}{
+		{
+			"syntax - 000",
+			[]api.Token{syntaxTok, raw_my_tok, id_x_tok, equal, id_x_tok},
+			syntaxNode,
+		},
+		{
+			"syntax - 001",
+			[]api.Token{syntaxTok, raw_my_tok, id_x_tok, equal, newline, id_x_tok},
+			syntaxNode,
+		},
+		{
+			"syntax - 010",
+			[]api.Token{syntaxTok, raw_my_tok, id_x_tok, newline, equal, id_x_tok},
+			syntaxNode,
+		},
+		{
+			"syntax - 011",
+			[]api.Token{syntaxTok, raw_my_tok, id_x_tok, newline, equal, newline, id_x_tok},
+			syntaxNode,
+		},
+		{
+			"syntax - 100",
+			[]api.Token{syntaxTok, newline, raw_my_tok, id_x_tok, equal, id_x_tok},
+			syntaxNode,
+		},
+		{
+			"syntax - 101",
+			[]api.Token{syntaxTok, newline, raw_my_tok, id_x_tok, equal, newline, id_x_tok},
+			syntaxNode,
+		},
+		{
+			"syntax - 110",
+			[]api.Token{syntaxTok, newline, raw_my_tok, id_x_tok, newline, equal, id_x_tok},
+			syntaxNode,
+		},
+		{
+			"syntax - 111",
+			[]api.Token{syntaxTok, newline, raw_my_tok, id_x_tok, newline, equal, newline, id_x_tok},
+			syntaxNode,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseSyntax, -1))
+	}
 }
 
-func TestParseSyntaxBindingSymbol(t *testing.T) {
+// rule:
+//
+//	```
+//	binding syntax ident = "{", {"\n"}, ident, {"\n"}, "}" ;
+func TestParseBindingSyntaxIdent(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
@@ -306,7 +437,7 @@ func TestParseSyntaxBindingSymbol(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseSyntaxBindingSymbol, -1))
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseBindingSyntaxIdent, -1))
 	}
 }
 
