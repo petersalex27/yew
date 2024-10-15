@@ -287,14 +287,61 @@ func TestMaybeParseSyntaxSymbol(t *testing.T) {
 //	syntax rule = {syntax symbol, {"\n"}}, raw keyword, {{"\n"}, syntax symbol} ;
 //	```
 func TestParseSyntaxRule(t *testing.T) {
-	// tests := []struct {
-	// 	name  string
-	// 	input []api.Token
-	// 	want  syntaxRule
-	// }{
-	// 	{},
-	// }
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  syntaxRule
+	}{
+		{
+			"key",
+			[]api.Token{raw_my_tok},
+			data.EConstruct[syntaxRule](rawSym),
+		},
+		{
+			"id,key - 0",
+			[]api.Token{id_x_tok, raw_my_tok},
+			data.EConstruct[syntaxRule](idSymNode, rawSym),
+		},
+		{
+			"id,key - 1",
+			[]api.Token{id_x_tok, newline, raw_my_tok},
+			data.EConstruct[syntaxRule](idSymNode, rawSym),
+		},
+		{
+			"key,id - 0",
+			[]api.Token{raw_my_tok, id_x_tok},
+			data.EConstruct[syntaxRule](rawSym, idSymNode),
+		},
+		{
+			"key,id - 1",
+			[]api.Token{raw_my_tok, newline, id_x_tok},
+			data.EConstruct[syntaxRule](rawSym, idSymNode),
+		},
+		{
+			"id,key,id - 00",
+			[]api.Token{id_x_tok, raw_my_tok, id_x_tok},
+			data.EConstruct[syntaxRule](idSymNode, rawSym, idSymNode),
+		},
+		{
+			"id,key,id - 01",
+			[]api.Token{id_x_tok, raw_my_tok, newline, id_x_tok},
+			data.EConstruct[syntaxRule](idSymNode, rawSym, idSymNode),
+		},
+		{
+			"id,key,id - 10",
+			[]api.Token{id_x_tok, newline, raw_my_tok, id_x_tok},
+			data.EConstruct[syntaxRule](idSymNode, rawSym, idSymNode),
+		},
+		{
+			"id,key,id - 11",
+			[]api.Token{id_x_tok, newline, raw_my_tok, newline, id_x_tok},
+			data.EConstruct[syntaxRule](idSymNode, rawSym, idSymNode),
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseSyntaxRule, -1))
+	}
 }
 
 func TestParseTypeAlias(t *testing.T) {
