@@ -54,7 +54,8 @@ body = {{"\n"}, [annotations_], body elem} ;
         "impossible"
         | [annotations_], type constructor
         | "(", {"\n"}, [annotations_], type constructor, {{"\n"}, [annotations_], type constructor}, {"\n"}, ")" ;
-    type constructor = constructor name, {"\n"}, ":", {"\n"}, type ;
+    type constructor = constructor name seq, {"\n"}, ":", {"\n"}, type ;
+    constructor name seq = constructor name, {{"\n"}, ",", {"\n"}, constructor name}, [{"\n"}, ","] ;
     deriving clause = "deriving", {"\n"}, deriving body ;
     deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
   type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;

@@ -72,26 +72,24 @@ func parseTypeDefBody(p Parser) data.Either[data.Ers, typeDefBody] {
 	// }
 
 	lparen, found := getKeywordAtCurrent(p, token.LeftParen)
-	var first typeConstructor
-	es, tc, isTC := parseTypeDefBodyTypeCons(p).Break()
+	var bod data.NonEmpty[typeConstructor]
+	es, tcs, isTC := parseTypeDefBodyTypeCons(p).Break()
 	if !isTC {
 		return data.PassErs[typeDefBody](es)
 	}
 	if !found {
-		return data.Ok(data.Inl[impossible](data.Singleton(tc)))
+		return data.Ok(data.Inl[impossible](tcs))
 	} else {
-		first = tc
+		bod = tcs
 	}
 
-	// enclosed case
-	bod := data.Singleton(first)
 	p.dropNewlines()
 	for !token.RightParen.Match(p.current()) {
-		es, tc, isTC := parseTypeDefBodyTypeCons(p).Break()
+		es, tcs, isTC := parseTypeDefBodyTypeCons(p).Break()
 		if !isTC {
 			return data.PassErs[typeDefBody](es)
 		}
-		bod = bod.Snoc(tc)
+		bod = bod.Append(tcs.Elements()...)
 		p.dropNewlines()
 	}
 
@@ -104,64 +102,90 @@ func parseTypeDefBody(p Parser) data.Either[data.Ers, typeDefBody] {
 	return data.Ok(data.Inl[impossible](bod))
 }
 
-func parseTypeDefBodyTypeCons(p Parser) data.Either[data.Ers, typeConstructor] {
-	return runCases(p, parseAnnotations, passParseErs[typeConstructor], parseTypeConstructor)
-}
+func parseTypeDefBodyTypeCons(p Parser) data.Either[data.Ers, data.NonEmpty[typeConstructor]] {
+	return runCases(p, parseAnnotations, passParseErs[data.NonEmpty[typeConstructor]], parseTypeConstructor)
+} 
 
 // rule:
 //
 //	```
 //	constructor name = infix upper ident | upper ident | symbol | infix symbol ;
 //	```
-func parseConstructorName(p Parser) data.Either[data.Ers, name] {
+func maybeParseConstructorName(p Parser) (*data.Ers, data.Maybe[name]) {
 	isMethod := lookahead1(p, token.MethodSymbol)
 	if isMethod { // type constructor cannot have a method name
-		return data.Fail[name](IllegalMethodTypeConstructor, p)
+		return nil, data.Nothing[name](p)
 	}
 
-	n, isN := maybeParseName(p).Break()
-	if !isN { // no name found
-		return data.Fail[name](ExpectedTypeConstructorName, p)
-	}
-
-	// validate: just make sure it's not lowercase; method names were previously disallowed
-	// 		- hacky, but guaranteed to be a token due to the type of the embedded `Solo`
-	tok := n.Solo.Children()[0].(api.Token)
+	tok := p.current()
 	// infix ids are not stored w/ parens, so this will work for both infix and non-infix
-	if common.Is_camelCase2(tok) { 
-		return data.Fail[name](IllegalLowercaseConstructorName, tok)
+	if common.Is_camelCase2(tok) {
+		return nil, data.Nothing[name](p)
 	}
 
-	return data.Ok(n)
+	return nil, maybeParseName(p)
+	// n, isN := maybeParseName(p).Break()
+	// if !isN { // no name found
+	// 	e := data.MkErr(ExpectedTypeConstructorName, p)
+	// 	es := data.Nil[data.Err](1).Snoc(e)
+	// 	return &es, data.Nothing[name](p)
+	// }
+
+	// return nil, data.Just(n)
 }
+
+func constructorName_Error(tok api.Token) string {
+	if token.MethodSymbol.Match(tok) { // type constructor cannot have a method name
+		return IllegalMethodTypeConstructor
+	}
+	// infix ids are not stored w/ parens, so this will work for both infix and non-infix
+	isSomeIdType := token.Id.Match(tok) || token.Infix.Match(tok)
+	if isSomeIdType && common.Is_camelCase2(tok) {
+		return IllegalLowercaseConstructorName
+	}
+
+	return ExpectedTypeConstructorName
+}
+
+type typeConstructorSeq = data.NonEmpty[typeConstructor]
 
 // rule:
 //
 //	```
-//	type cons = typing ;
+//	type constructor = constructor name seq, {"\n"}, ":", {"\n"}, type ;
+//	constructor name seq = constructor name, {{"\n"}, ",", {"\n"}, constructor name}, [{"\n"}, ","] ;
 //	```
-func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, typeConstructor] {
-	esCName, cName, isCName := parseConstructorName(p).Break()
-	if !isCName {
-		return data.PassErs[typeConstructor](esCName)
+func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, data.NonEmpty[typeConstructor]] {
+	type group struct{ data.NonEmpty[name] }
+	es, names, isNames := parseHandledSepSequenced[group](p, constructorName_Error, token.Comma, maybeParseConstructorName).Break()
+	if !isNames {
+		return data.PassErs[typeConstructorSeq](es)
 	}
 
 	p.dropNewlines()
 	colon, found := getKeywordAtCurrent(p, token.Colon)
 	if !found {
-		return data.Fail[typeConstructor](ExpectedTypeJudgment, p)
+		return data.Fail[typeConstructorSeq](ExpectedTypeJudgment, p)
 	}
 
 	es, ty, isTy := ParseType(p).Break()
 	if !isTy {
-		return data.PassErs[typeConstructor](es)
+		return data.PassErs[typeConstructorSeq](es)
 	}
 
-	tc := makeCons(cName, ty)
-	tc.Position = tc.Update(colon)
-	(&tc).annotate(as)
-	return data.Ok(tc)
+	tcs := data.MapNonEmpty(constructConstructor(as, colon, ty))(names.NonEmpty)
+	return data.Ok(tcs)
 }
+
+func constructConstructor(as data.Maybe[annotations], colon api.Token, ty typ) func(n name) typeConstructor {
+	return func(n name) typeConstructor {
+		tc := makeCons(n, ty)
+		tc.Position = tc.Update(colon)
+		(&tc).annotate(as)
+		return tc
+	}
+}
+
 
 // rule:
 //

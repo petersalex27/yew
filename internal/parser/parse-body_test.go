@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/petersalex27/yew/api"
+	"github.com/petersalex27/yew/api/util/fun"
 	"github.com/petersalex27/yew/common/data"
 )
 
@@ -93,6 +94,44 @@ func TestParseBodyElement(t *testing.T) {
 }
 
 
+func TestParseConstructorNameErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		input api.Token
+		want string
+	}{
+		{
+			"error - lower ident",
+			id_x_tok,
+			IllegalLowercaseConstructorName,
+		},
+		{
+			"error - lower infix ident",
+			infix_x_tok,
+			IllegalLowercaseConstructorName,
+		},
+		{
+			"error - method name",
+			method_run_tok,
+			IllegalMethodTypeConstructor,
+		},
+		{
+			"error - non-name",
+			alias,
+			ExpectedTypeConstructorName,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			res := constructorName_Error(test.input)
+			if res != test.want {
+				t.Errorf("failed: got %q, want %q", res, test.want)
+			}
+		})
+	}
+}
+
 // rule:
 //
 //	```
@@ -102,58 +141,102 @@ func TestParseConstructorName(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  data.Either[data.Ers, name]
+		want  data.Maybe[name]
 	}{
 		{
 			"infix upper ident",
 			[]api.Token{infix_MyId_tok},
-			data.Ok(data.EOne[name](infix_MyId_tok)),
+			data.Just(name_infix_MyId),
 		},
 		{
 			"upper ident",
 			[]api.Token{id_MyId_tok},
-			data.Ok(data.EOne[name](id_MyId_tok)),
+			data.Just(name_MyId),
 		},
 		{
 			"symbol",
 			[]api.Token{id_dollar_tok},
-			data.Ok(data.EOne[name](id_dollar_tok)),
+			data.Just(name_dollar),
 		},
 		{
 			"infix symbol",
 			[]api.Token{infix_dollar_tok},
-			data.Ok(data.EOne[name](infix_dollar_tok)),
-		},
-		// error cases
-		{
-			"error - lower ident",
-			[]api.Token{id_x_tok},
-			data.Fail[name](IllegalLowercaseConstructorName, __),
-		},
-		{
-			"error - lower infix ident",
-			[]api.Token{infix_x_tok},
-			data.Fail[name](IllegalLowercaseConstructorName, __),
-		},
-		{
-			"error - method name",
-			[]api.Token{method_run_tok},
-			data.Fail[name](IllegalMethodTypeConstructor, __),
-		},
-		{
-			"error - non-name",
-			[]api.Token{alias},
-			data.Fail[name](ExpectedTypeConstructorName, __),
+			data.Just(name_infix_dollar),
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, eitherOutputFUT(test.input, test.want, parseConstructorName))
+		t.Run(test.name, maybeOutputFUT_endCheck(test.input, test.want, maybeParseConstructorName, -1))
 	}
 }
 
-func TestParseConstructor(t *testing.T) { 
+// rule: 
+//
+//	```
+//	type constructor = constructor name, {{"\n"}, ",", {"\n"}, constructor name}, {"\n"}, ":", {"\n"}, type ;
+//	```
+func TestParseConstructor(t *testing.T) {
+	tests := []struct {
+		name string
+		input []api.Token
+		want data.NonEmpty[typeConstructor]
+	}{
+		{
+			"single - 00",
+			[]api.Token{id_MyId_tok, colon, id_x_tok},
+			singleConsNode,
+		},
+		{
+			"single - 01",
+			[]api.Token{id_MyId_tok, colon, newline, id_x_tok},
+			singleConsNode,
+		},
+		{
+			"single - 10",
+			[]api.Token{id_MyId_tok, newline, colon, id_x_tok},
+			singleConsNode,
+		},
+		{
+			"single - 11",
+			[]api.Token{id_MyId_tok, newline, colon, newline, id_x_tok},
+			singleConsNode,
+		},
+		{
+			"multiple - 00",
+			[]api.Token{id_MyId_tok, comma, id_MyId_tok, colon, id_x_tok},
+			multiConsNode,
+		},
+		{
+			"multiple - 01",
+			[]api.Token{id_MyId_tok, comma, newline, id_MyId_tok, colon, id_x_tok},
+			multiConsNode,
+		},
+		{
+			"multiple - 10",
+			[]api.Token{id_MyId_tok, newline, comma, id_MyId_tok, colon, id_x_tok},
+			multiConsNode,
+		},
+		{
+			"multiple - 11",
+			[]api.Token{id_MyId_tok, newline, comma, newline, id_MyId_tok, colon, id_x_tok},
+			multiConsNode,
+		},
+		{
+			"single - trailing comma",
+			[]api.Token{id_MyId_tok, comma, colon, id_x_tok},
+			data.Construct(makeCons(name_MyId, typ_x)),
+		},
+		{
+			"multiple - trailing comma",
+			[]api.Token{id_MyId_tok, comma, id_MyId_tok, comma, colon, id_x_tok},
+			multiConsNode,
+		},
+	}
 
+	for _, test := range tests {
+		fut := fun.Bind1stOf2(parseTypeConstructor, data.Nothing[annotations]())
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut , -1))
+	}
 }
 
 func TestParseDef(t *testing.T) {
@@ -196,8 +279,52 @@ func TestParseTypeConstructor(t *testing.T) {
 
 }
 
-func TestParseTypeDef(t *testing.T) {
+func TestParseTypeDefBody(t *testing.T) {
+	tests := []struct {
+		name string
+		input []api.Token
+		want typeDefBody
+	}{
+		{
+			"impossible",
+			[]api.Token{impossibleTok},
+			data.Inr[data.NonEmpty[typeConstructor]](impossibleNode),
+		},
+		{
+			"non-grouped",
+			[]api.Token{id_MyId_tok, colon, id_x_tok},
+			data.Inl[impossible](singleConsNode),
+		},
+		{
+			"enclosed - 00",
+			[]api.Token{lparen, id_MyId_tok, colon, id_x_tok, rparen},
+			data.Inl[impossible](singleConsNode),
+		},
+		{
+			"enclosed - 01",
+			[]api.Token{lparen, id_MyId_tok, colon, id_x_tok, newline, rparen},
+			data.Inl[impossible](singleConsNode),
+		},
+		{
+			"enclosed - 10",
+			[]api.Token{lparen, newline, id_MyId_tok, colon, id_x_tok, rparen},
+			data.Inl[impossible](singleConsNode),
+		},
+		{
+			"enclosed - 11",
+			[]api.Token{lparen, newline, id_MyId_tok, colon, id_x_tok, newline, rparen},
+			data.Inl[impossible](singleConsNode),
+		},
+		{
+			"enclosed - multiple",
+			[]api.Token{lparen, id_MyId_tok, colon, id_x_tok, newline, id_MyId_tok, colon, id_x_tok, rparen},
+			data.Inl[impossible](multiConsNode),
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeDefBody, -1))
+	}
 }
 
 func TestParseTyping(t *testing.T) {

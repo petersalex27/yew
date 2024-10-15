@@ -82,10 +82,10 @@ func (xs List[a]) Append(es ...a) List[a] {
 }
 
 func (xs List[a]) Map(f func(a) a) List[a] {
-	return fmap_List(f)(xs)
+	return MapList(f)(xs)
 }
 
-func fmap_List[a, b api.Node](f func(a) b) func(List[a]) List[b] {
+func MapList[a, b api.Node](f func(a) b) func(List[a]) List[b] {
 	return func(xs List[a]) List[b] {
 		ys := Nil[b](len(xs.elements))
 		for _, x := range xs.elements {

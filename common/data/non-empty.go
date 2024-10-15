@@ -73,8 +73,19 @@ func (xs NonEmpty[a]) Map(f func(a) a) NonEmpty[a] {
 	return xs
 }
 
+func MapNonEmpty[a, b api.Node](f func(a) b) func(xs NonEmpty[a]) NonEmpty[b] {
+	listMap := MapList(f)
+	return func(xs NonEmpty[a]) NonEmpty[b] {
+		return NonEmpty[b]{first: f(xs.first), rest: listMap(xs.rest)}
+	}
+}
+
 func (xs NonEmpty[a]) Head() a { return xs.first }
 
 func (xs NonEmpty[a]) Tail() List[a] { return xs.rest }
 
 func (xs NonEmpty[a]) Len() int { return 1 + xs.rest.Len() }
+
+func (xs NonEmpty[a]) Elements() []a {
+	return append([]a{xs.first}, xs.rest.elements...)
+}

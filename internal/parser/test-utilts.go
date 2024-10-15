@@ -90,6 +90,7 @@ var (
 	name_x                 = data.EOne[name](id_x_tok)
 	name_eq                = data.EOne[name](equalTok)                                                                    // x
 	name_MyId              = data.EOne[name](id_MyId_tok)                                                                 // MyId
+	name_infix_MyId        = data.EOne[name](infix_MyId_tok)                                                              // (MyId)
 	name_dollar            = data.EOne[name](id_dollar_tok)                                                               // $
 	name_infix_dollar      = data.EOne[name](infix_dollar_tok)                                                            // ($)
 	name_method_run        = data.EOne[name](method_run_tok)                                                              // (.run)
@@ -258,6 +259,9 @@ var (
 	body_alias         = body{data.Makes[bodyElement](aliasNode)}                                                           // alias MyId = MyId
 	body_typeDef       = body{data.Makes[bodyElement](typeDefNode)}                                                         // type x = x
 	body_annotTyping   = body{data.Makes[bodyElement](annotTypingNode)}                                                     // --@test\nx : x
+	singleConsNode = data.Construct(typeConsNode)
+	multiConsNode = data.Construct(typeConsNode, typeConsNode)
+	impossibleNode = data.EOne[impossible](impossibleTok)
 )
 
 // a very simple function that creates a test source from a list of tokens

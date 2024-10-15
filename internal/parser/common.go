@@ -17,17 +17,17 @@ var (
 	// current token matches that type
 	matchCurrent = fun.ComposeRightCurryFlip((token.Type).Match, currentTokenAsNode)
 
-	matchCurrentWith        = matchCurrent(token.With)
-	matchCurrentId          = matchCurrent(token.Id)
-	matchCurrentEqual       = matchCurrent(token.Equal)
-	matchCurrentBackslash   = matchCurrent(token.Backslash)
-	matchCurrentLeftParen   = matchCurrent(token.LeftParen)
-	matchCurrentUnderscore  = matchCurrent(token.Underscore)
-	matchCurrentImpossible  = matchCurrent(token.Impossible)
-	matchCurrentForall      = matchCurrent(token.Forall)
-	matchCurrentInfix       = matchCurrent(token.Infix)
-	matchCurrentRawString   = matchCurrent(token.RawStringValue)
-	matchCurrentMethodId    = matchCurrent(token.MethodSymbol)
+	matchCurrentWith       = matchCurrent(token.With)
+	matchCurrentId         = matchCurrent(token.Id)
+	matchCurrentEqual      = matchCurrent(token.Equal)
+	matchCurrentBackslash  = matchCurrent(token.Backslash)
+	matchCurrentLeftParen  = matchCurrent(token.LeftParen)
+	matchCurrentUnderscore = matchCurrent(token.Underscore)
+	matchCurrentImpossible = matchCurrent(token.Impossible)
+	matchCurrentForall     = matchCurrent(token.Forall)
+	matchCurrentInfix      = matchCurrent(token.Infix)
+	matchCurrentRawString  = matchCurrent(token.RawStringValue)
+	matchCurrentMethodId   = matchCurrent(token.MethodSymbol)
 
 	literalLAs = []token.Type{token.IntValue, token.FloatValue, token.StringValue, token.RawStringValue, token.ImportPath, token.CharValue}
 
@@ -196,7 +196,11 @@ func maybeParseName(p Parser) data.Maybe[name] {
 	return data.Just(data.EOne[name](t))
 }
 
-type embedsToken = interface{api.Node; ~struct{data.Solo[api.Token]}}
+type embedsToken = interface {
+	api.Node
+	~struct{ data.Solo[api.Token] }
+}
+
 func parseTokenHelper[solo embedsToken](p Parser, ty token.Type, predicate func(string) bool) data.Maybe[solo] {
 	t := p.current()
 	if !ty.Match(t) {
@@ -251,7 +255,7 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 
 	var xs data.NonEmpty[a]
 	var es *data.Ers
-	if found { 
+	if found {
 		// if '(' was found, parse multiple elements and then ')'
 		es, xs, _ = parseOneOrMore(p, first, true, maybeParse)
 		if es != nil {
@@ -263,7 +267,7 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 			return data.Fail[ne](ExpectedRightParen, p)
 		}
 		xs.Position = xs.Update(rp)
-	} else { 
+	} else {
 		// otherwise, just return the first element
 		xs = data.Singleton(first)
 	}
@@ -296,6 +300,7 @@ func parseOneOrMore[a api.Node](p Parser, lhs a, dropNewlinesEachIt bool, f func
 	}
 }
 
+// allows trailing sep by default
 func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, errHandler func(cur api.Token) string, sep token.Type, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, b] {
 	ps := api.ZeroPosition()
 	es, lhs := maybeParse(p)
@@ -309,7 +314,7 @@ func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, er
 	}
 	ps = ps.Update(unit)
 
-	var terms = data.Singleton(unit)
+	terms := data.Singleton(unit)
 	for {
 		p.dropNewlines()
 		if !parseKeywordAtCurrent(p, sep, &ps) {
@@ -330,6 +335,7 @@ func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, er
 	return data.Ok(b{terms})
 }
 
+// allows trailing sep by default
 func parseSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, emptyErrorMsg string, sep token.Type, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, b] {
 	return parseHandledSepSequenced[b](p, fun.Constant[api.Token](emptyErrorMsg), sep, maybeParse)
 }
