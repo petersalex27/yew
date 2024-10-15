@@ -327,6 +327,7 @@ func parsePatternBoundBody(p Parser, bindingTokenType token.Type) data.Either[da
 }
 
 func runDefBodyWhereClause(p Parser, possibleLeft data.Either[withClause, expr]) data.Either[data.Ers, defBody] {
+	p.dropNewlines()
 	constructPossibleBody := fun.BiCompose(data.EInr[defBody], data.EMakePair[defBodyPossible])
 	construct := fun.Compose(data.Ok, constructPossibleBody(possibleLeft))
 	return data.Cases(parseOptionalWhereClause(p), data.PassErs[defBody], construct)

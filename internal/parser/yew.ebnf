@@ -100,9 +100,9 @@ body = {{"\n"}, [annotations_], body elem} ;
     default expr = ":=", {"\n"}, expr ;
     forall binders = ident, {ident} | "(", {"\n"}, ident, {{"\n"}, ident}, {"\n"}, ")" ;
   def = pattern, {"\n"}, def body ;
-  def body thick arrow = (with clause | "=>", {"\n"}, expr), [where clause] | "impossible" ;
-  def body = (with clause | "=", {"\n"}, expr), [where clause] | "impossible" ;
-    where clause = {"\n"}, "where", {"\n"}, where body ;
+  def body thick arrow = (with clause | "=>", {"\n"}, expr), [{"\n"}, where clause] | "impossible" ;
+  def body = (with clause | "=", {"\n"}, expr), [{"\n"}, where clause] | "impossible" ;
+    where clause = "where", {"\n"}, where body ;
     where body = main elem | "(", {"\n"}, main elem, {"\n", main elem}, {"\n"}, ")" ;
     with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
       with clause arms = 

@@ -680,8 +680,40 @@ func TestParseWhereBody(t *testing.T) {
 	}
 }
 
-func TestParseWhereClause(t *testing.T) {
+// other cases are covered by `TestParseWhereBody`
+//
+// parseOptionalWhereClause just grabs where token and calls parseWhereBody
+func TestParseOptionalWhereClause(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  data.Maybe[whereClause]
+	}{
+		{
+			"empty",
+			[]api.Token{},
+			data.Nothing[whereClause](),
+		},
+		{
+			"non-empty",
+			[]api.Token{where, id_x_tok, colon, id_x_tok},
+			data.Just(data.EConstruct[whereClause](mainElement(typingNode))),
+		},
+		{
+			"non-where clause",
+			[]api.Token{id_x_tok, colon, id_x_tok},
+			data.Nothing[whereClause](),
+		},
+		{
+			"where clause, followed by more",
+			[]api.Token{where, id_x_tok, colon, id_x_tok, newline, id_x_tok, colon, id_x_tok},
+			data.Just(data.EConstruct[whereClause](mainElement(typingNode))),
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT(test.input, test.want, parseOptionalWhereClause))
+	}
 }
 
 func TestParseWithClause(t *testing.T) {
