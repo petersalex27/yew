@@ -323,15 +323,6 @@ func TestParseDefBody(t *testing.T) {
 // rule:
 //
 //	```
-//	deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
-//	```
-func TestParseDerivingBody(t *testing.T) {
-
-}
-
-// rule:
-//
-//	```
 //	deriving clause = "deriving", {"\n"}, deriving body ;
 //	```
 func TestParseDerivingClause(t *testing.T) {
@@ -343,6 +334,11 @@ func TestParseDerivingClause(t *testing.T) {
 		{
 			"single",
 			[]api.Token{derivingTok, id_MyId_tok, id_x_tok},
+			derivingNode,
+		},
+		{
+			"newline",
+			[]api.Token{derivingTok, newline, id_MyId_tok, id_x_tok},
 			derivingNode,
 		},
 		{
