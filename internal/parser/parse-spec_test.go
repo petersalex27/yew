@@ -277,7 +277,7 @@ func TestParseSpecHead(t *testing.T) {
 //	```
 //	spec dependency = {"\n"}, "from", {"\n"}, pattern ;
 //	```
-func TestParseSpecDependency(t *testing.T) {
+func TestParseOptionalSpecDependency(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
