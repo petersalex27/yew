@@ -2,8 +2,8 @@
 yew source = {"\n"}, [header | body | header, then, body], footer ; 
 (* header *)
 header = 
-  [[annotations_], module, {then, [annotations_], import statement}] 
-  | [[annotations_], import statement, {then, [annotations_], import statement}] ;
+    [[annotations_], module, {then, [annotations_], import statement}] 
+    | [[annotations_], import statement, {then, [annotations_], import statement}] ;
   module = "module", {"\n"}, lower ident ;
   import statement = "import", {"\n"}, imports ;
     imports = 

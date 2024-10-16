@@ -352,8 +352,70 @@ func TestParseDef(t *testing.T) {
 
 }
 
+// rule:
+//
+//	```
+//	def body = (with clause | "=", {"\n"}, expr), [where clause] | "impossible" ;
+//	```
 func TestParseDefBody(t *testing.T) {
+	tests := []struct {
+		name string
+		input []api.Token
+		want defBody
+		end int
+	}{
+		{
+			"expr - 0",
+			[]api.Token{equal, id_x_tok},
+			defBodyNode, -1,
+		},
+		{
+			"expr - 1",
+			[]api.Token{equal, newline, id_x_tok},
+			defBodyNode, -1,
+		},
+		{
+			"expr - end correctness",
+			[]api.Token{equal, id_x_tok, newline},
+			//                         ^-- should stop here
+			defBodyNode, 2,
+		},
+		{
+			"with clause",
+			[]api.Token{with, id_x_tok, of, id_x_tok, thickArrow, id_x_tok},
+			data.EInr[defBody](data.EMakePair[defBodyPossible](data.Inl[expr](withClauseNode), data.Nothing[whereClause]())),
+			-1,
+		},
+		{
+			"double where",
+			[]api.Token{
+				// with x of (
+				with, id_x_tok, of, lparen,
+				//   x => x where x = x
+					id_x_tok, thickArrow, id_x_tok, where, id_x_tok, equal, id_x_tok,
+				// ) where x = x
+				rparen, where, id_x_tok, equal, id_x_tok,
+			},
+			// with x of (x => x where x = x) where x = x
+			data.EInr[defBody](data.EMakePair[defBodyPossible](data.Inl[expr](withClauseNodeWhere), data.Just(whereClauseNode))),
+			-1,
+		},
+		{
+			"impossible",
+			[]api.Token{impossibleTok},
+			data.EInl[defBody](impossibleNode), -1,
+		},
+		{
+			"impossible - end correctness",
+			[]api.Token{impossibleTok, id_x_tok},
+			//                       ^-- should stop here
+			data.EInl[defBody](impossibleNode), 1,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseDefBody, test.end))
+	}
 }
 
 // rule:
@@ -402,10 +464,6 @@ func TestParseDerivingClause(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, resultOutputFUT_endCheck(test.input, data.Just(test.want), parseOptionalDerivingClause, -1))
 	}
-}
-
-func TestParseMainElement(t *testing.T) {
-
 }
 
 // rule:
@@ -825,8 +883,8 @@ func TestParseTyping(t *testing.T) {
 	}
 }
 
-func TestParseVisibleBodyElement(t *testing.T) {
-
+func TestParseOptionalVisibility(t *testing.T) {
+	
 }
 
 // rule:

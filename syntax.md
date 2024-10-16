@@ -82,18 +82,16 @@ NOTE: There might be slight inconsistencies with the *actual* grammar. The most 
 
 ```ebnf
 (* root *)
-yew source = {"\n"}, [meta, "\n", {"\n"}], [header, "\n",{"\n"}], [body, {"\n"}], footer ; 
-
-(* meta *)
-meta = annotations_ ;
-
+yew source = {"\n"}, [header | body | header, then, body], footer ; 
 (* header *)
-header = [module, end], {{"\n"}, [annotations_], import, end} ;
+header = 
+    [[annotations_], module, {then, [annotations_], import statement}] 
+    | [[annotations_], import statement, {then, [annotations_], import statement}] ;
   module = "module", {"\n"}, lower ident ;
-  import = "import", {"\n"}, 
-      ( package import 
-      | "(", {"\n"}, package import, {{"\n"}, package import}, {"\n"}, ")"
-      ) ;
+  import statement = "import", {"\n"}, imports ;
+    imports = 
+        package import 
+        | "(", {"\n"}, package import, {then, package import}, {"\n"}, ")" ;
     package import = import path, [{"\n"}, import specification] ;
       import specification = as clause | using clause ;
         as clause = "as", {"\n"}, module alias ;
@@ -103,12 +101,10 @@ header = [module, end], {{"\n"}, [annotations_], import, end} ;
             "_"
             | name 
             | "(", {"\n"}, name, {{"\n"}, ",", {"\n"}, name}, [{"\n"}, ","], {"\n"}, ")" ;
-
 (* footer *)
 footer = [annotations_], eof ;
-
 (* body *)
-body = {{"\n"}, [annotations_], body elem} ;
+body = [annotations_], body elem, {then, [annotations_], body elem} ;
   visibility = "public" | "open" ;
   modality = "once" | "erase" ;
   main elem = 
@@ -136,7 +132,7 @@ body = {{"\n"}, [annotations_], body elem} ;
     type def body =
         "impossible"
         | [annotations_], type constructor
-        | "(", {"\n"}, [annotations_], type constructor, {{"\n"}, [annotations_], type constructor}, {"\n"}, ")" ;
+        | "(", {"\n"}, [annotations_], type constructor, {then, [annotations_], type constructor}, {"\n"}, ")" ;
     type constructor = constructor name seq, {"\n"}, ":", {"\n"}, type ;
     constructor name seq = constructor name, {{"\n"}, ",", {"\n"}, constructor name}, [{"\n"}, ","] ;
     deriving clause = "deriving", {"\n"}, deriving body ;
@@ -149,18 +145,18 @@ body = {{"\n"}, [annotations_], body elem} ;
     spec dependency = "from", {"\n"}, pattern ;
     spec body =
         spec member 
-        | "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
+        | "(", {"\n"}, spec member, {then, spec member}, {"\n"}, ")" ;
     spec member = [annotations_], def | [annotations_], typing ;
     requiring clause = "requiring", {"\n"}, 
         ( [annotations_], def 
-        | "(", {"\n"}, [annotations_], def, {{"\n"}, [annotations_], def}, {"\n"}, ")" 
+        | "(", {"\n"}, [annotations_], def, {then, [annotations_], def}, {"\n"}, ")" 
         ) ;
   spec inst = "inst", {"\n"}, spec head, {"\n"}, [spec inst target, {"\n"}], spec inst where clause ;
     spec inst target = "=", {"\n"}, constrainer ;
     spec inst where clause = "where", {"\n"}, spec inst member group ;
     spec inst member group = spec body ;
-  constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constrainer ;
-    constraint group = constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}] ;
+  constraint = "(", {"\n"}, constraint seq, {"\n"}, ")" | constrainer ;
+    constraint seq = constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}] ;
     constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
   typing = ["auto", {"\n"}], name, {"\n"}, ":", {"\n"}, type ;
   pattern typing = pattern, {"\n"}, ":", {"\n"}, type ;
@@ -183,18 +179,19 @@ body = {{"\n"}, [annotations_], body elem} ;
     default expr = ":=", {"\n"}, expr ;
     forall binders = ident, {ident} | "(", {"\n"}, ident, {{"\n"}, ident}, {"\n"}, ")" ;
   def = pattern, {"\n"}, def body ;
-  def body thick arrow = body thick arrow main, body tail ;
-  def body = body main, body tail ;
-    body main = with clause | "=", {"\n"}, expr ;
-    body tail = [where clause] | "impossible" ;
-    body thick arrow main = with clause | "=>", {"\n"}, expr ;
-    where clause = {"\n"}, "where", {"\n"}, where body ;
-    where body = main elem | "(", {"\n"}, main elem, {"\n", main elem}, {"\n"}, ")" ;
+  def body thick arrow = def body thick arrow main, def body tail ;
+  def body = def body main, def body tail ;
+    def body main = with clause | "=", {"\n"}, expr ;
+    def body thick arrow main = with clause | "=>", {"\n"}, expr ;
+    def body tail = [{"\n"}, where clause] | "impossible" ;
+    where clause = "where", {"\n"}, where body ;
+    where body = main elem | "(", {"\n"}, main elem, {then, main elem}, {"\n"}, ")" ;
     with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
       with clause arms = 
-          "(", {"\n"}, with clause arm, {with clause arm}, {"\n"}, ")" 
+          "(", {"\n"}, with clause arm, {then, with clause arm}, {"\n"}, ")" 
           | with clause arm ;
-      with clause arm = [pattern, {"\n"}, "|", {"\n"}], pattern, {"\n"}, def body thick arrow ;
+      with clause arm = [view refined pattern, {"\n"}], pattern, {"\n"}, def body thick arrow ;
+      view refined pattern = pattern, {"\n"}, "|" ;
   pattern atom = literal | name | "[]" | hole ;
   pattern = pattern term, {pattern term rhs} ;
   access = ".", {"\n"}, name ;
@@ -205,9 +202,9 @@ body = {{"\n"}, [annotations_], body elem} ;
   pattern term = 
       pattern atom 
       | "_"
-      | "(", {"\n"}, enc pattern inner, {"\n"}, ")" 
-      | "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
-    enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
+      | "(", {"\n"}, enc pattern seq, {"\n"}, ")" 
+      | "{", {"\n"}, enc pattern seq, {"\n"}, "}" ;
+    enc pattern seq = enc pattern, {{"\n"}, ",", {"\n"}, enc pattern}, [{"\n"}, ","] ;
   expr atom = pattern atom | lambda abstraction ;
   expr = expr term, {expr term rhs} ;
   enc expr = expr term, {{"\n"}, expr term rhs} ;
@@ -224,13 +221,13 @@ body = {{"\n"}, [annotations_], body elem} ;
   let expr = "let", {"\n"}, let binding, {"\n"}, "in", {"\n"}, expr ;
     let binding = 
         binding group member 
-        | "(", {"\n"}, binding group member, {{"\n"}, binding group member}, {"\n"}, ")" ;
+        | "(", {"\n"}, binding group member, {then, binding group member}, {"\n"}, ")" ;
     binding group member =
         binder, {"\n"}, binding assignment
         | typing, [{"\n"}, binding assignment] ;
     binding assignment = ":=", {"\n"}, expr ;
   case expr = "case", {"\n"}, pattern, {"\n"}, "of", {"\n"}, case arms ;
-    case arms = case arm | "(", {"\n"}, case arm, {{"\n"}, case arm}, {"\n"}, ")" ;
+    case arms = case arm | "(", {"\n"}, case arm, {then, case arm}, {"\n"}, ")" ;
     case arm = pattern, {"\n"}, def body thick arrow ;
 
 (* annotations *)
@@ -269,7 +266,7 @@ char = ? REGEX "'(\\[afnvtbr\\']|[^\a\f\n\v\t\b\r])'" ? ;
 
 (* misc *)
 eof = ? END OF FILE ? ;
-end = eof | "\n" ;
+then = "\n", {"\n"} ;
 
 (* reserved *)
 reserved = 

@@ -234,6 +234,9 @@ var (
 	defBodyNode             = data.EInr[defBody](defBodyPossible_x)                                                              // x
 	defBodyImpossible       = data.EInl[defBody](data.EOne[impossible](impossibleTok))                                           // impossible
 	defNode                 = def{emptyAnnots, name_x, defBodyNode, api.ZeroPosition()}                                          // x = x
+	whereClauseNode         = data.EConstruct[whereClause](defNode.asMainElement())                                              // where x = x
+	defBodyPossible_where   = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Just(whereClauseNode))        // x where x = x
+	defBodyWhereNode        = data.EInr[defBody](defBodyPossible_where)                                                          // x where x = x
 	defImpossibleNode       = def{emptyAnnots, name_x, defBodyImpossible, api.ZeroPosition()}                                    // x impossible
 	unvConstraintNode       = data.EOne[constraintUnverified](appTypeNode)                                                       // x x
 	specHeadNode            = data.EMakePair[specHead](data.Nothing[constraintVerified](), constrainerNode)                      // MyId x
@@ -272,6 +275,9 @@ var (
 	withClauseVRNode        = makeWithClauseArm(withArmLhsVRNode, defBodyNode)                                                   // x | x => x
 	withClauseArmsNode      = data.EConstruct[withClauseArms](withClauseArmNode)                                                 // x => x
 	withClauseNode          = makeWithClause(pattern(name_x), withClauseArmsNode)                                                // with x of x => x
+	withClauseArmNodeWhere  = makeWithClauseArm(withArmLhsNode, defBodyWhereNode)                                                // x => x where x = x
+	withClauseArmsNodeWhere = data.EConstruct[withClauseArms](withClauseArmNodeWhere)                                            // x => x where x = x
+	withClauseNodeWhere     = makeWithClause(pattern(name_x), withClauseArmsNodeWhere)                                           // with x of x => x where x = x
 )
 
 // a very simple function that creates a test source from a list of tokens
