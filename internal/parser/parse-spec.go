@@ -236,7 +236,6 @@ func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
 		return data.Inl[specDef](es)
 	}
 
-	p.dropNewlines()
 	esDep, dep, isDep := parseOptionalSpecDependency(p).Break()
 	if !isDep {
 		return data.Inl[specDef](esDep)
@@ -253,7 +252,6 @@ func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
 		return data.Inl[specDef](esBody)
 	}
 
-	p.dropNewlines()
 	esReq, req, isReq := parseOptionalRequiringClause(p).Break()
 	if !isReq {
 		return data.Inl[specDef](esReq)
@@ -267,10 +265,10 @@ func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
 // rule:
 //
 //	```
-//	spec dependency = "from", {"\n"}, pattern ;
+//	spec dependency = {"\n"}, "from", {"\n"}, pattern ;
 //	```
 func parseOptionalSpecDependency(p Parser) data.Either[data.Ers, data.Maybe[pattern]] {
-	fromToken, found := getKeywordAtCurrent(p, token.From, dropAfter)
+	fromToken, found := getKeywordAtCurrent(p, token.From, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[pattern](p))
 	}
@@ -360,13 +358,13 @@ func parseMaybeAnnotatedDef(p Parser) (*data.Ers, data.Maybe[def]) {
 // rule:
 //
 //	```
-//	requiring clause = "requiring", {"\n"},
+//	requiring clause = {"\n"}, "requiring", {"\n"},
 //		( [annotations_], def
 //		| "(", {"\n"}, [annotations_], def, {then, [annotations_], def}, {"\n"}, ")"
 //		) ;
 //	```
 func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[requiringClause]] {
-	req, found := getKeywordAtCurrent(p, token.Requiring, dropAfter)
+	req, found := getKeywordAtCurrent(p, token.Requiring, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[requiringClause](p)) // no requiring clause, return data.Nothing
 	}

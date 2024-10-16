@@ -76,6 +76,7 @@ var (
 	requiring   = token.Requiring.Make()  // requiring
 	spec        = token.Spec.Make()       // spec
 	inst        = token.Inst.Make()       // inst
+	from        = token.From.Make()       // from
 	where       = token.Where.Make()      // where
 	alias       = token.Alias.Make()      // alias
 	using       = token.Using.Make()      // using
@@ -227,6 +228,8 @@ var (
 	vConstraint2Node = data.EConstruct[constraintVerified](data.MakePair(data.Makes(MyId_as_upper), constrainerNode)) // MyId, MyId x
 	specDefBodyNode  = data.EConstruct[specBody](data.Inr[def](typingNode))                                           // where x : x
 	specInstBodyNode = data.EConstruct[specBody](data.Inl[typing](defNode))                                           // where x = x
+	requiringNode    = data.Construct(defNode)                                                                        // requiring x = x
+	dependencyNode   = pattern(name_x)                                                                                // from x
 
 	// body nodes
 
