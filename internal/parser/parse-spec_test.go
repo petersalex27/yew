@@ -10,8 +10,68 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
+// rule:
+//
+//	```
+//	constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer {"\n"}, ")" ;
+//	enc constrainer = upper ident, {"\n"}, pattern ;
+//	```
 func TestParseConstrainer(t *testing.T) {
-	
+	tests := []struct {
+		name string
+		input []api.Token
+		want  constrainer
+	}{
+		{
+			"single",
+			[]api.Token{id_MyId_tok, id_x_tok},
+			constrainerNode,
+		},
+		{
+			"enclosed - 000",
+			[]api.Token{lparen, id_MyId_tok, id_x_tok, rparen},
+			constrainerNode,
+		},
+		{
+			"enclosed - 001",
+			[]api.Token{lparen, id_MyId_tok, id_x_tok, newline, rparen},
+			constrainerNode,
+		},
+		{
+			"enclosed - 010",
+			[]api.Token{lparen, id_MyId_tok, newline, id_x_tok, rparen},
+			constrainerNode,
+		},
+		{
+			"enclosed - 011",
+			[]api.Token{lparen, id_MyId_tok, newline, id_x_tok, newline, rparen},
+			constrainerNode,
+		},
+		{
+			"enclosed - 100",
+			[]api.Token{lparen, newline, id_MyId_tok, id_x_tok, rparen},
+			constrainerNode,
+		},
+		{
+			"enclosed - 101",
+			[]api.Token{lparen, newline, id_MyId_tok, id_x_tok, newline, rparen},
+			constrainerNode,
+		},
+		{
+			"enclosed - 110",
+			[]api.Token{lparen, newline, id_MyId_tok, newline, id_x_tok, rparen},
+			constrainerNode,
+		},
+		{
+			"enclosed - 111",
+			[]api.Token{lparen, newline, id_MyId_tok, newline, id_x_tok, newline, rparen},
+			constrainerNode,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseConstrainer, -1))
+	}
 }
 
 func TestParseRequiringClause(t *testing.T) {

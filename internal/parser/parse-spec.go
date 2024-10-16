@@ -45,7 +45,8 @@ func parseMaybeOneTimeEnclosedConstrainer(p Parser) (*data.Ers, data.Maybe[const
 // rule:
 //
 //	```
-//	constrainer = upper ident, pattern | "(", {"\n"}, upper ident, {"\n"}, pattern {"\n"}, ")" ;
+//	constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer {"\n"}, ")" ;
+//	enc constrainer = upper ident, {"\n"}, pattern ;
 //	```
 func maybeParseConstrainer(p Parser, enclosed bool) (*data.Ers, data.Maybe[constrainer]) {
 	if isLP := matchCurrentLeftParen(p); !enclosed && isLP {
