@@ -230,6 +230,7 @@ var (
 	specInstBodyNode = data.EConstruct[specBody](data.Inl[typing](defNode))                                           // where x = x
 	requiringNode    = data.Construct(defNode)                                                                        // requiring x = x
 	dependencyNode   = pattern(name_x)                                                                                // from x
+	specInstTargeted = makeSpecInst(specHeadNode, data.Just(constrainerNode), specInstBodyNode) 											// spec MyId x = MyId x where x = x
 
 	// body nodes
 

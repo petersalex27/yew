@@ -184,13 +184,50 @@ func TestParseSpecDef(t *testing.T) {
 	}
 }
 
+// rule:
+//
+//	```
+//	spec inst = "inst", {"\n"}, spec head, [{"\n"}, spec inst target], {"\n"}, spec inst where clause ;
+//	```
 func TestParseSpecInst(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  specInst
+		end int
+	}{
+		{
+			"no target",
+			[]api.Token{inst, id_MyId_tok, id_x_tok, where, id_x_tok, equal, id_x_tok},
+			specInstNode, -1,
+		},
+		{
+			"no target - newlines",
+			[]api.Token{inst, newline, id_MyId_tok, id_x_tok, newline, where, id_x_tok, equal, id_x_tok},
+			specInstNode, -1,
+		},
+		{
+			"no target - ends correctly",
+			[]api.Token{inst, id_MyId_tok, id_x_tok, where, id_x_tok, equal, id_x_tok, newline},
+			//                                                               should end here --^
+			specInstNode, -2,
+		},
+		{
+			"targeted",
+			// inst MyId x = MyId x where x = x
+			[]api.Token{inst, id_MyId_tok, id_x_tok, equal, id_MyId_tok, id_x_tok, where, id_x_tok, equal, id_x_tok},
+			specInstTargeted, -1,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseSpecInst, test.end))
+	}
 }
 
-func TestParseSpecMemberGroup(t *testing.T) {
-
-}
+// Nothing to test here--just wraps a function tested a million times already. And other tests wouldn't work 
+// if this one doesn't--just not worth the time
+// 	func TestParseSpecMemberGroup(t *testing.T)
 
 // rule:
 //
@@ -235,8 +272,48 @@ func TestParseSpecHead(t *testing.T) {
 	}
 }
 
+// rule:
+//
+//	```
+//	spec dependency = {"\n"}, "from", {"\n"}, pattern ;
+//	```
 func TestParseSpecDependency(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  data.Maybe[pattern]
+		end int
+	}{
+		{
+			"00",
+			[]api.Token{from, id_x_tok},
+			data.Just(dependencyNode), -1,
+		},
+		{
+			"01",
+			[]api.Token{from, newline, id_x_tok},
+			data.Just(dependencyNode), -1,
+		},
+		{
+			"10",
+			[]api.Token{newline, from, id_x_tok},
+			data.Just(dependencyNode), -1,
+		},
+		{
+			"11",
+			[]api.Token{newline, from, newline, id_x_tok},
+			data.Just(dependencyNode), -1,
+		},
+		{
+			"not parsed",
+			[]api.Token{id_x_tok},
+			data.Nothing[pattern](), 0,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseOptionalSpecDependency, test.end))
+	}
 }
 
 func TestParseSpecInstTarget(t *testing.T) {

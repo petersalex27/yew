@@ -382,8 +382,6 @@ func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[req
 //
 //	```
 //	spec inst = "inst", {"\n"}, spec head, [{"\n"}, spec inst target], {"\n"}, spec inst where clause ;
-//	spec inst where clause = "where", {"\n"}, spec inst member group ;
-//	spec inst member group = spec member | "(", {"\n"}, spec member, {then, spec member}, {"\n"}, ")" ;
 //	```
 func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
 	inst, found := getKeywordAtCurrent(p, token.Inst, dropAfter)
@@ -396,7 +394,6 @@ func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
 		return data.PassErs[specInst](es)
 	}
 
-	p.dropNewlines()
 	esTarget, target, isTarget := parseOptionalSpecInstTarget(p).Break()
 	if !isTarget {
 		return data.PassErs[specInst](esTarget)
@@ -420,10 +417,10 @@ func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
 // rule:
 //
 //	```
-//	spec inst target = "=", {"\n"}, constrainer ;
+//	spec inst target = {"\n"}, "=", {"\n"}, constrainer ;
 //	```
 func parseOptionalSpecInstTarget(p Parser) data.Either[data.Ers, data.Maybe[constrainer]] {
-	equal, found := getKeywordAtCurrent(p, token.Equal, dropAfter)
+	equal, found := getKeywordAtCurrent(p, token.Equal, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[constrainer](p))
 	}
