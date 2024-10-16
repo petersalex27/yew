@@ -349,7 +349,55 @@ func TestParseTypeConstructor(t *testing.T) {
 }
 
 func TestParseDef(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  def
+		end   int
+	}{
+		{
+			"def - 00",
+			[]api.Token{id_x_tok, equal, id_x_tok},
+			defNode, -1,
+		},
+		{
+			"def - 01",
+			[]api.Token{id_x_tok, equal, newline, id_x_tok},
+			defNode, -1,
+		},
+		{
+			"def - 10",
+			[]api.Token{id_x_tok, newline, equal, id_x_tok},
+			defNode, -1,
+		},
+		{
+			"def - 11",
+			[]api.Token{id_x_tok, newline, equal, newline, id_x_tok},
+			defNode, -1,
+		},
+		{
+			"def - newline ends correctly",
+			[]api.Token{id_x_tok, equal, id_x_tok, newline},
+			//                                   ^-- should stop here
+			defNode, 3,
+		},
+		{
+			"def - trailing annotation",
+			[]api.Token{id_x_tok, equal, id_x_tok, annotOpenTok, id_test_tok, rbracket},
+			//                                   ^-- should stop here
+			defNode, 3,
+		},
+		{
+			"def - impossible ends correctly",
+			[]api.Token{id_x_tok, impossibleTok, id_x_tok},
+			//                                 ^-- should stop here
+			makeDef(name_x, defBodyImpossible), 2,
+		},
+	}
 
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseDef, test.end))
+	}
 }
 
 // rule:
