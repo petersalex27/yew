@@ -835,6 +835,8 @@ func parseTypeDefOrTyping(p Parser) data.Either[data.Ers, mainElement] {
 	if !isDeriving {
 		resetOrigin(p, origin)
 		return data.PassErs[mainElement](esDeriving)
+	} else if mDeriving.IsNothing() {
+		resetOrigin(p, origin)
 	}
 
 	td := makeTypeDef(sig, tdb, mDeriving)

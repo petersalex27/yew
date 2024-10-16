@@ -366,6 +366,9 @@ func (lex *Lexer) remainingLine() (line string, ok bool) {
 	start, end := lex.Pos, endPositions[lex.Line-1]
 	if start >= end {
 		return "", false
+	} else if lex.Source[end-1] == '\n' { 
+		// this will be true except for the last line
+		end--
 	}
 	return string(lex.Source[start:end]), true
 }
@@ -917,6 +920,7 @@ func (lex *Lexer) analyze() token.Token {
 	c, _ := lex.nextChar()
 	if c == '\n' {
 		tok := token.Newline.MakeValued("\n")
+		lex.Line++
 		return lex.output(tok)
 	}
 	// use char to determine what class new token will belong to

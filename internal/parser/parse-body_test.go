@@ -407,10 +407,10 @@ func TestParseDef(t *testing.T) {
 //	```
 func TestParseDefBody(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input []api.Token
-		want defBody
-		end int
+		want  defBody
+		end   int
 	}{
 		{
 			"expr - 0",
@@ -440,7 +440,7 @@ func TestParseDefBody(t *testing.T) {
 				// with x of (
 				with, id_x_tok, of, lparen,
 				//   x => x where x = x
-					id_x_tok, thickArrow, id_x_tok, where, id_x_tok, equal, id_x_tok,
+				id_x_tok, thickArrow, id_x_tok, where, id_x_tok, equal, id_x_tok,
 				// ) where x = x
 				rparen, where, id_x_tok, equal, id_x_tok,
 			},
@@ -787,51 +787,57 @@ func TestParseTypeDef(t *testing.T) {
 		name  string
 		input []api.Token
 		want  mainElement
+		end  int
 	}{
 		{
 			"00",
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
-			typeDefNode,
+			typeDefNode, -1,
 		},
 		{
 			"01",
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, newline, id_MyId_tok, colon, id_x_tok},
-			typeDefNode,
+			typeDefNode, -1,
 		},
 		{
 			"10",
 			[]api.Token{id_MyId_tok, colon, id_x_tok, newline, where, id_MyId_tok, colon, id_x_tok},
-			typeDefNode,
+			typeDefNode, -1,
 		},
 		{
 			"11",
 			[]api.Token{id_MyId_tok, colon, id_x_tok, newline, where, newline, id_MyId_tok, colon, id_x_tok},
-			typeDefNode,
+			typeDefNode, -1,
+		},
+		{
+			"end correctness",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, newline},
+			typeDefNode, -2,
 		},
 		{
 			"with deriving - 00",
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, derivingTok, id_MyId_tok, id_x_tok},
-			typeDefNodeWithDeriving,
+			typeDefNodeWithDeriving, -1,
 		},
 		{
 			"with deriving - 01",
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, derivingTok, newline, id_MyId_tok, id_x_tok},
-			typeDefNodeWithDeriving,
+			typeDefNodeWithDeriving, -1,
 		},
 		{
 			"with deriving - 10",
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, newline, derivingTok, id_MyId_tok, id_x_tok},
-			typeDefNodeWithDeriving,
+			typeDefNodeWithDeriving, -1,
 		},
 		{
 			"with deriving - 11",
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok, newline, derivingTok, newline, id_MyId_tok, id_x_tok},
-			typeDefNodeWithDeriving,
+			typeDefNodeWithDeriving, -1,
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeDefOrTyping, -1))
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeDefOrTyping, test.end))
 	}
 }
 
@@ -932,7 +938,7 @@ func TestParseTyping(t *testing.T) {
 }
 
 func TestParseOptionalVisibility(t *testing.T) {
-	
+
 }
 
 // rule:

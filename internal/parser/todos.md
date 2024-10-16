@@ -2,8 +2,6 @@
   - this could be done during syntax analysis, name analysis, or type analysis
     - probably easiest to do this during type analysis--name analysis could work too, but makes less sense
 
-- [ ] Move general functions in parser's `common.go` into `api/util/parse` if possible
-
 - [ ] This is important: aliases can ***ONLY*** alias *type* constructors, make sure this gets enforced during name analysis
 
 - [ ] add `auto` modifier to type sigs
