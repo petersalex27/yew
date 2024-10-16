@@ -27,12 +27,10 @@ func parseOptionalEnclosedAnnotation(p Parser) data.Either[data.Ers, data.Maybe[
 	}
 	p.advance() // consume '[@'
 	p.dropNewlines()
-	mId := parseIdent(p)
-	if mId.IsNothing() { // must have an id if we have an opening annotation bracket
+	id, isId := parseIdent(p).Break()
+	if !isId { // must have an id if we have an opening annotation bracket
 		return data.Fail[data.Maybe[enclosedAnnotation]](ExpectedId, p.current())
 	}
-
-	id, _ := mId.Break()
 
 	openBrackets := 1
 	tokens := data.Nil[api.Node]()
@@ -104,7 +102,19 @@ func annotationIteration(p Parser) data.Either[data.Ers, data.Maybe[annotation]]
 }
 
 // parses a block of annotations
-func parseAnnotations(p Parser) data.Either[data.Ers, data.Maybe[annotations]] {
+//
+// rule:
+//
+//	```
+//	annotations_ = annotation, {{"\n"}, annotation}, {"\n"} ;
+//	```
+//
+// NOTE: the '_' in the rule name is to flag that this rule eats a trailing newline--this is the
+// only rule (or should be, at least) that does this, hence the non-standard name.
+// 	- the motivation behind this is to keep each rule's alternatives at most 100 characters in width
+//	- annotations always **precede** a declaration of some sort (counting EOF as a declaration), and
+//	  an arbitrary amount of whitespace may always precede any declaration
+func parseAnnotations_(p Parser) data.Either[data.Ers, data.Maybe[annotations]] {
 	cur := p.current()
 	if !token.FlatAnnotation.Match(cur) && !token.LeftBracketAt.Match(cur) {
 		return data.Ok(data.Nothing[annotations](p)) // Ok result, Just no annotations found

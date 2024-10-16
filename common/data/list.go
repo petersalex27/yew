@@ -24,11 +24,7 @@ func (List[a]) zeroElement() (_ a) { return }
 
 // try to strengthen a list to a lifted non-empty list
 func EStrengthen[ne EmbedsNonEmpty[a], a api.Node](xs List[a]) Maybe[ne] {
-	if res, ok := xs.Strengthen().Break(); ok {
-		return Just(ne{res})
-	} else {
-		return Nothing[ne](xs.Position)
-	}
+	return Bind(xs.Strengthen(), justLiftNonEmpty[ne])
 }
 
 func (xs List[a]) Strengthen() Maybe[NonEmpty[a]] {
@@ -78,17 +74,15 @@ func (xs List[a]) Snoc(e a) List[a] {
 
 func (xs List[a]) Append(es ...a) List[a] {
 	xs.elements = append(xs.elements, es...)
-	if len(es) > 0 {
-		xs.Position = xs.Update(es[len(es)-1])
+	if len(es) < 1 {
+		xs.Position = api.ZeroPosition()
+	} else {
+		xs.Position = api.WeakenRangeOver(es[0], es[1:]...)
 	}
 	return xs
 }
 
-func (xs List[a]) Map(f func(a) a) List[a] {
-	return MapList(f)(xs)
-}
-
-func MapList[a, b api.Node](f func(a) b) func(List[a]) List[b] {
+func ListMap[a, b api.Node](f func(a) b) func(List[a]) List[b] {
 	return func(xs List[a]) List[b] {
 		ys := Nil[b](len(xs.elements))
 		for _, x := range xs.elements {
@@ -98,7 +92,7 @@ func MapList[a, b api.Node](f func(a) b) func(List[a]) List[b] {
 	}
 }
 
-func AppendAll[a api.Node](xs ...a) List[a] {
+func appendAll[a api.Node](xs ...a) List[a] {
 	ys := List[a]{elements: xs}
 	if len(xs) == 0 {
 		ys.Position = api.ZeroPosition()
@@ -123,5 +117,47 @@ func (xs List[a]) Tail() Maybe[List[a]] {
 	} else if len(xs.elements) == 0 {
 		return Nothing[List[a]](xs)
 	}
-	return Just(AppendAll(xs.elements[1:]...))
+	return Just(appendAll(xs.elements[1:]...))
+}
+
+// applies the folding function `f` from the end of the list to the beginning
+//
+// Example:
+// 	```
+//	FoldRight(subtract, 0)(Makes(1, 2, 3) 
+//		= subtract(1, subtract(2, subtract(3, 0)))
+//		= subtract(1, subtract(2, 3))
+//		= subtract(1, -1)
+//		= 2
+//	```
+//
+// SEE: FoldLeft for a fold in the opposite direction
+func FoldRight[a, b api.Node](f func(a, b) b, z b) func(List[a]) b {
+	return func(xs List[a]) b {
+		for i := xs.Len() - 1; i >= 0; i-- {
+			z = f(xs.elements[i], z)
+		}
+		return z
+	}
+}
+
+// applies the folding function `f` from the beginning of the list to the end
+//
+// Example:
+// 	```
+//	FoldLeft(subtract, 0)(Makes(1, 2, 3)
+//		= subtract(subtract(subtract(0, 1), 2), 3)
+//		= subtract(subtract(-1, 2), 3)
+//		= subtract(-3, 3)
+//		= -6
+//	```
+//
+// SEE: FoldRight for a fold in the opposite direction
+func FoldLeft[a, b api.Node](f func(b, a) b, z b) func(List[a]) b {
+	return func(xs List[a]) b {
+		for _, x := range xs.elements {
+			z = f(z, x)
+		}
+		return z
+	}
 }

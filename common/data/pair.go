@@ -9,7 +9,7 @@ type (
 		api.Position
 	}
 
-	EmbedsPair[a, b api.Node] interface{
+	EmbedsPair[a, b api.Node] interface {
 		api.DescribableNode
 		~struct{ Pair[a, b] }
 	}
@@ -43,4 +43,10 @@ func EMakePair[c EmbedsPair[a, b], a, b api.Node](x a, y b) c {
 
 func ETwo[pair EmbedsPair[a, b], a, b api.Node](x Solo[a], y b) pair {
 	return pair{Two(x, y)}
+}
+
+func PairMap[a, b, c, d api.Node](f func(a) c, g func(b) d) func(p Pair[a, b]) Pair[c, d] {
+	return func(p Pair[a, b]) Pair[c, d] {
+		return MakePair(f(p.first), g(p.second))
+	}
 }

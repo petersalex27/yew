@@ -60,7 +60,7 @@ func parseMaybeExpr(p Parser, enclosed bool) (*data.Ers, data.Maybe[expr]) {
 }
 
 func parseJustAppExprOrJustExpr(p Parser, lhs expr, enclosed bool) (*data.Ers, expr) {
-	es, exps, has2ndTerm := parseOneOrMore(p, lhs, enclosed, parseMaybeExprTermRhs)
+	es, exps, has2ndTerm := parseOneOrMore(p, lhs, enclosedDependentIt(enclosed), parseMaybeExprTermRhs)
 	if es != nil {
 		return es, nil
 	}
@@ -95,15 +95,15 @@ func parseMaybeExprTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[expr]) 
 		return nil, data.Just[expr](acc)
 	} else if lookahead1(p, token.Let) { // "let"
 		es, e := parseMaybeLetExpr(p)
-		return es, bind(e, fun.Compose(data.Just, (letExpr).asExpr))
+		return es, data.MaybeMap((letExpr).asExpr)(e)
 	} else if lookahead1(p, token.Case) { // "case"
 		es, e := parseMaybeCaseExpr(p)
-		return es, bind(e, fun.Compose(data.Just, (caseExpr).asExpr))
+		return es, data.MaybeMap((caseExpr).asExpr)(e)
 	} else if lookahead1(p, token.LeftParen) { // "("
 		return parseMaybeEnclosedExpr(p)
 	}
 	es, e := parseMaybeExprAtom(p) // expr atom
-	return es, bind(e, fun.Compose(data.Just, exprAtomAsExpr))
+	return es, data.MaybeMap(exprAtomAsExpr)(e)
 }
 
 // rule:
@@ -141,7 +141,7 @@ func parseMaybeLetExpr(p Parser) (*data.Ers, data.Maybe[letExpr]) {
 //	```
 //	let binding =
 //		binding group member
-//		| "(", {"\n"}, binding group member, {{"\n"}, binding group member}, {"\n"}, ")" ;
+//		| "(", {"\n"}, binding group member, {then, binding group member}, {"\n"}, ")" ;
 //	```
 func parseLetBinding(p Parser) data.Either[data.Ers, letBinding] {
 	return parseGroup[letBinding](p, ExpectedBindingTerm, parseMaybeBindingGroupMember)
@@ -260,7 +260,7 @@ func parseMaybeCaseExpr(p Parser) (*data.Ers, data.Maybe[caseExpr]) {
 // rule:
 //
 //	```
-//	case arms = case arm | "(", {"\n"}, case arm, {{"\n"}, case arm}, {"\n"}, ")" ;
+//	case arms = case arm | "(", {"\n"}, case arm, {then, case arm}, {"\n"}, ")" ;
 //	```
 func parseCaseArms(p Parser) data.Either[data.Ers, caseArms] {
 	return parseGroup[caseArms](p, ExpectedCaseArm, maybeParseCaseArm)
@@ -282,7 +282,7 @@ func maybeParseCaseArm(p Parser) (*data.Ers, data.Maybe[caseArm]) {
 
 	// the rest is required
 
-	// drop newlines before '=>'
+	// drop newlines before '=>' (or 'impossible')
 	p.dropNewlines()
 	esBody, body, isBodyRight := parsePatternBoundBody(p, token.ThickArrow).Break()
 	if !isBodyRight {
@@ -370,7 +370,6 @@ func parseLambdaAbstraction(p Parser) data.Either[data.Ers, lambdaAbstraction] {
 		return data.PassErs[lambdaAbstraction](es)
 	}
 
-	p.dropNewlines()
 	arrow, found := getKeywordAtCurrent(p, token.ThickArrow, dropBeforeAndAfter)
 	if !found {
 		return data.Fail[lambdaAbstraction](ExpectedLambdaThickArrow, p)

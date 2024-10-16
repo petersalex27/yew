@@ -60,8 +60,7 @@ func TestParseYewSource(t *testing.T) {
 			"source - 0100 (header only)",
 			[]api.Token{moduleTok, id_x_tok},
 			makeYewSource(
-				//data.Nothing[meta](),
-				data.Just[header](data.EMakePair[header](data.Just[module](module_x), data.Nil[importStatement]())),
+				data.Just(data.EMakePair[header](data.Just(module_x), data.Nil[importStatement]())),
 				data.Nothing[body](),
 				data.Nothing[annotations](),
 			),
@@ -97,7 +96,7 @@ func TestParseYewSource(t *testing.T) {
 		},
 
 		// NOTE: this shows there are really just three *syntactic* sections of a yew source file; however,
-		// once name analysis is complete, the annotations will be divided b/w the module and the header. 
+		// once name analysis is complete, the annotations will be divided b/w the module and the header.
 
 		// "source - 1000 (meta only)" is not possible, as the footer will take the annotations
 		// 		- would be equivalent to "source - 0001 (footer only)"

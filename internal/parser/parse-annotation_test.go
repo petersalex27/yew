@@ -89,7 +89,7 @@ func TestParseAnnotations(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseAnnotations, -1))
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseAnnotations_, -1))
 	}
 }
 

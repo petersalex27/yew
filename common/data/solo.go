@@ -23,3 +23,9 @@ func EOne[solo EmbedsSolo[a], a api.Node](x a) solo {
 func One[a api.Node](node a) Solo[a] {
 	return Solo[a]{one: node, Position: node.GetPos()}
 }
+
+func SoloMap[a, b api.Node](f func(a) b) func(Solo[a]) Solo[b] {
+	return func(s Solo[a]) Solo[b] {
+		return One(f(s.one))
+	}
+}

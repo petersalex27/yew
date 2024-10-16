@@ -1,16 +1,14 @@
 (* root *)
-yew source = {"\n"}, [meta, {"\n"}], [header], [then, body, {"\n"}], footer ; 
-
-(* meta *)
-meta = annotations_ ;
-
+yew source = {"\n"}, [header | body | header, then, body], footer ; 
 (* header *)
-header = [module], {then, [annotations_], import} ;
+header = 
+  [[annotations_], module, {then, [annotations_], import statement}] 
+  | [[annotations_], import statement, {then, [annotations_], import statement}] ;
   module = "module", {"\n"}, lower ident ;
-  import = "import", {"\n"}, 
-      ( package import 
-      | "(", {"\n"}, package import, {then, package import}, {"\n"}, ")"
-      ) ;
+  import statement = "import", {"\n"}, imports ;
+    imports = 
+        package import 
+        | "(", {"\n"}, package import, {then, package import}, {"\n"}, ")" ;
     package import = import path, [{"\n"}, import specification] ;
       import specification = as clause | using clause ;
         as clause = "as", {"\n"}, module alias ;
@@ -20,10 +18,8 @@ header = [module], {then, [annotations_], import} ;
             "_"
             | name 
             | "(", {"\n"}, name, {{"\n"}, ",", {"\n"}, name}, [{"\n"}, ","], {"\n"}, ")" ;
-
 (* footer *)
 footer = [annotations_], eof ;
-
 (* body *)
 body = [annotations_], body elem, {then, [annotations_], body elem} ;
   visibility = "public" | "open" ;

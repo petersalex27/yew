@@ -57,6 +57,12 @@ func Run(p Parser) api.Node {
 	return nil
 }
 
+func then(p Parser) bool {
+	origin := getOrigin(p)
+	p.dropNewlines()
+	return getOrigin(p) > origin
+}
+
 // returns the current token counter in the case of a ParserState or ParserState_optional instance,
 // otherwise, returns -1
 func getOrigin(p Parser) int {

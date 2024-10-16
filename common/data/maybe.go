@@ -78,7 +78,7 @@ func Bind[b, a api.Node](m Maybe[a], f func(a) Maybe[b]) Maybe[b] {
 	}
 }
 
-func MapMaybe[a, b api.Node](f func(a) b) func(Maybe[a]) Maybe[b] {
+func MaybeMap[a, b api.Node](f func(a) b) func(Maybe[a]) Maybe[b] {
 	return func(m Maybe[a]) Maybe[b] {
 		if x, just := m.Break(); just {
 			return Just(f(x))

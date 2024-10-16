@@ -5,51 +5,67 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
+func parseModulePartOfHeader(p Parser) data.Either[data.Ers, data.Maybe[module]] {
+	origin := getOrigin(p)
+	annotEs, mAnnots, isMAnnots := parseAnnotations_(p).Break()
+	if !isMAnnots {
+		return data.PassErs[data.Maybe[module]](annotEs)
+	}
+
+	es, mMod, ok := parseModule(p).Break()
+	if !ok {
+		return data.PassErs[data.Maybe[module]](es)
+	}
+
+	if m, just := mMod.Break(); !just {
+		resetOrigin(p, origin)
+	} else {
+		// apply annotations to module
+		m.annotate(mAnnots)
+		mMod = data.Just(m)
+	}
+	return data.Ok(mMod)
+}
+
 // rule:
 //
 //	```
-//	header = [module], {{"\n"}, [annotations_], import} ;
+//	header =
+//		[[annotations_], module, {then, [annotations_], import statement}]
+//		| [[annotations_], import statement, {then, [annotations_], import statement}] ;
 //	```
 func parseHeader(p Parser) data.Either[data.Ers, data.Maybe[header]] {
-	origin := getOrigin(p)
-	annotEs, mAnnots, isMAnnots := parseAnnotations(p).Break()
-	if !isMAnnots {
-		return data.PassErs[data.Maybe[header]](annotEs)
-	}
-
-	es, mod, ok := parseModule(p).Break()
-	if !ok {
+	es, mMod, isMMod := parseModulePartOfHeader(p).Break()
+	if !isMMod {
 		return data.PassErs[data.Maybe[header]](es)
 	}
 
-	var imports data.List[importStatement]
-	var isImports bool
-
-	moduleExists, somethingIsAnnotated := !mod.IsNothing(), !mAnnots.IsNothing()
-	annotateModule := moduleExists && somethingIsAnnotated
+	// reset when no imports are found
+	origin := getOrigin(p)
 	
-	if annotateModule {
-		m, _ := mod.Break()
-		m.annotate(mAnnots) // whether annots target mod. will be determined later
-		mod = data.Just(m)
-	}
+	// the origin WILL change if and only if endHeaderEarly is false!!
+	endHeaderEarly := !mMod.IsNothing() && !then(p) // order is REALLY important here
+	if endHeaderEarly { // origin is 
+		// module but no `then` => no imports
+		return data.Ok(makePossibleHeader(mMod, data.Nil[importStatement]()))
+	} 
 	
-	if !annotateModule && somethingIsAnnotated {
-		// give annotations to imports if no module is present
-		es, imports, isImports = parseImportsHelper(p, mAnnots).Break()
-	} else {
-		es, imports, isImports = parseImports(p).Break()
-	}
+	// might need to reset origin--don't know yet though
 
+	// no module or module and `then` are found successful; either way, input is ready to optionally 
+	// parse the import statements
+	es, imports, isImports := parseImports(p).Break()
 	if !isImports {
 		return data.PassErs[data.Maybe[header]](es)
-	} else if mod.IsNothing() && imports.IsEmpty() && !mAnnots.IsNothing() {
-		// reset to the position before the annotations
-		//lint:ignore SA4006 ignore unused variable warning
-		p = resetOrigin(p, origin)
 	}
-	
-	return data.Ok(makePossibleHeader(mod, imports))
+
+	// if imports are NOT found, and b/c the `then` might have succeeded above, if the origin has
+	// changed, the `then` sequences a body element or the footer instead; so, reset the origin
+	if imports.IsEmpty() {
+		resetOrigin(p, origin)
+	}
+
+	return data.Ok(makePossibleHeader(mMod, imports))
 }
 
 func makePossibleHeader(mod data.Maybe[module], imports data.List[importStatement]) data.Maybe[header] {
@@ -60,7 +76,7 @@ func makePossibleHeader(mod data.Maybe[module], imports data.List[importStatemen
 }
 
 func parseModule(p Parser) data.Either[data.Ers, data.Maybe[module]] {
-	moduleToken, found := getKeywordAtCurrent(p, token.Module, dropAfter)
+	moduleToken, found := getKeywordAtCurrent(p, token.Module, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[module](p))
 	}
@@ -70,56 +86,56 @@ func parseModule(p Parser) data.Either[data.Ers, data.Maybe[module]] {
 		return data.Fail[data.Maybe[module]](ExpectedModuleId, p)
 	}
 
-	mod := module{data.Nothing[annotations](), data.One[lowerIdent](id), id.Position}
-	mod.Position = mod.Update(moduleToken)
-	return data.Ok(data.Just[module](mod))
-}
-
-func parseImportsHelper(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, data.List[importStatement]] {
-	p.dropNewlines()
-	importStatements := data.Nil[importStatement]()
-	for {
-		// only reset if nothing is returned for `maybeParseImport`
-		tokenPosition := getOrigin(p)
-		var es data.Ers
-		var isMAnnots bool
-		if isMAnnots = !as.IsNothing(); !isMAnnots { // this allows the argument to be used if non-Nothing
-			es, as, isMAnnots = parseAnnotations(p).Break()
-		}
-
-		if !isMAnnots {
-			return data.PassErs[data.List[importStatement]](es)
-		}
-
-		pEs, mImport := maybeParseImport(p)
-		if pEs != nil {
-			return data.PassErs[data.List[importStatement]](*pEs)
-		}
-
-		im, just := mImport.Break()
-		if !just {
-			// reset to the position before the annotations
-
-			// ignored linter b/c this serves as a reminder that the position is being reset
-			//lint:ignore SA4006 ignore unused variable warning
-			p = resetOrigin(p, tokenPosition)
-
-			// no more imports, annot, if exists, is for body element or footer
-			return data.Ok(importStatements)
-		}
-
-		stmt := data.EMakePair[importStatement](as, im)
-		importStatements = importStatements.Snoc(stmt) // keep position, don't reset
-		// clear annotations for next import statement
-		as = data.Nothing[annotations]()
-	}
+	mod := makeModule(id)
+	mod.Position = mod.Position.Update(moduleToken)
+	return data.Ok(data.Just(mod))
 }
 
 // Note, this is not an actual rule in the grammar, but a helper function to parse the imports. That
 // said, if it was a rule, it would be the following:
 //
 //	```
-//	imports = {{"\n"}, [annotations_], import} ;
+//	imports helper = import statement, {then, import statement} ;
+//	```
+func parseImportsHelper(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, data.List[importStatement]] {
+	importStatements := data.Nil[importStatement]()
+	// only reset if nothing is returned for `maybeParseImport`
+	origin := getOrigin(p)
+	for {
+		var es data.Ers
+		var isMAnnots bool
+		if isMAnnots = !as.IsNothing(); !isMAnnots { // this allows the argument to be used if non-Nothing
+			es, as, isMAnnots = parseAnnotations_(p).Break()
+		}
+
+		if !isMAnnots {
+			return data.PassErs[data.List[importStatement]](es)
+		} else if pEs, mImport := maybeParseImport(p); pEs != nil {
+			return data.PassErs[data.List[importStatement]](*pEs)
+		} else if im, just := mImport.Break(); !just {
+			break
+		} else {
+			stmt := data.EMakePair[importStatement](as, im)
+			importStatements = importStatements.Snoc(stmt) // keep position, don't reset
+			as = data.Nothing[annotations]()               // clear annotations for next import statement
+			// set origin to current position (before `then` and the possible annotations)
+			origin = getOrigin(p) 
+		}
+
+		if !then(p) {
+			break
+		}
+	}
+
+	resetOrigin(p, origin)
+	return data.Ok(importStatements)
+}
+
+// Note, this is not an actual rule in the grammar, but a helper function to parse the imports. That
+// said, if it was a rule, it would be the following:
+//
+//	```
+//	imports = import statement, {then, import statement} ;
 //	```
 func parseImports(p Parser) data.Either[data.Ers, data.List[importStatement]] {
 	return parseImportsHelper(p, data.Nothing[annotations]())
@@ -130,7 +146,7 @@ func parseImports(p Parser) data.Either[data.Ers, data.List[importStatement]] {
 //	```
 //	import = "import", {"\n"},
 //		( package import
-//		| "(", {"\n"}, package import, {{"\n"}, package import}, {"\n"}, ")"
+//		| "(", {"\n"}, package import, {then, package import}, {"\n"}, ")"
 //		) ;
 func maybeParseImport(p Parser) (*data.Ers, data.Maybe[importing]) {
 	importToken, found := getKeywordAtCurrent(p, token.Import, dropAfter)
@@ -161,9 +177,9 @@ func parseMaybeName(p Parser) (*data.Ers, data.Maybe[name]) {
 //	```
 func parseSymbolSelections(p Parser) data.Either[data.Ers, data.Maybe[data.NonEmpty[name]]] {
 	// check for special "_" case, hides all exported symbols
-	if token.Underscore.Match(p.current()) {
+	if underscore, found := getKeywordAtCurrent(p, token.Underscore, dropNone); found {
 		p.advance()
-		hiddenSelection := data.Nothing[data.NonEmpty[name]]()
+		hiddenSelection := data.Nothing[data.NonEmpty[name]]().Update(underscore)
 		return data.Ok(hiddenSelection) // hides all names from imported namespace
 	}
 
@@ -226,16 +242,21 @@ func maybeParseImportSpecification(p Parser) (*data.Ers, data.Maybe[selections])
 //	package import = import path, [{"\n"}, import specification] ;
 //	```
 func maybeParsePackageImport(p Parser) (*data.Ers, data.Maybe[packageImport]) {
-	pathLiteral, found := getKeywordAtCurrent(p, token.ImportPath, dropAfter)
+	pathLiteral, found := getKeywordAtCurrent(p, token.ImportPath, dropNone)
 	if !found {
 		return nil, data.Nothing[packageImport](p)
 	}
 
 	path := data.EOne[importPathIdent](pathLiteral)
 
+	origin := getOrigin(p)
+	p.dropNewlines()
+
 	es, selections := maybeParseImportSpecification(p)
 	if es != nil {
 		return es, data.Nothing[packageImport](p)
+	} else if selections.IsNothing() {
+		resetOrigin(p, origin)
 	}
 
 	pi := data.EMakePair[packageImport](path, selections)

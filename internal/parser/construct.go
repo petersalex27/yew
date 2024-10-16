@@ -95,6 +95,15 @@ func makeTyping(n name, ty typ) typing {
 	}
 }
 
+func makeDef(pat pattern, db defBody) def {
+	return def{
+		data.Nothing[annotations](),
+		pat,
+		db,
+		api.WeakenRangeOver[api.Node](pat, db),
+	}
+}
+
 func makeTypeDef(head typing, body typeDefBody, der data.Maybe[deriving]) typeDef {
 	return typeDef{
 		data.Nothing[annotations](),
@@ -150,4 +159,8 @@ func makeWithArmLhsRefined(pat1, pat2 pattern) withArmLhs {
 
 func makeWithClauseArm(lhs withArmLhs, db defBody) withClauseArm {
 	return data.EMakePair[withClauseArm](lhs, db)
+}
+
+func makeModule(id lowerIdent) module {
+	return module{data.Nothing[annotations](), data.One(id), id.Position}
 }

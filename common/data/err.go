@@ -35,3 +35,10 @@ func (e Err) Describe() (string, []api.Node) {
 	}
 	return "warning: " + e.msg, []api.Node{}
 }
+
+// use to apply changes to an Err
+func ErrMap(f func(msg string, fatal bool) Err) func(Err) Err {
+	return func(e Err) Err {
+		return f(e.msg, e.fatal)
+	}
+} 

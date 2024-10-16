@@ -44,8 +44,6 @@ var (
 	typingLAs = [][2]token.Type{{token.Id, token.Colon}, {token.Infix, token.Colon}, {token.MethodSymbol, token.Colon}}
 
 	typeTermExceptionLAs = []token.Type{token.Underscore, token.EmptyParenEnclosure, token.Equal}
-
-	visibilityLAs = []token.Type{token.Public, token.Open}
 )
 
 func bind[a, b api.Node](ma data.Maybe[a], f func(a) data.Maybe[b]) data.Maybe[b] {
@@ -186,9 +184,18 @@ const (
 // drop bits should be ...
 //   - 0b00: no newlines are dropped
 //   - 0b01: newline after the keyword is dropped
-//   - 0b10: newline before the keyword is dropped (and not undone!)
-//   - 0b11: newline before and after the keyword are dropped (and the before newline is not undone!)
+//   - 0b10: newline before the keyword is dropped
+//   - 0b11: newline before and after the keyword are dropped
+//
+// if keyword is not found, any dropped newlines are restored
 func getKeywordAtCurrent(p Parser, keyword token.Type, dropBits dropNewlineBits) (token api.Token, found bool) {
+	origin := getOrigin(p)
+	defer func() {
+		if !found {
+			resetOrigin(p, origin)
+		}
+	}()
+	
 	if dropBits&dropBefore != 0 {
 		p.dropNewlines()
 	}
@@ -219,6 +226,17 @@ func maybeParseName(p Parser) data.Maybe[name] {
 	}
 	p.advance()
 	return data.Just(data.EOne[name](t))
+}
+
+func enclosedDependentIt(enclosed bool) func(Parser) bool {
+	if enclosed {
+		return func(p Parser) bool {
+			p.dropNewlines()
+			return true
+		}
+	}
+
+	return fun.Constant[Parser](true)
 }
 
 type embedsToken = interface {
@@ -265,7 +283,7 @@ func parseLowerIdent(p Parser) data.Maybe[lowerIdent] {
 // parses a rule pattern `group` (parameterized by `mem`):
 //
 //	```
-//	group <mem> = mem | "(", {"\n"}, mem, {{"\n"}, mem}, {"\n"}, ")" ;
+//	group <mem> = mem | "(", {"\n"}, mem, {then, mem}, {"\n"}, ")" ;
 //	```
 func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, ne] {
 	leftParen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter) // parse '('
@@ -282,7 +300,7 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 	var es *data.Ers
 	if found {
 		// if '(' was found, parse multiple elements and then ')'
-		es, xs, _ = parseOneOrMore(p, first, true, maybeParse)
+		es, xs, _ = parseOneOrMore(p, first, then, maybeParse)
 		if es != nil {
 			return data.PassErs[ne](*es)
 		}
@@ -302,14 +320,14 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 
 // lhs - the thing returned if there is no rhs; otherwise, the first thing in the non-empty list
 // dropNewlinesEachIt - if true, calls `p.dropNewlines()` at the start of each loop iteration
-func parseOneOrMore[a api.Node](p Parser, lhs a, dropNewlinesEachIt bool, f func(Parser) (*data.Ers, data.Maybe[a])) (_ *data.Ers, _ data.NonEmpty[a], has2ndTerm bool) {
+func parseOneOrMore[a api.Node](p Parser, lhs a, startIt func(p Parser) bool, f func(Parser) (*data.Ers, data.Maybe[a])) (_ *data.Ers, _ data.NonEmpty[a], has2ndTerm bool) {
+	origin := getOrigin(p)
+	
 	group := data.Singleton(lhs)
-	has2ndTerm = false
-	for {
-		if dropNewlinesEachIt {
-			p.dropNewlines()
-		}
 
+	has2ndTerm = false
+
+	for startIt(p) {
 		es, mRhs := f(p)
 		if es != nil {
 			return es, group, has2ndTerm
@@ -317,17 +335,21 @@ func parseOneOrMore[a api.Node](p Parser, lhs a, dropNewlinesEachIt bool, f func
 
 		rhs, isSomething := mRhs.Break()
 		if !isSomething {
-			return nil, group, has2ndTerm
+			break
 		}
 
 		has2ndTerm = true
 		group = group.Snoc(rhs)
+		origin = getOrigin(p)
 	}
+
+	resetOrigin(p, origin)
+
+	return nil, group, has2ndTerm
 }
 
 // allows trailing sep by default
 func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, errHandler func(cur api.Token) string, sep token.Type, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, b] {
-	ps := api.ZeroPosition()
 	es, lhs := maybeParse(p)
 	if es != nil {
 		return data.PassErs[b](*es)
@@ -337,26 +359,28 @@ func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, er
 	if !just {
 		return data.Fail[b](errHandler(p.current()), p) // error when less than 1 element
 	}
-	ps = ps.Update(unit)
 
 	terms := data.Singleton(unit)
 	for {
-		p.dropNewlines()
-		if !parseKeywordAtCurrent(p, sep, &ps) {
+		if key, found := getKeywordAtCurrent(p, sep, dropBefore); !found {
 			break // no 'sep', end loop
+		} else {
+			terms.Position = terms.Update(key)
 		}
 
-		es, mRhs := maybeParse(p)
-		ps = ps.Update(mRhs)
-		if es != nil {
+		origin := getOrigin(p)
+		p.dropNewlines()
+
+		if es, mRhs := maybeParse(p); es != nil {
 			return data.PassErs[b](*es)
 		} else if rhs, just := mRhs.Break(); !just {
+			resetOrigin(p, origin) // undo dropNewlines
 			break // no rhs, trailing comma, end loop
 		} else {
 			terms = terms.Snoc(rhs)
 		}
 	}
-	terms.Position = ps
+	
 	return data.Ok(b{terms})
 }
 

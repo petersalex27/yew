@@ -27,7 +27,6 @@ func parseTypeHelper(p Parser, enclosed bool) data.Either[data.Ers, typ] {
 		if es, binders, ok := binding.Break(); !ok {
 			return data.PassErs[typ](es)
 		} else {
-			p.dropNewlines()
 			return forallBindParsedType(p, binders)
 		}
 	}
@@ -66,7 +65,6 @@ func parseType(p Parser, enclosed bool) data.Either[data.Ers, typ] {
 
 	ty = ty.updatePosTyp(lparen) // update position to include left paren
 
-	p.dropNewlines()
 	rparen, found := getKeywordAtCurrent(p, token.RightParen, dropBefore)
 	if !found {
 		return data.Fail[typ](ExpectedRightParen, p)
@@ -101,11 +99,12 @@ func parseMaybeTypeTail(p Parser, enclosed bool) (*data.Ers, data.Maybe[typ]) {
 		return es, data.Nothing[typ](p)
 	}
 
-	p.dropNewlines()
-	pos := api.ZeroPosition()
-	functionTyped := parseKeywordAtCurrent(p, token.Arrow, &pos)                  // is this a function type?
-	someFunc := functionTyped || parseKeywordAtCurrent(p, token.ThickArrow, &pos) // if not, is it a constraint?
-	if !someFunc {
+	arrow, isFunctionType := getKeywordAtCurrent(p, token.Arrow, dropBeforeAndAfter)
+	var isConstrainedType bool
+	if !isFunctionType {
+		arrow, isConstrainedType = getKeywordAtCurrent(p, token.ThickArrow, dropBeforeAndAfter)
+	}
+	if !isFunctionType && !isConstrainedType {
 		// not a function type, return term
 		return nil, data.Just(head)
 	}
@@ -114,14 +113,14 @@ func parseMaybeTypeTail(p Parser, enclosed bool) (*data.Ers, data.Maybe[typ]) {
 	functionRes := runCases(p,
 		fun.Bind1stOf2(parseTypeTail, enclosed),
 		passParseErs[typ],
-		constructFunction(head, functionTyped),
+		constructFunction(head, isFunctionType),
 	)
 	esFull, function, isFunction := functionRes.Break()
 	if !isFunction {
 		return &esFull, data.Nothing[typ](p)
 	}
 	// update position to include whichever arrow was parsed ("->" or "=>")
-	function = function.updatePosTyp(pos)
+	function = function.updatePosTyp(arrow)
 	return nil, data.Just(function)
 }
 
@@ -180,14 +179,12 @@ func parseForallBinders(p Parser, forallKey api.Token) data.Either[data.Ers, for
 }
 
 func forallBindParsedType(p Parser, fb forallBinders) data.Either[data.Ers, typ] {
-	p.dropNewlines()
-	pos := api.ZeroPosition()
-	if parseKeywordAtCurrent(p, token.In, &pos) {
+	if in, found := getKeywordAtCurrent(p, token.In, dropBeforeAndAfter); found {
 		res := data.Cases(parseTypeTail(p, false), data.PassErs[typ], assembleForallType(fb))
-		res = res.Update(pos)
+		res = res.Update(in)
 		return res
 	}
-	return data.Fail[typ](ExpectedForallIn, pos)
+	return data.Fail[typ](ExpectedForallIn, p)
 }
 
 func assembleForallType(fb forallBinders) func(typ) data.Either[data.Ers, typ] {
@@ -263,7 +260,7 @@ func parseJustAppTypeOrJustType(p Parser, lhs typ, enclosed bool) (*data.Ers, ty
 	if lhs == nil {
 		panic("lhs cannot be nil")
 	}
-	es, types, has2ndTerm := parseOneOrMore(p, lhs, enclosed, maybeParseTypeTermRhs)
+	es, types, has2ndTerm := parseOneOrMore(p, lhs, enclosedDependentIt(enclosed), maybeParseTypeTermRhs)
 	if es != nil {
 		return es, nil
 	}

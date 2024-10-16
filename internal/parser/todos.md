@@ -5,3 +5,5 @@
 - [ ] Move general functions in parser's `common.go` into `api/util/parse` if possible
 
 - [ ] This is important: aliases can ***ONLY*** alias *type* constructors, make sure this gets enforced during name analysis
+
+- [ ] add `auto` modifier to type sigs

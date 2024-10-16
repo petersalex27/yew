@@ -10,3 +10,5 @@ func Fail[a api.Node](msg string, positioned api.Positioned) Either[Ers, a] {
 }
 
 func PassErs[b api.Node](e Ers) Either[Ers, b] { return __PassErs[b](e) }
+
+func IdErs(e Ers) Ers { return e }

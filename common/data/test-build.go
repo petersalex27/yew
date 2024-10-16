@@ -56,3 +56,8 @@ func PassErs[b api.Node](e Ers) Either[Ers, b] {
 	logCaller(runtime.Caller(1))
 	return __PassErs[b](e)
 }
+
+func IdErs(e Ers) Ers {
+	logCaller(runtime.Caller(1))
+	return e
+}

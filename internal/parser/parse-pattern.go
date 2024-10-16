@@ -79,7 +79,7 @@ func maybeParsePattern(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern])
 	}
 
 	maybeFunc := fun.BinBind1st_PairTarget( /* note RHS here! */ maybeParsePatternTermRhs, enclosed)
-	es, res, has2ndTerm := parseOneOrMore(p, first, enclosed, maybeFunc)
+	es, res, has2ndTerm := parseOneOrMore(p, first, enclosedDependentIt(enclosed), maybeFunc)
 	if es != nil {
 		return es, data.Nothing[pattern](p)
 	} else if !has2ndTerm {
@@ -190,7 +190,7 @@ func maybeParsePatternTermHelper(p Parser, enclosed bool, rhs bool) (*data.Ers, 
 //		| "_"
 //		| "(", {"\n"}, enc pattern inner, {"\n"}, ")"
 //		| "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
-//	enc pattern inner = enc pattern, {{"\n"}, ",", enc pattern}, [{"\n"}, ","] ;
+//	enc pattern inner = enc pattern, {{"\n"}, ",", {"\n"}, enc pattern}, [{"\n"}, ","] ;
 //	```
 func maybeParsePatternTerm(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
 	return maybeParsePatternTermHelper(p, enclosed, false)

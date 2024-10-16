@@ -17,76 +17,89 @@ func TestParseBody(t *testing.T) {
 		name  string
 		input []api.Token
 		want  body
+		end   int
 	}{
 		{
 			"typing",
 			// x : x
 			[]api.Token{id_x_tok, colon, id_x_tok},
-			body_typing,
+			body_typing, -1,
 		},
 		{
 			"type def",
 			// MyId : x where MyId : x
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
-			body_typeDef,
+			body_typeDef, -1,
 		},
 		{
 			"spec def",
 			// spec MyId x where x : x
 			[]api.Token{spec, id_MyId_tok, id_x_tok, where, id_x_tok, colon, id_x_tok},
-			body_specDef,
+			body_specDef, -1,
 		},
 		{
 			"spec inst",
 			// inst MyId x where x = x
 			[]api.Token{inst, id_MyId_tok, id_x_tok, where, id_x_tok, equal, id_x_tok},
-			body_specInst,
+			body_specInst, -1,
 		},
 		{
 			"type alias",
 			// alias MyId = MyId
 			[]api.Token{alias, id_MyId_tok, equal, id_MyId_tok},
-			body_alias,
+			body_alias, -1,
 		},
 		{
 			"syntax",
 			// syntax `my` x = x
 			[]api.Token{syntaxTok, raw_my_tok, id_x_tok, equal, id_x_tok},
-			body_syntax,
+			body_syntax, -1,
 		},
 		{
 			"def",
 			// x = x
 			[]api.Token{id_x_tok, equal, id_x_tok},
-			data.EMakes[body](defNode.asBodyElement()),
+			data.EMakes[body](defNode.asBodyElement()), -1,
 		},
 		{
 			"annotated",
 			// --@test\nx : x
 			[]api.Token{annot, newline, id_x_tok, colon, id_x_tok},
-			data.EMakes[body](annotTypingNode.asBodyElement()),
+			data.EMakes[body](annotTypingNode.asBodyElement()), -1,
 		},
 		{
 			"multiple",
 			// x : x\nx = x
 			[]api.Token{id_x_tok, colon, id_x_tok, newline, id_x_tok, equal, id_x_tok},
-			data.EMakes[body](typingNode.asBodyElement(), defNode.asBodyElement()),
+			data.EMakes[body](typingNode.asBodyElement(), defNode.asBodyElement()), -1,
+		},
+		{
+			// this was an issue in the old grammar; basically, one could end a definition w/ impossible
+			// and directly begin another definition--although it's not a parsing issue, it's not
+			// desirable from a code-health perspective
+			`avoids "impossible chaining"`,
+			[]api.Token{id_x_tok, impossibleTok, id_x_tok, colon, id_x_tok},
+			//                                 ^-- should stop here
+			body_defImpossible, 2,
+		},
+		{
+			"unconsumed tail annotation - 0",
+			// x : x [@test]
+			[]api.Token{id_x_tok, colon, id_x_tok, annotOpenTok, id_test_tok, rbracket},
+			//                                   ^-- should stop here
+			data.EMakes[body](typingNode.asBodyElement()), 3,
+		},
+		{
+			"unconsumed tail annotation - 1",
+			// x : x\n[@test]
+			[]api.Token{id_x_tok, colon, id_x_tok, newline, annotOpenTok, id_test_tok, rbracket},
+			//                                   ^-- should stop here
+			data.EMakes[body](typingNode.asBodyElement()), 3,
 		},
 	}
 
 	for _, test := range tests {
-		fut := func(p Parser) data.Either[data.Ers, body] {
-			bd, _ := parseBody(p)
-			if es, mBd, isMBd := bd.Break(); !isMBd {
-				return data.PassErs[body](es)
-			} else if b, ok := mBd.Break(); ok {
-				return data.Ok(b)
-			} else {
-				return data.Fail[body]("could not parse body", p)
-			}
-		}
-
-		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut, -1))
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, data.Just(test.want), parseBody, test.end))
 	}
 }
 
@@ -95,61 +108,84 @@ func TestParseBodyElement_TestMaybeParseMainElement(t *testing.T) {
 		name  string
 		input []api.Token
 		want  mainElement
+		end   int
 	}{
 		{
 			"typing",
 			// x : x
 			[]api.Token{id_x_tok, colon, id_x_tok},
-			typingNode,
+			typingNode, -1,
 		},
 		{
 			"type def",
 			// MyId : x where MyId : x
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
-			typeDefNode,
+			typeDefNode, -1,
 		},
 		{
 			"spec def",
 			// spec MyId x where x : x
 			[]api.Token{spec, id_MyId_tok, id_x_tok, where, id_x_tok, colon, id_x_tok},
-			specDefNode,
+			specDefNode, -1,
 		},
 		{
 			"spec inst",
 			// inst MyId x where x = x
 			[]api.Token{inst, id_MyId_tok, id_x_tok, where, id_x_tok, equal, id_x_tok},
-			specInstNode,
+			specInstNode, -1,
 		},
 		{
 			"type alias",
 			// alias MyId = MyId
 			[]api.Token{alias, id_MyId_tok, equal, id_MyId_tok},
-			aliasNode,
+			aliasNode, -1,
 		},
 		{
 			"syntax",
 			// syntax `my` x = x
 			[]api.Token{syntaxTok, raw_my_tok, id_x_tok, equal, id_x_tok},
-			syntaxNode,
+			syntaxNode, -1,
 		},
 		{
 			"def",
 			// x = x
 			[]api.Token{id_x_tok, equal, id_x_tok},
-			defNode,
+			defNode, -1,
+		},
+		{
+			// this was an issue in the old grammar; basically, one could end a definition w/ impossible
+			// and directly begin another definition--although it's not a parsing issue, it's not
+			// desirable from a code-health perspective
+			`avoids "impossible chaining"`,
+			[]api.Token{id_x_tok, impossibleTok, id_x_tok, colon, id_x_tok},
+			//                                 ^-- should stop here
+			defImpossibleNode, 2,
+		},
+		{
+			"unconsumed tail annotation - 0",
+			// x : x [@test]
+			[]api.Token{id_x_tok, colon, id_x_tok, annotOpenTok, id_test_tok, rbracket},
+			//                                   ^-- should stop here
+			typingNode, 3,
+		},
+		{
+			"unconsumed tail annotation - 1",
+			// x : x\n[@test]
+			[]api.Token{id_x_tok, colon, id_x_tok, newline, annotOpenTok, id_test_tok, rbracket},
+			//                                   ^-- should stop here
+			typingNode, 3,
 		},
 	}
 
 	t.Run("TestParseBodyElement", func(t *testing.T) {
-		fut := fun.Bind1stOf2(parseBodyElement, data.Nothing[annotations]())
 		for _, test := range tests {
-			t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want.asBodyElement(), fut, -1))
+			t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want.asBodyElement(), parseBodyElement, test.end))
 		}
 	})
 
 	t.Run("TestMaybeParseMainElem", func(t *testing.T) {
 		for _, test := range tests {
-			t.Run(test.name, maybeOutputFUT_endCheck(test.input, data.Just(test.want), maybeParseMainElement, -1))
+			t.Run(test.name, maybeOutputFUT_endCheck(test.input, data.Just(test.want), maybeParseMainElement, test.end))
 		}
 
 		// run one final test that tests for annotations being applied
@@ -580,7 +616,7 @@ func TestParseSyntaxRule(t *testing.T) {
 // rule:
 //
 //	```
-//	"alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
+//	type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
 //	```
 func TestParseTypeAlias(t *testing.T) {
 	tests := []struct {
@@ -698,46 +734,59 @@ func TestParseTypeDefBody(t *testing.T) {
 		name  string
 		input []api.Token
 		want  typeDefBody
+		end   int
 	}{
 		{
 			"impossible",
 			[]api.Token{impossibleTok},
-			data.Inr[data.NonEmpty[typeConstructor]](impossibleNode),
+			data.Inr[data.NonEmpty[typeConstructor]](impossibleNode), -1,
 		},
 		{
 			"non-grouped",
 			[]api.Token{id_MyId_tok, colon, id_x_tok},
-			data.Inl[impossible](singleConsNode),
+			data.Inl[impossible](singleConsNode), -1,
 		},
 		{
 			"enclosed - 00",
 			[]api.Token{lparen, id_MyId_tok, colon, id_x_tok, rparen},
-			data.Inl[impossible](singleConsNode),
+			data.Inl[impossible](singleConsNode), -1,
 		},
 		{
 			"enclosed - 01",
 			[]api.Token{lparen, id_MyId_tok, colon, id_x_tok, newline, rparen},
-			data.Inl[impossible](singleConsNode),
+			data.Inl[impossible](singleConsNode), -1,
 		},
 		{
 			"enclosed - 10",
 			[]api.Token{lparen, newline, id_MyId_tok, colon, id_x_tok, rparen},
-			data.Inl[impossible](singleConsNode),
+			data.Inl[impossible](singleConsNode), -1,
 		},
 		{
 			"enclosed - 11",
 			[]api.Token{lparen, newline, id_MyId_tok, colon, id_x_tok, newline, rparen},
-			data.Inl[impossible](singleConsNode),
+			data.Inl[impossible](singleConsNode), -1,
 		},
 		{
 			"enclosed - multiple",
 			[]api.Token{lparen, id_MyId_tok, colon, id_x_tok, newline, id_MyId_tok, colon, id_x_tok, rparen},
-			data.Inl[impossible](multiConsNode),
+			data.Inl[impossible](multiConsNode), -1,
+		},
+		{
+			"input end correctness - 1",
+			[]api.Token{impossibleTok, id_MyId_tok, colon, id_x_tok},
+			//                       ^-- should stop here
+			data.Inr[data.NonEmpty[typeConstructor]](impossibleNode), 1,
+		},
+		{
+			"input end correctness - 1",
+			[]api.Token{id_MyId_tok, colon, id_x_tok, newline, id_MyId_tok, colon, id_x_tok},
+			//                                      ^-- should stop here
+			data.Inl[impossible](singleConsNode), 3,
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeDefBody, -1))
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeDefBody, test.end))
 	}
 }
 
@@ -783,7 +832,7 @@ func TestParseVisibleBodyElement(t *testing.T) {
 // rule:
 //
 //	```
-//	where body = main elem | "(", {"\n"}, main elem, {{"\n"}, main elem}, {"\n"}, ")" ;
+//	where body = main elem | "(", {"\n"}, main elem, {then, main elem}, {"\n"}, ")" ;
 //	```
 func TestParseWhereBody(t *testing.T) {
 	tests := []struct {
@@ -860,7 +909,7 @@ func TestParseOptionalWhereClause(t *testing.T) {
 			"where clause, followed by more",
 			[]api.Token{where, id_x_tok, colon, id_x_tok, newline, id_x_tok, colon, id_x_tok},
 			data.Just(data.EConstruct[whereClause](mainElement(typingNode))),
-			5, // should read newline
+			4, // should NOT read newline
 		},
 	}
 
@@ -931,7 +980,6 @@ func TestParseWithClause(t *testing.T) {
 // under the assumption that parseGroup is correct
 // - func TestParseWithClauseArms(t *testing.T)
 
-
 // rule:
 //
 //	```
@@ -977,7 +1025,7 @@ func TestMaybeParseWithClauseArm(t *testing.T) {
 		{
 			"view refined - 100",
 			[]api.Token{id_x_tok, newline, bar, id_x_tok, thickArrow, id_x_tok},
-			data.Just(withClauseVRNode),	
+			data.Just(withClauseVRNode),
 		},
 		{
 			"view refined - 101",

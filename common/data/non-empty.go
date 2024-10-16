@@ -21,6 +21,10 @@ func (ne NonEmpty[a]) Append(es ...a) NonEmpty[a] {
 	return ne
 }
 
+func justLiftNonEmpty[ne EmbedsNonEmpty[a], a api.Node](xs NonEmpty[a]) Maybe[ne] {
+	return Just(ne{xs})
+}
+
 // uses the fact that the constructors for NonEmpty[a] all allocate memory for the rest.elements slice
 func (ne NonEmpty[a]) Un_constructed() bool {
 	return ne.rest.elements == nil
@@ -67,14 +71,8 @@ func Construct[a api.Node](first a, rest ...a) NonEmpty[a] {
 	return ne
 }
 
-func (xs NonEmpty[a]) Map(f func(a) a) NonEmpty[a] {
-	xs.first = f(xs.first)
-	xs.rest = xs.rest.Map(f)
-	return xs
-}
-
 func MapNonEmpty[a, b api.Node](f func(a) b) func(xs NonEmpty[a]) NonEmpty[b] {
-	listMap := MapList(f)
+	listMap := ListMap(f)
 	return func(xs NonEmpty[a]) NonEmpty[b] {
 		return NonEmpty[b]{first: f(xs.first), rest: listMap(xs.rest)}
 	}
@@ -87,5 +85,9 @@ func (xs NonEmpty[a]) Tail() List[a] { return xs.rest }
 func (xs NonEmpty[a]) Len() int { return 1 + xs.rest.Len() }
 
 func (xs NonEmpty[a]) Elements() []a {
-	return append([]a{xs.first}, xs.rest.elements...)
+	return xs.Weaken().elements // ensures new slice is created
+}
+
+func (xs NonEmpty[a]) Weaken() List[a] {
+	return Nil[a](xs.Len()).Snoc(xs.Head()).Append(xs.rest.Elements()...)
 }

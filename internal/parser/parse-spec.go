@@ -152,7 +152,7 @@ func maybeParseConstraintGroup(p Parser) (*data.Ers, data.Maybe[data.NonEmpty[co
 //	```
 func parseConstraint(p Parser) data.Either[data.Ers, constraintVerified] {
 	// if constraint group, parens are handled in call--note that this doesn't follow the rule exactly ...
-	es, mCG := maybeParseConstraintGroup(p) 
+	es, mCG := maybeParseConstraintGroup(p)
 	if es != nil {
 		return data.Inl[constraintVerified](*es)
 	} else if cg, just := mCG.Break(); just {
@@ -287,7 +287,7 @@ func parseOptionalSpecDependency(p Parser) data.Either[data.Ers, data.Maybe[patt
 //	```
 //	spec body =
 //		spec member
-//		| "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
+//		| "(", {"\n"}, spec member, {then, spec member}, {"\n"}, ")" ;
 //	```
 func parseSpecBody(p Parser) data.Either[data.Ers, specBody] {
 	return parseGroup[specBody](p, ExpectedTypingOrDef, parseMaybeSpecMember)
@@ -303,7 +303,7 @@ func parseSpecBody(p Parser) data.Either[data.Ers, specBody] {
 // the style and semantics are similar to type classes in Haskell but Haskell does not, in its
 // standard form, have the same support for higher-order types.
 func parseMaybeSpecMember(p Parser) (*data.Ers, data.Maybe[specMember]) {
-	es, mAnnots, isMAnnots := parseAnnotations(p).Break()
+	es, mAnnots, isMAnnots := parseAnnotations_(p).Break()
 	if !isMAnnots {
 		return &es, data.Nothing[specMember](p)
 	}
@@ -337,7 +337,7 @@ func parseMaybeSpecMember(p Parser) (*data.Ers, data.Maybe[specMember]) {
 //
 // In short, only use this function when `def` is the only valid annotation target
 func parseMaybeAnnotatedDef(p Parser) (*data.Ers, data.Maybe[def]) {
-	es, mAnnots, isMAnnots := parseAnnotations(p).Break()
+	es, mAnnots, isMAnnots := parseAnnotations_(p).Break()
 	if !isMAnnots {
 		return &es, data.Nothing[def](p)
 	}
@@ -361,7 +361,7 @@ func parseMaybeAnnotatedDef(p Parser) (*data.Ers, data.Maybe[def]) {
 //	```
 //	requiring clause = "requiring", {"\n"},
 //		( [annotations_], def
-//		| "(", {"\n"}, [annotations_], def, {{"\n"}, [annotations_], def}, {"\n"}, ")"
+//		| "(", {"\n"}, [annotations_], def, {then, [annotations_], def}, {"\n"}, ")"
 //		) ;
 //	```
 func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[requiringClause]] {
@@ -370,7 +370,8 @@ func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[req
 		return data.Ok(data.Nothing[requiringClause](p)) // no requiring clause, return data.Nothing
 	}
 
-	es, reqBody, isReqBody := parseGroup[struct{ data.NonEmpty[def] }](p, ExpectedDef, parseMaybeAnnotatedDef).Break()
+	type group struct{ data.NonEmpty[def] }
+	es, reqBody, isReqBody := parseGroup[group](p, ExpectedDef, parseMaybeAnnotatedDef).Break()
 	if !isReqBody {
 		return data.PassErs[data.Maybe[requiringClause]](es)
 	}
@@ -383,7 +384,7 @@ func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[req
 //	```
 //	spec inst = "inst", {"\n"}, spec head, [{"\n"}, spec inst target], {"\n"}, spec inst where clause ;
 //	spec inst where clause = "where", {"\n"}, spec inst member group ;
-//	spec inst member group = spec member | "(", {"\n"}, spec member, {{"\n"}, spec member}, {"\n"}, ")" ;
+//	spec inst member group = spec member | "(", {"\n"}, spec member, {then, spec member}, {"\n"}, ")" ;
 //	```
 func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
 	inst, found := getKeywordAtCurrent(p, token.Inst, dropAfter)

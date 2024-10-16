@@ -82,13 +82,13 @@ NOTE: There might be slight inconsistencies with the *actual* grammar. The most 
 
 ```ebnf
 (* root *)
-yew source = {"\n"}, [meta, {"\n"}], [header, {"\n"}], [body, {"\n"}], footer ; 
+yew source = {"\n"}, [meta, "\n", {"\n"}], [header, "\n",{"\n"}], [body, {"\n"}], footer ; 
 
 (* meta *)
 meta = annotations_ ;
 
 (* header *)
-header = [module], {{"\n"}, [annotations_], import} ;
+header = [module, end], {{"\n"}, [annotations_], import, end} ;
   module = "module", {"\n"}, lower ident ;
   import = "import", {"\n"}, 
       ( package import 
@@ -183,8 +183,11 @@ body = {{"\n"}, [annotations_], body elem} ;
     default expr = ":=", {"\n"}, expr ;
     forall binders = ident, {ident} | "(", {"\n"}, ident, {{"\n"}, ident}, {"\n"}, ")" ;
   def = pattern, {"\n"}, def body ;
-  def body thick arrow = (with clause | "=>", {"\n"}, expr), [where clause] | "impossible" ;
-  def body = (with clause | "=", {"\n"}, expr), [where clause] | "impossible" ;
+  def body thick arrow = body thick arrow main, body tail ;
+  def body = body main, body tail ;
+    body main = with clause | "=", {"\n"}, expr ;
+    body tail = [where clause] | "impossible" ;
+    body thick arrow main = with clause | "=>", {"\n"}, expr ;
     where clause = {"\n"}, "where", {"\n"}, where body ;
     where body = main elem | "(", {"\n"}, main elem, {"\n", main elem}, {"\n"}, ")" ;
     with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
@@ -266,6 +269,7 @@ char = ? REGEX "'(\\[afnvtbr\\']|[^\a\f\n\v\t\b\r])'" ? ;
 
 (* misc *)
 eof = ? END OF FILE ? ;
+end = eof | "\n" ;
 
 (* reserved *)
 reserved = 
@@ -294,4 +298,10 @@ dot dot = ".." ;
 syntax specification = "pattern" | "term" ;
 ```
 
+## Some unfortunate accepted expression of the grammar rules
+
+- This should be removed eventually, but are documented here as a word of caution
+- There are likely more, this is just the known examples that have not been dealt with
+
+- removed `impossible` or mere expression termination ending def. bodies. Def. bodies now require one, and only one, of the previously mentioned parts AND, now, additionally require either a newline or the EOF
 TODO

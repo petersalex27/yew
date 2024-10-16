@@ -8,32 +8,48 @@ import (
 
 func makeYewSource(h data.Maybe[header], b data.Maybe[body], f data.Maybe[annotations]) yewSource {
 	return yewSource{
-		header: h,
-		body: b,
-		footer: footer{f},
+		header:   h,
+		body:     b,
+		footer:   footer{f},
 		Position: api.WeakenRangeOver[api.Node](h, b, f),
 	}
 }
 
-// Parse yew source file.
+// Parse yew source file from the top down.
 //
-//	`yew source = {"\n"}, [meta, {"\n"}], [header, {"\n"}], [body, {"\n"}], footer ;`
+// rule:
+//
+//	```
+//	yew source = {"\n"}, [header | body | header, then, body], {"\n"}, footer ;
+//	```
 func parseYewSource(p Parser) Parser {
-	p.dropNewlines()
+	mb := data.Nothing[body]()
 
-	// parse the yew source file surface from the top down
+	// {"\n"}, [header | header, then, body | ..
+	p.dropNewlines()
 	es, header, isHeader := parseHeader(p).Break()
 	if !isHeader {
 		return writeErrors(p, es)
 	}
 
-	res, mFooterAnnots := parseBody(p)
-	es, mb, isMB := res.Break()
-	if !isMB {
+	// the order is REALLY important here; `then` modifies state
+	if header.IsNothing() || then(p) {
+		// .. | body | .., then, body], {"\n"}, footer ;
+		res := parseBody(p)
+		es, mb_, isMB := res.Break()
+		if !isMB {
+			return writeErrors(p, es)
+		}
+		mb = mb_
+	}
+
+	// {"\n"}, footer ;
+	p.dropNewlines()
+	es, mFooterAnnots, ok := parseAnnotations_(p).Break()
+	if !ok {
 		return writeErrors(p, es)
 	}
 
-	p.dropNewlines()
 	if es := assertEof(p); es != nil {
 		return writeErrors(p, *es)
 	}
