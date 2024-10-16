@@ -97,7 +97,7 @@ func TestParseSpecDef(t *testing.T) {
 		name  string
 		input []api.Token
 		want  specDef
-		end int
+		end   int
 	}{
 		// no dependency, no requiring clause
 
@@ -165,7 +165,7 @@ func TestParseSpecDef(t *testing.T) {
 		{
 			"no dependency, requiring clause - ends correctly",
 			[]api.Token{spec, id_MyId_tok, id_x_tok, where, id_x_tok, colon, id_x_tok, requiring, id_x_tok, equal, id_x_tok, newline},
-			//                                                                                           should end here --^ 
+			//                                                                                           should end here --^
 			noDepReq, -2,
 		},
 
@@ -194,7 +194,7 @@ func TestParseSpecInst(t *testing.T) {
 		name  string
 		input []api.Token
 		want  specInst
-		end int
+		end   int
 	}{
 		{
 			"no target",
@@ -225,7 +225,7 @@ func TestParseSpecInst(t *testing.T) {
 	}
 }
 
-// Nothing to test here--just wraps a function tested a million times already. And other tests wouldn't work 
+// Nothing to test here--just wraps a function tested a million times already. And other tests wouldn't work
 // if this one doesn't--just not worth the time
 // 	func TestParseSpecMemberGroup(t *testing.T)
 
@@ -282,7 +282,7 @@ func TestParseOptionalSpecDependency(t *testing.T) {
 		name  string
 		input []api.Token
 		want  data.Maybe[pattern]
-		end int
+		end   int
 	}{
 		{
 			"00",
@@ -316,12 +316,43 @@ func TestParseOptionalSpecDependency(t *testing.T) {
 	}
 }
 
-func TestParseSpecInstTarget(t *testing.T) {
+// rule:
+//
+//	```
+//	spec inst target = {"\n"}, "=", {"\n"}, constrainer ;
+//	```
+func TestParseOptionalSpecInstTarget(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  data.Maybe[constrainer]
+		end   int
+	}{
+		{
+			"00",
+			[]api.Token{equal, id_MyId_tok, id_x_tok},
+			data.Just(constrainerNode), -1,
+		},
+		{
+			"01",
+			[]api.Token{equal, newline, id_MyId_tok, id_x_tok},
+			data.Just(constrainerNode), -1,
+		},
+		{
+			"10",
+			[]api.Token{newline, equal, id_MyId_tok, id_x_tok},
+			data.Just(constrainerNode), -1,
+		},
+		{
+			"11",
+			[]api.Token{newline, equal, newline, id_MyId_tok, id_x_tok},
+			data.Just(constrainerNode), -1,
+		},
+	}
 
-}
-
-func TestParseSpecInstWhereClause(t *testing.T) {
-
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseOptionalSpecInstTarget, test.end))
+	}
 }
 
 func TestParseUpperIdSequence(t *testing.T) {
