@@ -114,7 +114,7 @@ func TestParseYewSource(t *testing.T) {
 			"source - 1100 (meta and header)",
 			[]api.Token{annot, newline, moduleTok, id_x_tok},
 			makeYewSource(
-				data.Just[header](data.EMakePair[header](data.Just(module_annot_x), data.Nil[importStatement]())),
+				data.Just(data.EMakePair[header](data.Just(module_annot_x), data.Nil[importStatement]())),
 				data.Nothing[body](),
 				data.Nothing[annotations](),
 			),
@@ -123,7 +123,7 @@ func TestParseYewSource(t *testing.T) {
 			"source - 1101 (meta, header, and footer)",
 			[]api.Token{annot, newline, moduleTok, id_x_tok, newline, annot},
 			makeYewSource(
-				data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
+				data.Just(data.EMakePair[header](data.Just(module_annot_x), data.Nil[importStatement]())),
 				data.Nothing[body](),
 				data.Just(data.EConstruct[annotations](annotation_flat)),
 			),
@@ -132,9 +132,8 @@ func TestParseYewSource(t *testing.T) {
 			"source - 1110 (meta, header, and body)",
 			[]api.Token{annot, newline, moduleTok, id_x_tok, newline, id_x_tok, colon, id_x_tok},
 			makeYewSource(
-				//data.Just[meta](meta{data.EConstruct[annotations](annotation_flat)}),
-				data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
-				data.Just[body](body_typing),
+				data.Just(data.EMakePair[header](data.Just(module_annot_x), data.Nil[importStatement]())),
+				data.Just(body_typing),
 				data.Nothing[annotations](),
 			),
 		},
@@ -142,9 +141,8 @@ func TestParseYewSource(t *testing.T) {
 			"source - 1111 (meta, header, body, and footer--all source section present)",
 			[]api.Token{annot, newline, moduleTok, id_x_tok, newline, id_x_tok, colon, id_x_tok, newline, annot},
 			makeYewSource(
-				//data.Just[meta](meta{data.EConstruct[annotations](annotation_flat)}),
-				data.Just[header](data.EMakePair[header](data.Just[module](module_annot_x), data.Nil[importStatement]())),
-				data.Just[body](body_typing),
+				data.Just(data.EMakePair[header](data.Just(module_annot_x), data.Nil[importStatement]())),
+				data.Just(body_typing),
 				data.Just(data.EConstruct[annotations](annotation_flat)),
 			),
 		},
@@ -162,5 +160,3 @@ func TestParseYewSource(t *testing.T) {
 		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut, -1))
 	}
 }
-
-// no parseMeta function--it's just a call to parseAnnotations

@@ -13,8 +13,6 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-var ()
-
 func Test_assert_annotatable(*testing.T) {
 	type annotatable interface{ annotate(data.Maybe[annotations]) }
 	var (

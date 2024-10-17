@@ -146,13 +146,11 @@ body = [annotations_], body elem, {then, [annotations_], body elem} ;
   case expr = "case", {"\n"}, pattern, {"\n"}, "of", {"\n"}, case arms ;
     case arms = case arm | "(", {"\n"}, case arm, {then, case arm}, {"\n"}, ")" ;
     case arm = pattern, {"\n"}, def body thick arrow ;
-
 (* annotations *)
 annotations_ = annotation, {{"\n"}, annotation}, {"\n"} ;
   annotation = bound annotation | flat annotation ;
   flat annotation = ? REGEX "--[ \t]*@[ \t]*[a-z][A-Za-z0-9']*\b.*$" ? ;
   bound annotation = "[@", {"\n"}, ident, {? ANY OTHER RULE ?}, "]" ;
-
 (* identifiers *)
 lower ident = ? REGEX "[a-z][a-zA-Z0-9']*" ? ;
 upper ident = ? REGEX "[A-Z][a-zA-Z0-9']*" ? ;
@@ -167,7 +165,6 @@ infix name = infix lower ident | infix upper ident | infix symbol ;
 constructor name = infix upper ident | upper ident | infix symbol | symbol ;
 name = ident | symbol | infix name | method symbol ;
 import path = ? REGEX "\"([a-z][a-zA-Z0-9']*)(/[a-z][a-zA-Z0-9']*)*\"" ? ;
-
 (* literals *)
 literal = string | integer | float | char ;
 string = raw string | escapable string | prompted string | import path ;
@@ -180,11 +177,9 @@ binary = ? REGEX "0[bB][01]+(_[01]+)*" ? ;
 octal = ? REGEX "0[oO][0-7]+(_[0-7]+)*" ? ;
 float = ? REGEX "([0-9]+(_[0-9]+)*)?(\.[0-9]+(_[0-9]+)*)([eE][\+-][0-9]+(_[0-9]+)*)?" ? ;
 char = ? REGEX "'(\\[afnvtbr\\']|[^\a\f\n\v\t\b\r])'" ? ;
-
 (* misc *)
 eof = ? END OF FILE ? ;
 then = "\n", {"\n"} ;
-
 (* reserved *)
 reserved = 
     "deriving"
@@ -205,7 +200,6 @@ nil = "[]" ;
 annotation scope head = "[@" ;
 comment = ? REGEX "--(?![ \t]*@[a-z]).*$" ? ;
 comments = comment, {{"\n"}, comment} ;
-
 (* reserved, but unused *)
 ref modality = "ref" ;
 dot dot = ".." ;
