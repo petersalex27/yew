@@ -8,7 +8,7 @@ import (
 type nodeType int32
 
 const (
-	// shift to avoid overlap with (at most two, hence 0x10) token types and node types
+	// shift to avoid overlap with token types (range=[0x0, 0xff]) and node types (range=[0x100, 0xfff])
 	_start_ nodeType = (1 + iota) << 0x10
 	EmptyType_
 	PairType_
@@ -25,6 +25,7 @@ const MinProperNodeTypeValue nodeType = nodeType(token.USER_DEFINED_START)
 const MaxProperNodeTypeValue nodeType = 0xff
 
 // actual types
+
 const (
 	Access nodeType = MinProperNodeTypeValue + iota
 	Annotations

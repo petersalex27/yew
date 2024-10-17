@@ -4,4 +4,4 @@
 
 - [ ] This is important: aliases can ***ONLY*** alias *type* constructors, make sure this gets enforced during name analysis
 
-- [ ] add `auto` modifier to type sigs
+- [x] add `auto` modifier to type sigs

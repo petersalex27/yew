@@ -12,6 +12,7 @@ const (
 	BadImport                       = "expected package name or import group"                                        // bad-import
 	ExpectedAccessDot               = "expected '.'"                                                                 // expected-access-dot
 	ExpectedAliasBinding            = "expected '=' to follow type alias name"                                       // expected-alias-binding
+	ExpectedAuto                    = "expected 'auto'"                                                              // expected-auto
 	ExpectedBindingTerm             = "expected a binding term"                                                      // expected-binding-term
 	ExpectedBodyElement             = "expected body element"                                                        // expected-body-element
 	ExpectedBoundExpr               = "let-binding requires a bound expression"                                      // expected-bound-expr
@@ -21,6 +22,7 @@ const (
 	ExpectedCommand                 = "expected command"                                                             // expected-command
 	ExpectedConstrainer             = "expected constrainer"                                                         // expected-constrainer
 	ExpectedConstraint              = "expected type constraint"                                                     // expected-type-constraint
+	ExpectedConstraintElem          = "expected constraint element"                                                  // expected-constraint-elem
 	ExpectedDef                     = "expected definition"                                                          // expected-def
 	ExpectedDerivingBody            = "expected body for deriving clause"                                            // expected-deriving-body
 	ExpectedEndOfFile               = "expected end of file"                                                         // expected-eof
@@ -33,6 +35,7 @@ const (
 	ExpectedInstWhere               = "expected 'where' clause to follow inst declaration"                           // expected-inst-where
 	ExpectedLambdaAbstraction       = "expected lambda abstraction"                                                  // expected-lambda-abstraction
 	ExpectedLambdaThickArrow        = "expected '=>' to follow lambda binders"                                       // expected-lambda-thick-arrow
+	ExpectedLeftParen               = "expected '('"                                                                 // expected-left-paren
 	ExpectedLetExpr                 = "expected let expression"                                                      // expected-let-expr
 	ExpectedMainElement             = "expected main element"                                                        // expected-main-element
 	ExpectedModalId                 = "modality must be followed by an identifier"                                   // expected-modal-id
@@ -42,13 +45,14 @@ const (
 	ExpectedOf                      = "expected 'of' to follow case scrutinee"                                       // expected-of
 	ExpectedPattern                 = "expected pattern"                                                             // expected-pattern
 	ExpectedPatternUnit             = "expected pattern unit"                                                        // expected-pattern-unit
+	ExpectedRawKeyword              = "syntax rules must contain at least one raw-string keyword declaration"        // expected-raw-keyword
 	ExpectedRightBrace              = "expected '}'"                                                                 // expected-right-brace
 	ExpectedRightParen              = "expected ')'"                                                                 // expected-right-paren
 	ExpectedSlashModuleId           = "expected module identifier to follow '/'"                                     // expected-slash-module-id
 	ExpectedSpecDef                 = "expected spec definition"                                                     // expected-spec-def
 	ExpectedSpecInst                = "expected spec instance"                                                       // expected-spec-inst
 	ExpectedSpecWhere               = "expected 'where' clause to follow spec declaration"                           // expected-spec-where
-	ExpectedStringLit               = "expected  literal"                                                            // expected--lit
+	ExpectedStringLit               = "expected literal"                                                             // expected-lit
 	ExpectedSymbol                  = "expected symbol"                                                              // expected-symbol
 	ExpectedSyntax                  = "expected syntax definition"                                                   // expected-syntax
 	ExpectedSyntaxBinding           = "expected '=' to follow syntax rule"                                           // expected-syntax-binding
@@ -81,10 +85,6 @@ const (
 	UnexpectedEOF                   = "unexpected end of file"                                                       // unexpected-eof
 	UnexpectedStructure             = "unexpected structure in source body"                                          // unexpected-structure
 	UnexpectedToken                 = "unexpected token"                                                             // unexpected-token
-	ExpectedConstraintElem          = "expected constraint element"                                                  // expected-constraint-elem
-	ExpectedRawKeyword              = "syntax rules must contain at least one raw-string keyword declaration"        // expected-raw-keyword
-	ExpectedLeftParen               = "expected '('"                                                                 // expected-left-paren
-	ExpectedAuto                    = "expected 'auto'"                                                              // expected-auto
 )
 
 func parseError(p Parser, e data.Err) error {
