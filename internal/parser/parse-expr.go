@@ -12,7 +12,7 @@ import (
 //	```
 //	expr = expr term, {expr term} ;
 //	```
-func ParseExpr(p Parser) data.Either[data.Ers, expr] {
+func ParseExpr(p parser) data.Either[data.Ers, expr] {
 	return parseExpr(p, false)
 }
 
@@ -23,7 +23,7 @@ func ParseExpr(p Parser) data.Either[data.Ers, expr] {
 //	```
 //
 // This function should only be called from within this file "expr-parse.go"--nowhere else!
-func parseExpr(p Parser, enclosed bool) data.Either[data.Ers, expr] {
+func parseExpr(p parser, enclosed bool) data.Either[data.Ers, expr] {
 	es, mExpr := parseMaybeExpr(p, enclosed)
 	if es != nil {
 		return data.PassErs[expr](*es)
@@ -41,7 +41,7 @@ func parseExpr(p Parser, enclosed bool) data.Either[data.Ers, expr] {
 //	```
 //
 // This function should only be called from within this file "expr-parse.go"--nowhere else!
-func parseMaybeExpr(p Parser, enclosed bool) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeExpr(p parser, enclosed bool) (*data.Ers, data.Maybe[expr]) {
 	es, mFirst := parseMaybeExprTerm(p)
 	if es != nil {
 		return es, data.Nothing[expr](p)
@@ -59,7 +59,7 @@ func parseMaybeExpr(p Parser, enclosed bool) (*data.Ers, data.Maybe[expr]) {
 	return nil, data.Just(exp)
 }
 
-func parseJustAppExprOrJustExpr(p Parser, lhs expr, enclosed bool) (*data.Ers, expr) {
+func parseJustAppExprOrJustExpr(p parser, lhs expr, enclosed bool) (*data.Ers, expr) {
 	es, exps, has2ndTerm := parseOneOrMore(p, lhs, enclosedDependentIt(enclosed), parseMaybeExprTermRhs)
 	if es != nil {
 		return es, nil
@@ -78,15 +78,15 @@ func parseJustAppExprOrJustExpr(p Parser, lhs expr, enclosed bool) (*data.Ers, e
 //	```
 //	expr term = expr atom | "(", {"\n"}, enc expr, {"\n"}, ")" | let expr | case expr ;
 //	```
-func parseMaybeExprTerm(p Parser) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeExprTerm(p parser) (*data.Ers, data.Maybe[expr]) {
 	return parseMaybeExprTermHelper(p, false)
 }
 
-func parseMaybeExprTermRhs(p Parser) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeExprTermRhs(p parser) (*data.Ers, data.Maybe[expr]) {
 	return parseMaybeExprTermHelper(p, true)
 }
 
-func parseMaybeExprTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeExprTermHelper(p parser, rhs bool) (*data.Ers, data.Maybe[expr]) {
 	if rhs && lookahead1(p, token.Dot) {
 		es, acc := parseAccess(p)
 		if es != nil {
@@ -111,7 +111,7 @@ func parseMaybeExprTermHelper(p Parser, rhs bool) (*data.Ers, data.Maybe[expr]) 
 //	```
 //	let expr = "let", {"\n"}, (binding group | binding assignment), {"\n"}, "in", {"\n"}, expr ;
 //	```
-func parseMaybeLetExpr(p Parser) (*data.Ers, data.Maybe[letExpr]) {
+func parseMaybeLetExpr(p parser) (*data.Ers, data.Maybe[letExpr]) {
 	let, found := getKeywordAtCurrent(p, token.Let, dropAfter)
 	if !found {
 		return nil, data.Nothing[letExpr](p)
@@ -143,7 +143,7 @@ func parseMaybeLetExpr(p Parser) (*data.Ers, data.Maybe[letExpr]) {
 //		binding group member
 //		| "(", {"\n"}, binding group member, {then, binding group member}, {"\n"}, ")" ;
 //	```
-func parseLetBinding(p Parser) data.Either[data.Ers, letBinding] {
+func parseLetBinding(p parser) data.Either[data.Ers, letBinding] {
 	return parseGroup[letBinding](p, ExpectedBindingTerm, parseMaybeBindingGroupMember)
 }
 
@@ -154,7 +154,7 @@ func parseLetBinding(p Parser) data.Either[data.Ers, letBinding] {
 //	```
 //	colon equal assignment = [":=", {"\n"}, expr] ;
 //	```
-func parseMaybeColonEqualAssignment(p Parser) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeColonEqualAssignment(p parser) (*data.Ers, data.Maybe[expr]) {
 	colonEqual, found := getKeywordAtCurrent(p, token.ColonEqual, dropAfter)
 	if !found { // this is okay, assignment is optional--at least syntactically
 		return nil, data.Nothing[expr](p)
@@ -180,7 +180,7 @@ type typingMember = data.Pair[typing, data.Maybe[expr]]
 //	```
 //	binding group member = binder, {"\n"}, ":=", {"\n"}, expr | typing, [{"\n"}, ":=", {"\n"}, expr] ;
 //	```
-func parseMaybeBindingGroupMember(p Parser) (*data.Ers, data.Maybe[bindingGroupMember]) {
+func parseMaybeBindingGroupMember(p parser) (*data.Ers, data.Maybe[bindingGroupMember]) {
 	var lhs data.Either[binder, typing]
 	isTyping := lookahead2(p, bindingTypingLAs...)
 	if isTyping {
@@ -229,7 +229,7 @@ func parseMaybeBindingGroupMember(p Parser) (*data.Ers, data.Maybe[bindingGroupM
 //	```
 //	case expr = "case", {"\n"}, pattern, {"\n"}, "of", {"\n"}, case arms ;
 //	```
-func parseMaybeCaseExpr(p Parser) (*data.Ers, data.Maybe[caseExpr]) {
+func parseMaybeCaseExpr(p parser) (*data.Ers, data.Maybe[caseExpr]) {
 	caseToken, found := getKeywordAtCurrent(p, token.Case, dropAfter)
 	if !found {
 		return nil, data.Nothing[caseExpr](p)
@@ -262,7 +262,7 @@ func parseMaybeCaseExpr(p Parser) (*data.Ers, data.Maybe[caseExpr]) {
 //	```
 //	case arms = case arm | "(", {"\n"}, case arm, {then, case arm}, {"\n"}, ")" ;
 //	```
-func parseCaseArms(p Parser) data.Either[data.Ers, caseArms] {
+func parseCaseArms(p parser) data.Either[data.Ers, caseArms] {
 	return parseGroup[caseArms](p, ExpectedCaseArm, maybeParseCaseArm)
 }
 
@@ -271,7 +271,7 @@ func parseCaseArms(p Parser) data.Either[data.Ers, caseArms] {
 //	```
 //	case arm = pattern, {"\n"}, def body thick arrow ;
 //	```
-func maybeParseCaseArm(p Parser) (*data.Ers, data.Maybe[caseArm]) {
+func maybeParseCaseArm(p parser) (*data.Ers, data.Maybe[caseArm]) {
 	es, mPat := maybeParsePattern(p, false)
 	if es != nil {
 		return es, data.Nothing[caseArm](p)
@@ -298,7 +298,7 @@ func maybeParseCaseArm(p Parser) (*data.Ers, data.Maybe[caseArm]) {
 //	```
 //	enc expr' = ["(", {"\n"}, enc expr, {"\n"}, ")"] ;
 //	```
-func parseMaybeEnclosedExpr(p Parser) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeEnclosedExpr(p parser) (*data.Ers, data.Maybe[expr]) {
 	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
 		return nil, data.Nothing[expr](p) // fine, not enclosed, return 'data.Nothing'
@@ -325,7 +325,7 @@ func parseMaybeEnclosedExpr(p Parser) (*data.Ers, data.Maybe[expr]) {
 //	```
 //	expr atom = pattern atom | lambda abstraction ;
 //	```
-func parseMaybeExprAtom(p Parser) (*data.Ers, data.Maybe[exprAtom]) {
+func parseMaybeExprAtom(p parser) (*data.Ers, data.Maybe[exprAtom]) {
 	if lookahead1(p, exprAtomLAs...) {
 		es, e, isRight := parseExprAtom(p).Break()
 		if !isRight {
@@ -341,7 +341,7 @@ func parseMaybeExprAtom(p Parser) (*data.Ers, data.Maybe[exprAtom]) {
 //	```
 //	expr atom = pattern atom | lambda abstraction ;
 //	```
-func parseExprAtom(p Parser) data.Either[data.Ers, exprAtom] {
+func parseExprAtom(p parser) data.Either[data.Ers, exprAtom] {
 	if matchCurrentBackslash(p) {
 		return data.Cases(parseLambdaAbstraction(p), data.Inl[exprAtom, data.Ers], fun.Compose(data.Ok, data.Inr[patternAtom, lambdaAbstraction]))
 	}
@@ -355,7 +355,7 @@ func parseExprAtom(p Parser) data.Either[data.Ers, exprAtom] {
 //		lambda binders = lambda binder, {{"\n"}, ",", {"\n"}, lambda binder}, [{"\n"}, ","] ;
 //		lambda binder = binder | "_" ;
 //	```
-func parseLambdaAbstraction(p Parser) data.Either[data.Ers, lambdaAbstraction] {
+func parseLambdaAbstraction(p parser) data.Either[data.Ers, lambdaAbstraction] {
 	backslash, found := getKeywordAtCurrent(p, token.Backslash, dropAfter)
 	if !found {
 		return data.Fail[lambdaAbstraction](ExpectedLambdaAbstraction, p)
@@ -385,7 +385,7 @@ func parseLambdaAbstraction(p Parser) data.Either[data.Ers, lambdaAbstraction] {
 //	```
 //	lambda binder =  binder | "_" ;
 //	```
-func parseMaybeLambdaBinder(p Parser) (*data.Ers, data.Maybe[lambdaBinder]) {
+func parseMaybeLambdaBinder(p parser) (*data.Ers, data.Maybe[lambdaBinder]) {
 	if matchCurrentUnderscore(p) {
 		underscore := p.current()
 		p.advance()
@@ -409,7 +409,7 @@ func parseMaybeLambdaBinder(p Parser) (*data.Ers, data.Maybe[lambdaBinder]) {
 // NOTE: while this function cannot parse the invalid `{ecn pattern}`, it can parse the invalid
 // `({enc pattern})`; however, this will be caught during name resolution--so, it is okay to parse
 // this.
-func parseMaybeBinder(p Parser) (*data.Ers, data.Maybe[binder]) {
+func parseMaybeBinder(p parser) (*data.Ers, data.Maybe[binder]) {
 	if matchCurrentLeftParen(p) {
 		es, mPat := maybeParsePattern(p, false)
 		if es != nil {

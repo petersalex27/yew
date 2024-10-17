@@ -151,7 +151,7 @@ func TestParseYewSource(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		fut := func(p Parser) data.Either[data.Ers, yewSource] {
+		fut := func(p parser) data.Either[data.Ers, yewSource] {
 			p = parseYewSource(p)
 			if ps, ok := p.(*ParserState); ok {
 				return data.Ok(ps.ast)

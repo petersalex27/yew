@@ -22,7 +22,7 @@ func makeYewSource(h data.Maybe[header], b data.Maybe[body], f data.Maybe[annota
 //	```
 //	yew source = {"\n"}, [header | body | header, then, body], {"\n"}, footer ;
 //	```
-func parseYewSource(p Parser) Parser {
+func parseYewSource(p parser) parser {
 	mb := data.Nothing[body]()
 
 	// {"\n"}, [header | header, then, body | ..
@@ -64,7 +64,7 @@ func parseYewSource(p Parser) Parser {
 	return p
 }
 
-func assertEof(p Parser) *data.Ers {
+func assertEof(p parser) *data.Ers {
 	if !matchCurrent(token.EndOfTokens)(p) {
 		e := data.MkErr(ExpectedEndOfFile, p.current())
 		es := data.Makes(e)

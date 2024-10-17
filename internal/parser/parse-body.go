@@ -14,7 +14,7 @@ import (
 //	```
 //	body = [annotations_], body elem, {then, [annotations_], body elem} ;
 //	```
-func parseBody(p Parser) (theBody data.Either[data.Ers, data.Maybe[body]]) {
+func parseBody(p parser) (theBody data.Either[data.Ers, data.Maybe[body]]) {
 	const smallBodyCap int = 16
 	sourceBody := body{data.Nil[bodyElement](smallBodyCap)}
 
@@ -70,7 +70,7 @@ func parseBody(p Parser) (theBody data.Either[data.Ers, data.Maybe[body]]) {
 // NOTE: a type signature, syntactically speaking, is different from a "typing". A type signature is
 // a subset of the more general "typing". A type signature can only have a "name" node appear to the
 // left of ':'.
-func parseTypeSig(p Parser) data.Either[data.Ers, typing] {
+func parseTypeSig(p parser) data.Either[data.Ers, typing] {
 	n, isN := maybeParseName(p).Break()
 	if !isN {
 		return data.Fail[typing](ExpectedName, p)
@@ -96,7 +96,7 @@ func parseTypeSig(p Parser) data.Either[data.Ers, typing] {
 //	```
 //	auto typing = "auto", {"\n"}, typing ;
 //	```
-func parseAutoDefTypeSig(p Parser) data.Either[data.Ers, mainElement] {
+func parseAutoDefTypeSig(p parser) data.Either[data.Ers, mainElement] {
 	auto, found := getKeywordAtCurrent(p, token.Auto, dropAfter)
 	if !found {
 		// should be impossible to reach this point; if it is, something is wrong
@@ -125,7 +125,7 @@ func parseAutoDefTypeSig(p Parser) data.Either[data.Ers, mainElement] {
 //		| "(", {"\n"}, [annotations_], type cons, {then, [annotations_], type cons}, {"\n"}, ")"
 //		| [annotations_], type cons ;
 //	```
-func parseTypeDefBody(p Parser) data.Either[data.Ers, typeDefBody] {
+func parseTypeDefBody(p parser) data.Either[data.Ers, typeDefBody] {
 	if matchCurrentImpossible(p) {
 		// constant "impossible" case
 		td := data.Inr[data.NonEmpty[typeConstructor]](impossible{data.One(p.current())})
@@ -168,7 +168,7 @@ func parseTypeDefBody(p Parser) data.Either[data.Ers, typeDefBody] {
 //	```
 //	type def body cons = [annotations_], type constructor ;
 //	```
-func parseTypeDefBodyTypeCons(p Parser) data.Either[data.Ers, data.NonEmpty[typeConstructor]] {
+func parseTypeDefBodyTypeCons(p parser) data.Either[data.Ers, data.NonEmpty[typeConstructor]] {
 	es, mAs, isMas := parseAnnotations_(p).Break()
 	if !isMas {
 		return data.PassErs[data.NonEmpty[typeConstructor]](es)
@@ -187,7 +187,7 @@ func parseTypeDefBodyTypeCons(p Parser) data.Either[data.Ers, data.NonEmpty[type
 //	```
 //	constructor name = infix upper ident | upper ident | symbol | infix symbol ;
 //	```
-func maybeParseConstructorName(p Parser) (*data.Ers, data.Maybe[name]) {
+func maybeParseConstructorName(p parser) (*data.Ers, data.Maybe[name]) {
 	isMethod := lookahead1(p, token.MethodSymbol)
 	if isMethod { // type constructor cannot have a method name
 		return nil, data.Nothing[name](p)
@@ -210,7 +210,7 @@ type typeConstructorSeq = data.NonEmpty[typeConstructor]
 //	type constructor = constructor name seq, {"\n"}, ":", {"\n"}, type ;
 //	constructor name seq = constructor name, {{"\n"}, ",", {"\n"}, constructor name}, [{"\n"}, ","] ;
 //	```
-func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, data.NonEmpty[typeConstructor]] {
+func parseTypeConstructor(p parser, as data.Maybe[annotations]) data.Either[data.Ers, data.NonEmpty[typeConstructor]] {
 	type group struct{ data.NonEmpty[name] }
 	es, names, isNames := parseHandledSepSequenced[group](p, typeConstructorNameError, token.Comma, maybeParseConstructorName).Break()
 	if !isNames {
@@ -236,7 +236,7 @@ func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data
 //	```
 //	optional visibility = [("open" | "public"), {"\n"}] ;
 //	```
-func parseOptionalVisibility(p Parser) (mv data.Maybe[visibility]) {
+func parseOptionalVisibility(p parser) (mv data.Maybe[visibility]) {
 	if vis, found := getKeywordAtCurrent(p, token.Open, dropAfter); found {
 		return data.Just(visibility{vis})
 	} else if vis, found = getKeywordAtCurrent(p, token.Public, dropAfter); found {
@@ -262,7 +262,7 @@ func attachVisibility(vis data.Maybe[visibility]) func(be mainElement) data.Eith
 	}
 }
 
-func parseOneMainElement(p Parser) data.Either[data.Ers, mainElement] {
+func parseOneMainElement(p parser) data.Either[data.Ers, mainElement] {
 	vis := parseOptionalVisibility(p)
 	return data.Cases(parseBasicBodyStructure(p, vis), data.PassErs[mainElement], attachVisibility(vis))
 }
@@ -272,7 +272,7 @@ func parseOneMainElement(p Parser) data.Either[data.Ers, mainElement] {
 //	```
 //	body element = def | visible body element ;
 //	```
-func parseBodyElement(p Parser) data.Either[data.Ers, bodyElement] {
+func parseBodyElement(p parser) data.Either[data.Ers, bodyElement] {
 	es, me, isME := parseOneMainElement(p).Break()
 	if !isME {
 		return data.PassErs[bodyElement](es)
@@ -288,7 +288,7 @@ func assembleDef(pat pattern) func(defBody) data.Either[data.Ers, def] {
 }
 
 // here for consistency b/w 'parseDef' and 'maybeParseDef' for parsing patterns
-func _parseDef_ParsePattern(p Parser) (es *data.Ers, pat pattern) {
+func _parseDef_ParsePattern(p parser) (es *data.Ers, pat pattern) {
 	e, pat, isPat := ParsePattern(p).Break()
 	if !isPat {
 		return &e, nil
@@ -296,7 +296,7 @@ func _parseDef_ParsePattern(p Parser) (es *data.Ers, pat pattern) {
 	return nil, pat
 }
 
-func _finishParseDef(p Parser, pat pattern) data.Either[data.Ers, def] {
+func _finishParseDef(p parser, pat pattern) data.Either[data.Ers, def] {
 	return data.Cases(parseDefBody(p), data.Inl[def, data.Ers], assembleDef(pat))
 }
 
@@ -305,7 +305,7 @@ func _finishParseDef(p Parser, pat pattern) data.Either[data.Ers, def] {
 //	```
 //	def = pattern, {"\n"}, def body ;
 //	```
-func parseDef(p Parser) data.Either[data.Ers, def] {
+func parseDef(p parser) data.Either[data.Ers, def] {
 	es, pat := _parseDef_ParsePattern(p)
 	if es != nil {
 		return data.PassErs[def](*es)
@@ -314,7 +314,7 @@ func parseDef(p Parser) data.Either[data.Ers, def] {
 	return _finishParseDef(p, pat)
 }
 
-func maybeParseDef(p Parser) (*data.Ers, data.Maybe[def]) {
+func maybeParseDef(p parser) (*data.Ers, data.Maybe[def]) {
 	// try to parse def: this is a bit of a doozy since patterns can be arbitrary large and appear
 	// in the lhs of multiple mutually exclusive production rules--meaning we can't look ahead to
 	// determine if it's a valid def. We will record the Position of the current token and then try
@@ -339,12 +339,12 @@ func maybeParseDef(p Parser) (*data.Ers, data.Maybe[def]) {
 //	```
 //	def body = (with clause | "=", {"\n"}, expr), [where clause] | "impossible" ;
 //	```
-func parseDefBody(p Parser) data.Either[data.Ers, defBody] {
+func parseDefBody(p parser) data.Either[data.Ers, defBody] {
 	return parsePatternBoundBody(p, token.Equal)
 }
 
 // a more general version of `parseDefBody` that allows for the binding token to be chosen
-func parsePatternBoundBody(p Parser, bindingTokenType token.Type) data.Either[data.Ers, defBody] {
+func parsePatternBoundBody(p parser, bindingTokenType token.Type) data.Either[data.Ers, defBody] {
 	// check for "impossible" keyword
 	if imp, found := getKeywordAtCurrent(p, token.Impossible, dropNone); found {
 		impossible := data.EOne[impossible](imp)
@@ -362,10 +362,10 @@ func parsePatternBoundBody(p Parser, bindingTokenType token.Type) data.Either[da
 		possibleLeft = data.Cases(parseWithClause(p), data.PassErs[data.Either[withClause, expr]], construct)
 	}
 
-	return runCases(p, fun.Constant[Parser](possibleLeft), passParseErs[defBody], runDefBodyWhereClause)
+	return runCases(p, fun.Constant[parser](possibleLeft), passParseErs[defBody], runDefBodyWhereClause)
 }
 
-func runDefBodyWhereClause(p Parser, possibleLeft data.Either[withClause, expr]) data.Either[data.Ers, defBody] {
+func runDefBodyWhereClause(p parser, possibleLeft data.Either[withClause, expr]) data.Either[data.Ers, defBody] {
 	constructPossibleBody := fun.BiCompose(data.EInr[defBody], data.EMakePair[defBodyPossible])
 	construct := fun.Compose(data.Ok, constructPossibleBody(possibleLeft))
 	return data.Cases(parseOptionalWhereClause(p), data.PassErs[defBody], construct)
@@ -376,7 +376,7 @@ func runDefBodyWhereClause(p Parser, possibleLeft data.Either[withClause, expr])
 //	```
 //	where clause = {"\n"}, "where", {"\n"}, where body ;
 //	```
-func parseOptionalWhereClause(p Parser) data.Either[data.Ers, data.Maybe[whereClause]] {
+func parseOptionalWhereClause(p parser) data.Either[data.Ers, data.Maybe[whereClause]] {
 	whereToken, found := getKeywordAtCurrent(p, token.Where, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[whereClause](p)) // no where clause, return Nothing
@@ -396,7 +396,7 @@ func parseOptionalWhereClause(p Parser) data.Either[data.Ers, data.Maybe[whereCl
 //	```
 //	where body = main elem | "(", {"\n"}, main elem, {then, main elem}, {"\n"}, ")" ;
 //	```
-func parseWhereBody(p Parser) data.Either[data.Ers, whereClause] {
+func parseWhereBody(p parser) data.Either[data.Ers, whereClause] {
 	es, wb, isWB := parseGroup[whereClause](p, ExpectedMainElement, maybeParseMainElement).Break()
 	if !isWB {
 		return data.PassErs[whereClause](es)
@@ -417,7 +417,7 @@ func knownCase[a mainElement](elemRes data.Either[data.Ers, a]) data.Either[data
 //   - token.Alias
 //   - token.Inst
 //   - token.Syntax
-func parseKnownMainElement(p Parser, tt token.Type) data.Either[data.Ers, mainElement] {
+func parseKnownMainElement(p parser, tt token.Type) data.Either[data.Ers, mainElement] {
 	switch tt {
 	case token.Spec:
 		return knownCase(parseSpecDef(p))
@@ -437,7 +437,7 @@ func parseKnownMainElement(p Parser, tt token.Type) data.Either[data.Ers, mainEl
 //	```
 //	type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
 //	```
-func parseTypeAlias(p Parser) data.Either[data.Ers, typeAlias] {
+func parseTypeAlias(p parser) data.Either[data.Ers, typeAlias] {
 	aliasToken, found := getKeywordAtCurrent(p, token.Alias, dropAfter)
 	if !found {
 		return data.Fail[typeAlias](ExpectedTypeAlias, p)
@@ -466,7 +466,7 @@ func parseTypeAlias(p Parser) data.Either[data.Ers, typeAlias] {
 //	```
 //	syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;
 //	```
-func parseSyntax(p Parser) data.Either[data.Ers, syntax] {
+func parseSyntax(p parser) data.Either[data.Ers, syntax] {
 	syntaxToken, found := getKeywordAtCurrent(p, token.Syntax, dropAfter)
 	if !found {
 		return data.Fail[syntax](ExpectedSyntax, p)
@@ -501,7 +501,7 @@ func parseSyntax(p Parser) data.Either[data.Ers, syntax] {
 //	```
 //	syntax rule = {syntax symbol, {"\n"}}, raw keyword, {{"\n"}, syntax symbol} ;
 //	```
-func parseSyntaxRule(p Parser) data.Either[data.Ers, syntaxRule] {
+func parseSyntaxRule(p parser) data.Either[data.Ers, syntaxRule] {
 	const smallCap int = 4
 	var sym syntaxSymbol
 	hasSymbol := true
@@ -556,7 +556,7 @@ func isValidRawSyntaxSymbol(t api.Token) bool {
 //	syntax symbol = ident | "{", {"\n"}, ident, {"\n"}, "}" | raw keyword ;
 //	raw keyword = ? RAW STRING OF JUST A VALID NON INFIX ident OR symbol ? ;
 //	```
-func maybeParseSyntaxSymbol(p Parser) (*data.Ers, data.Maybe[syntaxSymbol]) {
+func maybeParseSyntaxSymbol(p parser) (*data.Ers, data.Maybe[syntaxSymbol]) {
 	if matchCurrentRawString(p) && isValidRawSyntaxSymbol(p.current()) {
 		return nil, data.Just(parseRawSyntaxSymbolFromCurrent(p))
 	} else if lookahead2(p, boundSyntaxIdentLAs...) {
@@ -573,7 +573,7 @@ func maybeParseSyntaxSymbol(p Parser) (*data.Ers, data.Maybe[syntaxSymbol]) {
 }
 
 // parses a raw syntax symbol (a non-infix name inside of '`' characters w/o anything else)
-func parseRawSyntaxSymbolFromCurrent(p Parser) syntaxSymbol {
+func parseRawSyntaxSymbolFromCurrent(p parser) syntaxSymbol {
 	rawKey := p.current()
 	p.advance()
 	key := data.EOne[syntaxRawKeyword](data.EOne[rawString](rawKey))
@@ -585,7 +585,7 @@ func parseRawSyntaxSymbolFromCurrent(p Parser) syntaxSymbol {
 //	```
 //	binding syntax ident = "{", {"\n"}, ident, {"\n"}, "}" ;
 //	```
-func parseBindingSyntaxIdent(p Parser) data.Either[data.Ers, syntaxSymbol] {
+func parseBindingSyntaxIdent(p parser) data.Either[data.Ers, syntaxSymbol] {
 	lb, _ := getKeywordAtCurrent(p, token.LeftBrace, dropAfter)
 
 	id, isSomething := parseIdent(p).Break()
@@ -676,7 +676,7 @@ func (attempted structureParseAttempt) getErrorMessageForAttempted(vis data.Mayb
 //
 // the only one that can return a `Nothing` value is when parsing a def. All other structures will return
 // a `Just` value or an error.
-func optionalParseBasicStructureHelper(p Parser) (res data.Either[data.Ers, data.Maybe[mainElement]], attempted structureParseAttempt) {
+func optionalParseBasicStructureHelper(p parser) (res data.Either[data.Ers, data.Maybe[mainElement]], attempted structureParseAttempt) {
 	/*
 	 * `spec def`, `spec inst`, `type alias`, and `syntax` can all be distinguished with lookahead of 1.
 	 * `typing` or `type def` can be distinguished from `def` with lookahead of 2.
@@ -737,7 +737,7 @@ func strengthenStructureType(b mainElement, weaker structureParseAttempt) struct
 	return stronger
 }
 
-func parseBasicBodyStructure(p Parser, vis data.Maybe[visibility]) data.Either[data.Ers, mainElement] {
+func parseBasicBodyStructure(p parser, vis data.Maybe[visibility]) data.Either[data.Ers, mainElement] {
 	startPosition := p.current().GetPos()
 	res, structureGuess := optionalParseBasicStructureHelper(p)
 	es, mStructure, isRight := res.Break()
@@ -776,7 +776,7 @@ func parseBasicBodyStructure(p Parser, vis data.Maybe[visibility]) data.Either[d
 //		| syntax
 //		) ;
 //	```
-func maybeParseMainElement(p Parser) (*data.Ers, data.Maybe[mainElement]) {
+func maybeParseMainElement(p parser) (*data.Ers, data.Maybe[mainElement]) {
 	es, mAnnots, isAnnots := parseAnnotations_(p).Break()
 	if !isAnnots {
 		return &es, data.Nothing[mainElement](p)
@@ -802,7 +802,7 @@ func maybeParseMainElement(p Parser) (*data.Ers, data.Maybe[mainElement]) {
 //	```
 //	deriving clause = "deriving", {"\n"}, deriving body ;
 //	```
-func parseOptionalDerivingClause(p Parser) data.Either[data.Ers, data.Maybe[deriving]] {
+func parseOptionalDerivingClause(p parser) data.Either[data.Ers, data.Maybe[deriving]] {
 	derivingToken, found := getKeywordAtCurrent(p, token.Deriving, dropAfter)
 	if !found {
 		return data.Ok(data.Nothing[deriving](p))
@@ -823,7 +823,7 @@ func parseOptionalDerivingClause(p Parser) data.Either[data.Ers, data.Maybe[deri
 //	```
 //	deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
 //	```
-func parseDerivingBody(p Parser) data.Either[data.Ers, deriving] {
+func parseDerivingBody(p parser) data.Either[data.Ers, deriving] {
 	if !matchCurrentLeftParen(p) {
 		es, res := nonEnclosedMaybeParseConstrainer(p)
 		if es != nil {
@@ -846,7 +846,7 @@ func parseDerivingBody(p Parser) data.Either[data.Ers, deriving] {
 //	```
 //	type def or typing = typing, [{"\n"}, "where", {"\n"}, type def body, [{"\n"}, deriving clause]] ;
 //	```
-func parseTypeDefOrTyping(p Parser) data.Either[data.Ers, mainElement] {
+func parseTypeDefOrTyping(p parser) data.Either[data.Ers, mainElement] {
 	sigEs, sig, isSig := parseTypeSig(p).Break()
 	if !isSig {
 		return data.PassErs[mainElement](sigEs)
@@ -882,7 +882,7 @@ func parseTypeDefOrTyping(p Parser) data.Either[data.Ers, mainElement] {
 //	```
 //	with clause = "with", {"\n"}, pattern, {"\n"}, "of", {"\n"}, with clause arms ;
 //	```
-func parseWithClause(p Parser) data.Either[data.Ers, withClause] {
+func parseWithClause(p parser) data.Either[data.Ers, withClause] {
 	withToken, found := getKeywordAtCurrent(p, token.With, dropAfter)
 	if !found {
 		return data.Fail[withClause](ExpectedWithClause, p)
@@ -915,11 +915,11 @@ func parseWithClause(p Parser) data.Either[data.Ers, withClause] {
 //		"(", {"\n"}, with clause arm, {then, with clause arm}, {"\n"}, ")"
 //		| with clause arm ;
 //	```
-func parseWithClauseArms(p Parser) data.Either[data.Ers, withClauseArms] {
+func parseWithClauseArms(p parser) data.Either[data.Ers, withClauseArms] {
 	return parseGroup[withClauseArms](p, ExpectedWithClauseArm, maybeParseWithClauseArm)
 }
 
-func maybeParseWithArmLhs(p Parser) (*data.Ers, data.Maybe[withArmLhs]) {
+func maybeParseWithArmLhs(p parser) (*data.Ers, data.Maybe[withArmLhs]) {
 	es, mViewRefined := maybeParsePattern(p, false)
 	if es != nil { // pattern found, but error while parsing it
 		return es, data.Nothing[withArmLhs](p)
@@ -950,7 +950,7 @@ func maybeParseWithArmLhs(p Parser) (*data.Ers, data.Maybe[withArmLhs]) {
 //	with clause arm = [view refined pattern, {"\n"}], pattern, {"\n"}, def body thick arrow ;
 //	view refined pattern = pattern, {"\n"}, "|" ;
 //	```
-func maybeParseWithClauseArm(p Parser) (*data.Ers, data.Maybe[withClauseArm]) {
+func maybeParseWithClauseArm(p parser) (*data.Ers, data.Maybe[withClauseArm]) {
 	es, mLhs := maybeParseWithArmLhs(p)
 	if es != nil {
 		return es, data.Nothing[withClauseArm](p)

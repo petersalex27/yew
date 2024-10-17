@@ -7,7 +7,7 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-func nonEnclosedMaybeParseConstrainer(p Parser) (*data.Ers, data.Maybe[constrainer]) {
+func nonEnclosedMaybeParseConstrainer(p parser) (*data.Ers, data.Maybe[constrainer]) {
 	return maybeParseConstrainer(p, false)
 }
 
@@ -17,7 +17,7 @@ func nonEnclosedMaybeParseConstrainer(p Parser) (*data.Ers, data.Maybe[constrain
 //	constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer {"\n"}, ")" ;
 //	enc constrainer = upper ident, {"\n"}, pattern ;
 //	```
-func parseConstrainer(p Parser) data.Either[data.Ers, constrainer] {
+func parseConstrainer(p parser) data.Either[data.Ers, constrainer] {
 	es, mC := maybeParseConstrainer(p, false)
 	if es != nil {
 		return data.Inl[constrainer](*es)
@@ -30,7 +30,7 @@ func parseConstrainer(p Parser) data.Either[data.Ers, constrainer] {
 }
 
 // helper function, not a rule--encodes a one-time-enclosed constrainer
-func parseMaybeOneTimeEnclosedConstrainer(p Parser) (*data.Ers, data.Maybe[constrainer]) {
+func parseMaybeOneTimeEnclosedConstrainer(p parser) (*data.Ers, data.Maybe[constrainer]) {
 	f := fun.BinBind1st_PairTarget(maybeParseConstrainer, true)
 	es, pos, res := maybeParseParenEnclosed(p, f)
 	if es != nil {
@@ -48,7 +48,7 @@ func parseMaybeOneTimeEnclosedConstrainer(p Parser) (*data.Ers, data.Maybe[const
 //	constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer {"\n"}, ")" ;
 //	enc constrainer = upper ident, {"\n"}, pattern ;
 //	```
-func maybeParseConstrainer(p Parser, enclosed bool) (*data.Ers, data.Maybe[constrainer]) {
+func maybeParseConstrainer(p parser, enclosed bool) (*data.Ers, data.Maybe[constrainer]) {
 	if isLP := matchCurrentLeftParen(p); !enclosed && isLP {
 		return parseMaybeOneTimeEnclosedConstrainer(p)
 	} else if enclosed && isLP { // if enclosed already, this is an error--extraneous parens
@@ -75,7 +75,7 @@ func maybeParseConstrainer(p Parser, enclosed bool) (*data.Ers, data.Maybe[const
 	return nil, data.Just(data.EMakePair[constrainer](upper, pat))
 }
 
-func constraintElemLA(p Parser) bool {
+func constraintElemLA(p parser) bool {
 	return currentIsUpperIdent(p) && lookahead2(p, unverifiedConstraintLAs...)
 }
 
@@ -85,7 +85,7 @@ func constraintElemLA(p Parser) bool {
 //	```
 //	upper id sequence = {upper ident, {"\n"}, ",", {"\n"}} ;
 //	```
-func parseUpperIdSequence(p Parser) data.List[upperIdent] {
+func parseUpperIdSequence(p parser) data.List[upperIdent] {
 	upperIds := data.Nil[upperIdent]()
 
 	for constraintElemLA(p) {
@@ -109,7 +109,7 @@ func parseUpperIdSequence(p Parser) data.List[upperIdent] {
 //	```
 //	constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
 //	```
-func maybeParseConstraintElem(p Parser) (*data.Ers, data.Maybe[constraintElem]) {
+func maybeParseConstraintElem(p parser) (*data.Ers, data.Maybe[constraintElem]) {
 	// this will return an empty list if no upper idents followed by ',' are found
 	upperIds := parseUpperIdSequence(p)
 	es, mC := maybeParseConstrainer(p, true)
@@ -130,7 +130,7 @@ func maybeParseConstraintElem(p Parser) (*data.Ers, data.Maybe[constraintElem]) 
 //	```
 //	constraint group = constraint elem, {{"\n"}, ",", {"\n"}, constraint elem}, [{"\n"}, ",", {"\n"}] ;
 //	```
-func maybeParseConstraintGroup(p Parser) (*data.Ers, data.Maybe[data.NonEmpty[constraintElem]]) {
+func maybeParseConstraintGroup(p parser) (*data.Ers, data.Maybe[data.NonEmpty[constraintElem]]) {
 	if !lookahead1(p, token.LeftParen) {
 		return nil, data.Nothing[data.NonEmpty[constraintElem]](p) // no constraint group, return data.Nothing
 	}
@@ -151,7 +151,7 @@ func maybeParseConstraintGroup(p Parser) (*data.Ers, data.Maybe[data.NonEmpty[co
 //	```
 //	constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constrainer ;
 //	```
-func parseConstraint(p Parser) data.Either[data.Ers, constraintVerified] {
+func parseConstraint(p parser) data.Either[data.Ers, constraintVerified] {
 	// if constraint group, parens are handled in call--note that this doesn't follow the rule exactly ...
 	es, mCG := maybeParseConstraintGroup(p)
 	if es != nil {
@@ -177,7 +177,7 @@ func parseConstraint(p Parser) data.Either[data.Ers, constraintVerified] {
 //	```
 //	spec head = [constraint, {"\n"}, "=>", {"\n"}], constrainer ;
 //	```
-func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
+func parseSpecHead(p parser) data.Either[data.Ers, specHead] {
 	sh := specHead{}
 	// strategy: parse as constraint, this can data.Either return data.Just a (case A.) constrainer or (case B.)
 	// a full constraint (w/o  the "=>")
@@ -222,7 +222,7 @@ func parseSpecHead(p Parser) data.Either[data.Ers, specHead] {
 //	```
 //	spec def = "spec", {"\n"}, spec head, [{"\n"}, spec dependency], {"\n"}, "where", {"\n"}, spec body, [{"\n"}, requiring clause] ;
 //	```
-func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
+func parseSpecDef(p parser) data.Either[data.Ers, specDef] {
 	//var sd specDef
 	position := api.ZeroPosition()
 	if specToken, found := getKeywordAtCurrent(p, token.Spec, dropAfter); !found {
@@ -267,7 +267,7 @@ func parseSpecDef(p Parser) data.Either[data.Ers, specDef] {
 //	```
 //	spec dependency = {"\n"}, "from", {"\n"}, pattern ;
 //	```
-func parseOptionalSpecDependency(p Parser) data.Either[data.Ers, data.Maybe[pattern]] {
+func parseOptionalSpecDependency(p parser) data.Either[data.Ers, data.Maybe[pattern]] {
 	fromToken, found := getKeywordAtCurrent(p, token.From, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[pattern](p))
@@ -288,7 +288,7 @@ func parseOptionalSpecDependency(p Parser) data.Either[data.Ers, data.Maybe[patt
 //		spec member
 //		| "(", {"\n"}, spec member, {then, spec member}, {"\n"}, ")" ;
 //	```
-func parseSpecBody(p Parser) data.Either[data.Ers, specBody] {
+func parseSpecBody(p parser) data.Either[data.Ers, specBody] {
 	return parseGroup[specBody](p, ExpectedTypingOrDef, parseMaybeSpecMember)
 }
 
@@ -301,7 +301,7 @@ func parseSpecBody(p Parser) data.Either[data.Ers, specBody] {
 // NOTE: typing and def can be, as elsewhere, higher-order terms. It's worth noting this since
 // the style and semantics are similar to type classes in Haskell but Haskell does not, in its
 // standard form, have the same support for higher-order types.
-func parseMaybeSpecMember(p Parser) (*data.Ers, data.Maybe[specMember]) {
+func parseMaybeSpecMember(p parser) (*data.Ers, data.Maybe[specMember]) {
 	es, mAnnots, isMAnnots := parseAnnotations_(p).Break()
 	if !isMAnnots {
 		return &es, data.Nothing[specMember](p)
@@ -335,7 +335,7 @@ func parseMaybeSpecMember(p Parser) (*data.Ers, data.Maybe[specMember]) {
 // other nodes.
 //
 // In short, only use this function when `def` is the only valid annotation target
-func parseMaybeAnnotatedDef(p Parser) (*data.Ers, data.Maybe[def]) {
+func parseMaybeAnnotatedDef(p parser) (*data.Ers, data.Maybe[def]) {
 	es, mAnnots, isMAnnots := parseAnnotations_(p).Break()
 	if !isMAnnots {
 		return &es, data.Nothing[def](p)
@@ -363,7 +363,7 @@ func parseMaybeAnnotatedDef(p Parser) (*data.Ers, data.Maybe[def]) {
 //		| "(", {"\n"}, [annotations_], def, {then, [annotations_], def}, {"\n"}, ")"
 //		) ;
 //	```
-func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[requiringClause]] {
+func parseOptionalRequiringClause(p parser) data.Either[data.Ers, data.Maybe[requiringClause]] {
 	req, found := getKeywordAtCurrent(p, token.Requiring, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[requiringClause](p)) // no requiring clause, return data.Nothing
@@ -383,7 +383,7 @@ func parseOptionalRequiringClause(p Parser) data.Either[data.Ers, data.Maybe[req
 //	```
 //	spec inst = "inst", {"\n"}, spec head, [{"\n"}, spec inst target], {"\n"}, spec inst where clause ;
 //	```
-func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
+func parseSpecInst(p parser) data.Either[data.Ers, specInst] {
 	inst, found := getKeywordAtCurrent(p, token.Inst, dropAfter)
 	if !found {
 		return data.Fail[specInst](ExpectedSpecInst, p)
@@ -419,7 +419,7 @@ func parseSpecInst(p Parser) data.Either[data.Ers, specInst] {
 //	```
 //	spec inst target = {"\n"}, "=", {"\n"}, constrainer ;
 //	```
-func parseOptionalSpecInstTarget(p Parser) data.Either[data.Ers, data.Maybe[constrainer]] {
+func parseOptionalSpecInstTarget(p parser) data.Either[data.Ers, data.Maybe[constrainer]] {
 	equal, found := getKeywordAtCurrent(p, token.Equal, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[constrainer](p))

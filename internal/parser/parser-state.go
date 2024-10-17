@@ -50,7 +50,7 @@ func (p *ParserState) GetPos() api.Position {
 }
 
 // adds the error, and if fatal, then returns a *ParserStateFail
-func (p *ParserState) report(e error, fatal bool) Parser {
+func (p *ParserState) report(e error, fatal bool) parser {
 	p.AddError(e)
 	if fatal {
 		return &ParserStateFail{bad: p}

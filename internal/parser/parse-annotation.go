@@ -20,7 +20,7 @@ func (module *module) annotate(as data.Maybe[annotations])        { module.annot
 // parses annotations enclosed in brackets, like '[@inline]'
 //
 // the annotation's brackets are not included in the result, but any other brackets are
-func parseOptionalEnclosedAnnotation(p Parser) data.Either[data.Ers, data.Maybe[enclosedAnnotation]] {
+func parseOptionalEnclosedAnnotation(p parser) data.Either[data.Ers, data.Maybe[enclosedAnnotation]] {
 	if !token.LeftBracketAt.Match(p.current()) {
 		n := data.Nothing[enclosedAnnotation](p.current())
 		return data.Ok(n)
@@ -61,7 +61,7 @@ func parseOptionalEnclosedAnnotation(p Parser) data.Either[data.Ers, data.Maybe[
 }
 
 // parses things like '--@inline'
-func parseOptionalFlatAnnotation(p Parser) data.Maybe[flatAnnotation] {
+func parseOptionalFlatAnnotation(p parser) data.Maybe[flatAnnotation] {
 	cur := p.current()
 	if !token.FlatAnnotation.Match(cur) {
 		return data.Nothing[flatAnnotation](cur)
@@ -71,7 +71,7 @@ func parseOptionalFlatAnnotation(p Parser) data.Maybe[flatAnnotation] {
 }
 
 // parses a single annotation
-func parseAnnotation(p Parser) data.Either[data.Ers, data.Maybe[annotation]] {
+func parseAnnotation(p parser) data.Either[data.Ers, data.Maybe[annotation]] {
 	if matchCurrent(token.FlatAnnotation)(p) {
 		unit, just := parseOptionalFlatAnnotation(p).Break()
 		if !just {
@@ -93,7 +93,7 @@ func parseAnnotation(p Parser) data.Either[data.Ers, data.Maybe[annotation]] {
 	}
 }
 
-func annotationIteration(p Parser) data.Either[data.Ers, data.Maybe[annotation]] {
+func annotationIteration(p parser) data.Either[data.Ers, data.Maybe[annotation]] {
 	res := parseAnnotation(p)
 	if !res.IsLeft() {
 		p.dropNewlines()
@@ -111,10 +111,10 @@ func annotationIteration(p Parser) data.Either[data.Ers, data.Maybe[annotation]]
 //
 // NOTE: the '_' in the rule name is to flag that this rule eats a trailing newline--this is the
 // only rule (or should be, at least) that does this, hence the non-standard name.
-// 	- the motivation behind this is to keep each rule's alternatives at most 100 characters in width
-//	- annotations always **precede** a declaration of some sort (counting EOF as a declaration), and
-//	  an arbitrary amount of whitespace may always precede any declaration
-func parseAnnotations_(p Parser) data.Either[data.Ers, data.Maybe[annotations]] {
+//   - the motivation behind this is to keep each rule's alternatives at most 100 characters in width
+//   - annotations always **precede** a declaration of some sort (counting EOF as a declaration), and
+//     an arbitrary amount of whitespace may always precede any declaration
+func parseAnnotations_(p parser) data.Either[data.Ers, data.Maybe[annotations]] {
 	cur := p.current()
 	if !token.FlatAnnotation.Match(cur) && !token.LeftBracketAt.Match(cur) {
 		return data.Ok(data.Nothing[annotations](p)) // Ok result, Just no annotations found

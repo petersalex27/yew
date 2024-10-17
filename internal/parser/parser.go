@@ -5,14 +5,14 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-// Parser is the interface for parsing source code
-type Parser interface {
+// parser is the interface for parsing source code
+type parser interface {
 	// must keep track of the current position in the source code
 	api.Positioned
 	// return the source code
 	srcCode() api.SourceCode
 	// add the error, and if fatal, then return a fail state
-	report(error, bool) Parser
+	report(error, bool) parser
 	// return token at the current position
 	current() api.Token
 	// advance the parser to the next token
@@ -22,7 +22,7 @@ type Parser interface {
 }
 
 // initialize the parser, providing it with a scanner to read tokens from
-func Init(scanner api.ScannerPlus) Parser {
+func Init(scanner api.ScannerPlus) parser {
 	ps := &ParserState{
 		state: createState(scanner),
 		ast:   makeEmptyYewSource(),
@@ -37,12 +37,12 @@ func Init(scanner api.ScannerPlus) Parser {
 // Run an initialized parser
 //
 // SEE: `Init`
-func Run(p Parser) api.Node {
+func Run(p parser) api.Node {
 	parseYewSource(p)
 	return nil
 }
 
-func then(p Parser) bool {
+func then(p parser) bool {
 	origin := getOrigin(p)
 	p.dropNewlines()
 	return getOrigin(p) > origin
@@ -50,7 +50,7 @@ func then(p Parser) bool {
 
 // returns the current token counter in the case of a ParserState or ParserState_optional instance,
 // otherwise, returns -1
-func getOrigin(p Parser) int {
+func getOrigin(p parser) int {
 	if ps, ok := p.(*ParserState); ok {
 		return ps.tokenCounter
 	}
@@ -58,7 +58,7 @@ func getOrigin(p Parser) int {
 }
 
 // noop in the case of a ParserStateFail as Parser instance
-func resetOrigin(p Parser, origin int) Parser {
+func resetOrigin(p parser, origin int) parser {
 	if ps, ok := p.(*ParserState); ok {
 		ps.tokenCounter = origin
 		p = ps
@@ -66,11 +66,11 @@ func resetOrigin(p Parser, origin int) Parser {
 	return p
 }
 
-func passParseErs[b api.Node](_ Parser, x data.Ers) data.Either[data.Ers, b] {
+func passParseErs[b api.Node](_ parser, x data.Ers) data.Either[data.Ers, b] {
 	return data.PassErs[b](x)
 }
 
-func runCases[a, b api.Node, c any](p Parser, disjointAct func(Parser) data.Either[a, b], left func(Parser, a) c, right func(Parser, b) c) c {
+func runCases[a, b api.Node, c any](p parser, disjointAct func(parser) data.Either[a, b], left func(parser, a) c, right func(parser, b) c) c {
 	l, r, isR := disjointAct(p).Break()
 	if isR {
 		return right(p, r)

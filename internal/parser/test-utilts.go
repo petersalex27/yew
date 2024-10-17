@@ -314,7 +314,7 @@ func initTestParser(input []api.Token) *ParserState {
 	return &ParserState{state: state{scanner: scanner, tokens: input}}
 }
 
-func runResultTest[a api.DescribableNode](p Parser, t *testing.T, want a, fut func(p Parser) data.Either[data.Ers, a]) {
+func runResultTest[a api.DescribableNode](p parser, t *testing.T, want a, fut func(p parser) data.Either[data.Ers, a]) {
 	es, actual, isActual := fut(p).Break()
 	if !isActual {
 		printErrors(parseErrors(p, es)...)
@@ -324,7 +324,7 @@ func runResultTest[a api.DescribableNode](p Parser, t *testing.T, want a, fut fu
 	}
 }
 
-func eitherOutputFUT[a, b api.DescribableNode](input []api.Token, want data.Either[a, b], fut func(p Parser) data.Either[a, b]) func(*testing.T) {
+func eitherOutputFUT[a, b api.DescribableNode](input []api.Token, want data.Either[a, b], fut func(p parser) data.Either[a, b]) func(*testing.T) {
 	return func(t *testing.T) {
 		p := initTestParser(input)
 		got := fut(p)
@@ -335,13 +335,13 @@ func eitherOutputFUT[a, b api.DescribableNode](input []api.Token, want data.Eith
 }
 
 // generate a test for a result-output function (a result-output function is one that returns `either[ers, a]` for some `a`)
-func resultOutputFUT[a api.DescribableNode](input []api.Token, want a, fut func(p Parser) data.Either[data.Ers, a]) func(*testing.T) {
+func resultOutputFUT[a api.DescribableNode](input []api.Token, want a, fut func(p parser) data.Either[data.Ers, a]) func(*testing.T) {
 	return func(t *testing.T) {
 		runResultTest(initTestParser(input), t, want, fut)
 	}
 }
 
-func resultOutputFUT_endCheck[a api.DescribableNode](input []api.Token, want a, fut func(p Parser) data.Either[data.Ers, a], endsAt int) func(*testing.T) {
+func resultOutputFUT_endCheck[a api.DescribableNode](input []api.Token, want a, fut func(p parser) data.Either[data.Ers, a], endsAt int) func(*testing.T) {
 	return func(t *testing.T) {
 		p := initTestParser(input)
 
@@ -356,7 +356,7 @@ func resultOutputFUT_endCheck[a api.DescribableNode](input []api.Token, want a, 
 	}
 }
 
-func runMaybeOutputTest[a api.DescribableNode](p Parser, t *testing.T, want data.Maybe[a], fut func(p Parser) (*data.Ers, data.Maybe[a])) {
+func runMaybeOutputTest[a api.DescribableNode](p parser, t *testing.T, want data.Maybe[a], fut func(p parser) (*data.Ers, data.Maybe[a])) {
 	es, mActual := fut(p)
 
 	if es != nil {
@@ -368,13 +368,13 @@ func runMaybeOutputTest[a api.DescribableNode](p Parser, t *testing.T, want data
 }
 
 // generate a test for a maybe-output function (a maybe-output function is one that returns `(*ers, maybe[a])` for some `a`)
-func maybeOutputFUT[a api.DescribableNode](input []api.Token, want data.Maybe[a], fut func(p Parser) (*data.Ers, data.Maybe[a])) func(t *testing.T) {
+func maybeOutputFUT[a api.DescribableNode](input []api.Token, want data.Maybe[a], fut func(p parser) (*data.Ers, data.Maybe[a])) func(t *testing.T) {
 	return func(t *testing.T) {
 		runMaybeOutputTest(initTestParser(input), t, want, fut)
 	}
 }
 
-func maybeOutputFUT_endCheck[a api.DescribableNode](input []api.Token, want data.Maybe[a], fut func(p Parser) (*data.Ers, data.Maybe[a]), endsAt int) func(t *testing.T) {
+func maybeOutputFUT_endCheck[a api.DescribableNode](input []api.Token, want data.Maybe[a], fut func(p parser) (*data.Ers, data.Maybe[a]), endsAt int) func(t *testing.T) {
 	return func(t *testing.T) {
 		p := initTestParser(input)
 
@@ -429,7 +429,7 @@ func equals[n1, n2 api.DescribableNode](x n1, y n2) bool {
 	return true
 }
 
-func parseErrors(p Parser, es data.Ers) []error {
+func parseErrors(p parser, es data.Ers) []error {
 	errs := make([]error, es.Len())
 	for i, e := range es.Elements() {
 		errs[i] = parseError(p, e)

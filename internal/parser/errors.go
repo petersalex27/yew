@@ -87,7 +87,7 @@ const (
 	UnexpectedToken                 = "unexpected token"                                                             // unexpected-token
 )
 
-func parseError(p Parser, e data.Err) error {
+func parseError(p parser, e data.Err) error {
 	start, end := e.Pos()
 	return errors.Syntax(p.srcCode(), e.Msg(), start, end)
 }

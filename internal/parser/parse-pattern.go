@@ -7,7 +7,7 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-func ParsePattern(p Parser) data.Either[data.Ers, pattern] {
+func ParsePattern(p parser) data.Either[data.Ers, pattern] {
 	return parsePattern(p, false)
 }
 
@@ -16,7 +16,7 @@ func ParsePattern(p Parser) data.Either[data.Ers, pattern] {
 //	```
 //	pattern atom = literal | name | "[]" | hole ;
 //	```
-func parsePatternAtom(p Parser) data.Either[data.Ers, patternAtom] {
+func parsePatternAtom(p parser) data.Either[data.Ers, patternAtom] {
 	es, mPatAtom := maybePatternAtom(p)
 	if es != nil {
 		return data.PassErs[patternAtom](*es)
@@ -27,7 +27,7 @@ func parsePatternAtom(p Parser) data.Either[data.Ers, patternAtom] {
 	}
 }
 
-func maybePatternAtom(p Parser) (*data.Ers, data.Maybe[patternAtom]) {
+func maybePatternAtom(p parser) (*data.Ers, data.Maybe[patternAtom]) {
 	// pattern atom as literal
 	if lookahead1(p, literalLAs...) {
 		lit := literalAsPatternAtom(p.current())
@@ -57,7 +57,7 @@ func maybePatternAtom(p Parser) (*data.Ers, data.Maybe[patternAtom]) {
 //	pattern = pattern term, {pattern term} ;
 //	enc pattern = pattern term, {{"\n"}, pattern term} ;
 //	```
-func parsePattern(p Parser, enclosed bool) data.Either[data.Ers, pattern] {
+func parsePattern(p parser, enclosed bool) data.Either[data.Ers, pattern] {
 	es, mPat := maybeParsePattern(p, enclosed)
 	if es != nil {
 		return data.PassErs[pattern](*es)
@@ -68,7 +68,7 @@ func parsePattern(p Parser, enclosed bool) data.Either[data.Ers, pattern] {
 	}
 }
 
-func maybeParsePattern(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
+func maybeParsePattern(p parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
 	var first pattern
 	var just bool
 	es, mFirst := maybeParsePatternTerm(p, enclosed)
@@ -90,7 +90,7 @@ func maybeParsePattern(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern])
 	return nil, data.Just[pattern](app)
 }
 
-func closeEnclosedPattern(p Parser, opener api.Token, closerType token.Type) func(patternEnclosed) data.Either[data.Ers, pattern] {
+func closeEnclosedPattern(p parser, opener api.Token, closerType token.Type) func(patternEnclosed) data.Either[data.Ers, pattern] {
 	return func(ps patternEnclosed) data.Either[data.Ers, pattern] {
 		ps.Position = ps.Update(opener)
 		if !parseKeywordAtCurrent(p, closerType, &ps.Position) {
@@ -107,7 +107,7 @@ func closeEnclosedPattern(p Parser, opener api.Token, closerType token.Type) fun
 //	```
 //	access = ".", {"\n"}, name ;
 //	```
-func parseAccess(p Parser) (_ *data.Ers, acc access) {
+func parseAccess(p parser) (_ *data.Ers, acc access) {
 	dot, found := getKeywordAtCurrent(p, token.Dot, dropAfter)
 	if !found {
 		e := data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedAccessDot, p))
@@ -127,7 +127,7 @@ func parseAccess(p Parser) (_ *data.Ers, acc access) {
 	}
 }
 
-func maybeParsePatternTermHelper(p Parser, enclosed bool, rhs bool) (*data.Ers, data.Maybe[pattern]) {
+func maybeParsePatternTermHelper(p parser, enclosed bool, rhs bool) (*data.Ers, data.Maybe[pattern]) {
 	if rhs && token.Dot.Match(p.current()) {
 		es, res := parseAccess(p)
 		if es != nil {
@@ -164,7 +164,7 @@ func maybeParsePatternTermHelper(p Parser, enclosed bool, rhs bool) (*data.Ers, 
 		return nil, data.Nothing[pattern](p)
 	}
 
-	f := func(p Parser) (*data.Ers, data.Maybe[pattern]) { return maybeParsePattern(p, true) }
+	f := func(p parser) (*data.Ers, data.Maybe[pattern]) { return maybeParsePattern(p, true) }
 
 	esPats, pats, isPatsRight := parseSepSequenced[struct{ data.NonEmpty[pattern] }](p, ExpectedPattern, token.Comma, f).Break()
 	if !isPatsRight {
@@ -192,10 +192,10 @@ func maybeParsePatternTermHelper(p Parser, enclosed bool, rhs bool) (*data.Ers, 
 //		| "{", {"\n"}, enc pattern inner, {"\n"}, "}" ;
 //	enc pattern inner = enc pattern, {{"\n"}, ",", {"\n"}, enc pattern}, [{"\n"}, ","] ;
 //	```
-func maybeParsePatternTerm(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
+func maybeParsePatternTerm(p parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
 	return maybeParsePatternTermHelper(p, enclosed, false)
 }
 
-func maybeParsePatternTermRhs(p Parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
+func maybeParsePatternTermRhs(p parser, enclosed bool) (*data.Ers, data.Maybe[pattern]) {
 	return maybeParsePatternTermHelper(p, enclosed, true)
 }

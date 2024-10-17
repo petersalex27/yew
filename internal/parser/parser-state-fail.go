@@ -5,7 +5,7 @@ import (
 	"github.com/petersalex27/yew/api/token"
 )
 
-type ParserStateFail struct { bad *ParserState }
+type ParserStateFail struct{ bad *ParserState }
 
 func (p *ParserStateFail) dropNewlines() { /* noop */ }
 
@@ -26,7 +26,7 @@ func (p *ParserStateFail) current() api.Token { return token.EndOfTokens.Make() 
 func (p *ParserStateFail) advance() { /* noop */ }
 
 // just adds the error
-func (p *ParserStateFail) report(e error, _ bool) Parser {
+func (p *ParserStateFail) report(e error, _ bool) parser {
 	p.bad.AddError(e)
 	return p
 }

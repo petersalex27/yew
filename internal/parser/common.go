@@ -12,7 +12,7 @@ var (
 	// cast token to node
 	tokenAsNode = func(t api.Token) api.Node { return t }
 	// returns parser's the current token as a node
-	currentTokenAsNode = fun.Compose(tokenAsNode, (Parser).current)
+	currentTokenAsNode = fun.Compose(tokenAsNode, (parser).current)
 	// given a token type, returns function that takes in a parser and then tests if the parser's
 	// current token matches that type
 	matchCurrent = fun.ComposeRightCurryFlip((token.Type).Match, currentTokenAsNode)
@@ -54,11 +54,11 @@ func bind[a, b api.Node](ma data.Maybe[a], f func(a) data.Maybe[b]) data.Maybe[b
 	return f(x)
 }
 
-func currentIsUpperIdent(p Parser) bool {
+func currentIsUpperIdent(p parser) bool {
 	return matchCurrent(token.Id)(p) && common.Is_PascalCase(p.current().String())
 }
 
-func currentIsName(p Parser) bool {
+func currentIsName(p parser) bool {
 	return matchCurrentId(p) || matchCurrentInfix(p) || matchCurrentMethodId(p)
 }
 
@@ -69,7 +69,7 @@ func ifThenElse[a any](cond bool, true_, false_ a) a {
 	return false_
 }
 
-func lookahead1Report(p Parser, types ...token.Type) (tt token.Type, found bool) {
+func lookahead1Report(p parser, types ...token.Type) (tt token.Type, found bool) {
 	for _, t := range types {
 		if t.Match(p.current()) {
 			return t, true
@@ -78,7 +78,7 @@ func lookahead1Report(p Parser, types ...token.Type) (tt token.Type, found bool)
 	return tt, false
 }
 
-func lookahead1(p Parser, types ...token.Type) bool {
+func lookahead1(p parser, types ...token.Type) bool {
 	for _, t := range types {
 		if t.Match(p.current()) {
 			return true
@@ -89,7 +89,7 @@ func lookahead1(p Parser, types ...token.Type) bool {
 
 // performs a lookahead 2-ish. If the current token matches the first type in the pair, then it will try to
 // match the second type in the pair, dropping newlines in between the two
-func lookahead2(p Parser, types ...[2]token.Type) bool {
+func lookahead2(p parser, types ...[2]token.Type) bool {
 	ps, ok := p.(*ParserState)
 	if !ok {
 		return false
@@ -110,7 +110,7 @@ func lookahead2(p Parser, types ...[2]token.Type) bool {
 	return false
 }
 
-func maybeParseParenEnclosed[a api.Node](p Parser, parseFunc func(Parser) (*data.Ers, data.Maybe[a])) (*data.Ers, api.Position, data.Maybe[a]) {
+func maybeParseParenEnclosed[a api.Node](p parser, parseFunc func(parser) (*data.Ers, data.Maybe[a])) (*data.Ers, api.Position, data.Maybe[a]) {
 	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
 		return nil, p.GetPos(), data.Nothing[a](p)
@@ -141,7 +141,7 @@ func maybeParseParenEnclosed[a api.Node](p Parser, parseFunc func(Parser) (*data
 // NOTE: if `pos` is nil, then everything above happens with the exception that the position is not updated
 //
 // SEE: `getKeywordAtCurrent` to return the token and found status instead
-func parseKeywordAtCurrent(p Parser, keyword token.Type, pos *api.Position) (found bool) {
+func parseKeywordAtCurrent(p parser, keyword token.Type, pos *api.Position) (found bool) {
 	var token api.Token
 	if token, found = getKeywordAtCurrent(p, keyword, dropAfter); found {
 		if pos != nil {
@@ -151,7 +151,7 @@ func parseKeywordAtCurrent(p Parser, keyword token.Type, pos *api.Position) (fou
 	return found
 }
 
-func parseEnclosedOpener(p Parser) (opener api.Token, closerType token.Type, found bool) {
+func parseEnclosedOpener(p parser) (opener api.Token, closerType token.Type, found bool) {
 	closerType = token.RightParen
 	opener, found = getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
@@ -181,14 +181,14 @@ const (
 //   - 0b11: newline before and after the keyword are dropped
 //
 // if keyword is not found, any dropped newlines are restored
-func getKeywordAtCurrent(p Parser, keyword token.Type, dropBits dropNewlineBits) (token api.Token, found bool) {
+func getKeywordAtCurrent(p parser, keyword token.Type, dropBits dropNewlineBits) (token api.Token, found bool) {
 	origin := getOrigin(p)
 	defer func() {
 		if !found {
 			resetOrigin(p, origin)
 		}
 	}()
-	
+
 	if dropBits&dropBefore != 0 {
 		p.dropNewlines()
 	}
@@ -204,15 +204,15 @@ func getKeywordAtCurrent(p Parser, keyword token.Type, dropBits dropNewlineBits)
 	return token, found
 }
 
-func writeErrors(p Parser, es data.Ers) Parser {
-	var out Parser = p
+func writeErrors(p parser, es data.Ers) parser {
+	var out parser = p
 	for _, e := range es.Elements() {
 		out = p.report(parseError(p, e), e.Fatal())
 	}
 	return out
 }
 
-func maybeParseName(p Parser) data.Maybe[name] {
+func maybeParseName(p parser) data.Maybe[name] {
 	t := p.current()
 	if !currentIsName(p) {
 		return data.Nothing[name](t)
@@ -221,15 +221,15 @@ func maybeParseName(p Parser) data.Maybe[name] {
 	return data.Just(data.EOne[name](t))
 }
 
-func enclosedDependentIt(enclosed bool) func(Parser) bool {
+func enclosedDependentIt(enclosed bool) func(parser) bool {
 	if enclosed {
-		return func(p Parser) bool {
+		return func(p parser) bool {
 			p.dropNewlines()
 			return true
 		}
 	}
 
-	return fun.Constant[Parser](true)
+	return fun.Constant[parser](true)
 }
 
 type embedsToken = interface {
@@ -237,7 +237,7 @@ type embedsToken = interface {
 	~struct{ data.Solo[api.Token] }
 }
 
-func parseTokenHelper[solo embedsToken](p Parser, ty token.Type, predicate func(string) bool) data.Maybe[solo] {
+func parseTokenHelper[solo embedsToken](p parser, ty token.Type, predicate func(string) bool) data.Maybe[solo] {
 	t := p.current()
 	if !ty.Match(t) {
 		return data.Nothing[solo](t)
@@ -250,14 +250,14 @@ func parseTokenHelper[solo embedsToken](p Parser, ty token.Type, predicate func(
 	return data.Just(solo{data.One(t)})
 }
 
-func parseUpperIdent(p Parser) data.Maybe[upperIdent] {
+func parseUpperIdent(p parser) data.Maybe[upperIdent] {
 	return parseTokenHelper[upperIdent](p, token.Id, common.Is_PascalCase)
 }
 
 var liftGenLowerIdent = fun.Compose(data.Just, data.Inl[upperIdent, lowerIdent])
 var liftGenUpperIdent = fun.Compose(data.Just, data.Inr[lowerIdent, upperIdent])
 
-func parseIdent(p Parser) data.Maybe[ident] {
+func parseIdent(p parser) data.Maybe[ident] {
 	upper, isUpper := parseUpperIdent(p).Break()
 	if isUpper {
 		return liftGenUpperIdent(upper)
@@ -269,7 +269,7 @@ func parseIdent(p Parser) data.Maybe[ident] {
 	return data.Nothing[ident](p.current())
 }
 
-func parseLowerIdent(p Parser) data.Maybe[lowerIdent] {
+func parseLowerIdent(p parser) data.Maybe[lowerIdent] {
 	return parseTokenHelper[lowerIdent](p, token.Id, common.Is_camelCase)
 }
 
@@ -278,7 +278,7 @@ func parseLowerIdent(p Parser) data.Maybe[lowerIdent] {
 //	```
 //	group <mem> = mem | "(", {"\n"}, mem, {then, mem}, {"\n"}, ")" ;
 //	```
-func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, ne] {
+func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p parser, errorMsg string, maybeParse func(parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, ne] {
 	leftParen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter) // parse '('
 	var first a
 	if es, mFirst := maybeParse(p); es != nil {
@@ -313,9 +313,9 @@ func parseGroup[ne data.EmbedsNonEmpty[a], a api.Node](p Parser, errorMsg string
 
 // lhs - the thing returned if there is no rhs; otherwise, the first thing in the non-empty list
 // dropNewlinesEachIt - if true, calls `p.dropNewlines()` at the start of each loop iteration
-func parseOneOrMore[a api.Node](p Parser, lhs a, startIt func(p Parser) bool, f func(Parser) (*data.Ers, data.Maybe[a])) (_ *data.Ers, _ data.NonEmpty[a], has2ndTerm bool) {
+func parseOneOrMore[a api.Node](p parser, lhs a, startIt func(p parser) bool, f func(parser) (*data.Ers, data.Maybe[a])) (_ *data.Ers, _ data.NonEmpty[a], has2ndTerm bool) {
 	origin := getOrigin(p)
-	
+
 	group := data.Singleton(lhs)
 
 	has2ndTerm = false
@@ -342,7 +342,7 @@ func parseOneOrMore[a api.Node](p Parser, lhs a, startIt func(p Parser) bool, f 
 }
 
 // allows trailing sep by default
-func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, errHandler func(cur api.Token) string, sep token.Type, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, b] {
+func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p parser, errHandler func(cur api.Token) string, sep token.Type, maybeParse func(parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, b] {
 	es, lhs := maybeParse(p)
 	if es != nil {
 		return data.PassErs[b](*es)
@@ -368,21 +368,21 @@ func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, er
 			return data.PassErs[b](*es)
 		} else if rhs, just := mRhs.Break(); !just {
 			resetOrigin(p, origin) // undo dropNewlines
-			break // no rhs, trailing comma, end loop
+			break                  // no rhs, trailing comma, end loop
 		} else {
 			terms = terms.Snoc(rhs)
 		}
 	}
-	
+
 	return data.Ok(b{terms})
 }
 
 // allows trailing sep by default
-func parseSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p Parser, emptyErrorMsg string, sep token.Type, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, b] {
+func parseSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p parser, emptyErrorMsg string, sep token.Type, maybeParse func(parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, b] {
 	return parseHandledSepSequenced[b](p, fun.Constant[api.Token](emptyErrorMsg), sep, maybeParse)
 }
 
-func parseSepSequencedGroup[a api.Node](p Parser, emptyErrorMsg string, sep token.Type, maybeParse func(Parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, data.NonEmpty[a]] {
+func parseSepSequencedGroup[a api.Node](p parser, emptyErrorMsg string, sep token.Type, maybeParse func(parser) (*data.Ers, data.Maybe[a])) data.Either[data.Ers, data.NonEmpty[a]] {
 	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
 		return data.Fail[data.NonEmpty[a]](ExpectedLeftParen, p)

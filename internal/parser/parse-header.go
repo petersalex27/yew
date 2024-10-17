@@ -5,7 +5,7 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-func parseModulePartOfHeader(p Parser) data.Either[data.Ers, data.Maybe[module]] {
+func parseModulePartOfHeader(p parser) data.Either[data.Ers, data.Maybe[module]] {
 	origin := getOrigin(p)
 	annotEs, mAnnots, isMAnnots := parseAnnotations_(p).Break()
 	if !isMAnnots {
@@ -34,7 +34,7 @@ func parseModulePartOfHeader(p Parser) data.Either[data.Ers, data.Maybe[module]]
 //		[[annotations_], module, {then, [annotations_], import statement}]
 //		| [[annotations_], import statement, {then, [annotations_], import statement}] ;
 //	```
-func parseHeader(p Parser) data.Either[data.Ers, data.Maybe[header]] {
+func parseHeader(p parser) data.Either[data.Ers, data.Maybe[header]] {
 	es, mMod, isMMod := parseModulePartOfHeader(p).Break()
 	if !isMMod {
 		return data.PassErs[data.Maybe[header]](es)
@@ -42,17 +42,17 @@ func parseHeader(p Parser) data.Either[data.Ers, data.Maybe[header]] {
 
 	// reset when no imports are found
 	origin := getOrigin(p)
-	
+
 	// the origin WILL change if and only if endHeaderEarly is false!!
 	endHeaderEarly := !mMod.IsNothing() && !then(p) // order is REALLY important here
-	if endHeaderEarly { // origin is 
+	if endHeaderEarly {                             // origin is
 		// module but no `then` => no imports
 		return data.Ok(makePossibleHeader(mMod, data.Nil[importStatement]()))
-	} 
-	
+	}
+
 	// might need to reset origin--don't know yet though
 
-	// no module or module and `then` are found successful; either way, input is ready to optionally 
+	// no module or module and `then` are found successful; either way, input is ready to optionally
 	// parse the import statements
 	es, imports, isImports := parseImports(p).Break()
 	if !isImports {
@@ -75,7 +75,7 @@ func makePossibleHeader(mod data.Maybe[module], imports data.List[importStatemen
 	return data.Just(data.EMakePair[header](mod, imports))
 }
 
-func parseModule(p Parser) data.Either[data.Ers, data.Maybe[module]] {
+func parseModule(p parser) data.Either[data.Ers, data.Maybe[module]] {
 	moduleToken, found := getKeywordAtCurrent(p, token.Module, dropBeforeAndAfter)
 	if !found {
 		return data.Ok(data.Nothing[module](p))
@@ -97,7 +97,7 @@ func parseModule(p Parser) data.Either[data.Ers, data.Maybe[module]] {
 //	```
 //	imports helper = import statement, {then, import statement} ;
 //	```
-func parseImportsHelper(p Parser, as data.Maybe[annotations]) data.Either[data.Ers, data.List[importStatement]] {
+func parseImportsHelper(p parser, as data.Maybe[annotations]) data.Either[data.Ers, data.List[importStatement]] {
 	importStatements := data.Nil[importStatement]()
 	// only reset if nothing is returned for `maybeParseImport`
 	origin := getOrigin(p)
@@ -119,7 +119,7 @@ func parseImportsHelper(p Parser, as data.Maybe[annotations]) data.Either[data.E
 			importStatements = importStatements.Snoc(stmt) // keep position, don't reset
 			as = data.Nothing[annotations]()               // clear annotations for next import statement
 			// set origin to current position (before `then` and the possible annotations)
-			origin = getOrigin(p) 
+			origin = getOrigin(p)
 		}
 
 		if !then(p) {
@@ -137,7 +137,7 @@ func parseImportsHelper(p Parser, as data.Maybe[annotations]) data.Either[data.E
 //	```
 //	imports = import statement, {then, import statement} ;
 //	```
-func parseImports(p Parser) data.Either[data.Ers, data.List[importStatement]] {
+func parseImports(p parser) data.Either[data.Ers, data.List[importStatement]] {
 	return parseImportsHelper(p, data.Nothing[annotations]())
 }
 
@@ -148,7 +148,7 @@ func parseImports(p Parser) data.Either[data.Ers, data.List[importStatement]] {
 //		( package import
 //		| "(", {"\n"}, package import, {then, package import}, {"\n"}, ")"
 //		) ;
-func maybeParseImport(p Parser) (*data.Ers, data.Maybe[importing]) {
+func maybeParseImport(p parser) (*data.Ers, data.Maybe[importing]) {
 	importToken, found := getKeywordAtCurrent(p, token.Import, dropAfter)
 	if !found {
 		return nil, data.Nothing[importing](p) // no imports, this is okay, return empty list
@@ -163,7 +163,7 @@ func maybeParseImport(p Parser) (*data.Ers, data.Maybe[importing]) {
 }
 
 // wraps call to `maybeParseName`, always returns `nil` for the return value
-func parseMaybeName(p Parser) (*data.Ers, data.Maybe[name]) {
+func parseMaybeName(p parser) (*data.Ers, data.Maybe[name]) {
 	return nil, maybeParseName(p)
 }
 
@@ -175,7 +175,7 @@ func parseMaybeName(p Parser) (*data.Ers, data.Maybe[name]) {
 //		| name
 //		| "(", {"\n"}, name, {{"\n"}, ",", {"\n"}, name}, [{"\n"}, ","], {"\n"}, ")" ;
 //	```
-func parseSymbolSelections(p Parser) data.Either[data.Ers, data.Maybe[data.NonEmpty[name]]] {
+func parseSymbolSelections(p parser) data.Either[data.Ers, data.Maybe[data.NonEmpty[name]]] {
 	// check for special "_" case, hides all exported symbols
 	if underscore, found := getKeywordAtCurrent(p, token.Underscore, dropNone); found {
 		p.advance()
@@ -210,7 +210,7 @@ func parseSymbolSelections(p Parser) data.Either[data.Ers, data.Maybe[data.NonEm
 //		as clause = "as", {"\n"}, lower ident ;
 //		using clause = "using", {"\n"}, "_" | symbol selection group ;
 //	```
-func maybeParseImportSpecification(p Parser) (*data.Ers, data.Maybe[selections]) {
+func maybeParseImportSpecification(p parser) (*data.Ers, data.Maybe[selections]) {
 	if as, foundAs := getKeywordAtCurrent(p, token.As, dropAfter); foundAs {
 		id, ok := parseLowerIdent(p).Break()
 		if !ok {
@@ -241,7 +241,7 @@ func maybeParseImportSpecification(p Parser) (*data.Ers, data.Maybe[selections])
 //	```
 //	package import = import path, [{"\n"}, import specification] ;
 //	```
-func maybeParsePackageImport(p Parser) (*data.Ers, data.Maybe[packageImport]) {
+func maybeParsePackageImport(p parser) (*data.Ers, data.Maybe[packageImport]) {
 	pathLiteral, found := getKeywordAtCurrent(p, token.ImportPath, dropNone)
 	if !found {
 		return nil, data.Nothing[packageImport](p)
