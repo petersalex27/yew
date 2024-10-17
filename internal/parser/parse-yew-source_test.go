@@ -155,8 +155,6 @@ func TestParseYewSource(t *testing.T) {
 			p = parseYewSource(p)
 			if ps, ok := p.(*ParserState); ok {
 				return data.Ok(ps.ast)
-			} else if pso, ok := p.(*ParserState_optional); ok {
-				return data.Ok(pso.ParserState.ast)
 			} else {
 				return data.Fail[yewSource]("(test failure) could not parse yew source", p)
 			}

@@ -92,13 +92,6 @@ func lookahead1(p Parser, types ...token.Type) bool {
 func lookahead2(p Parser, types ...[2]token.Type) bool {
 	ps, ok := p.(*ParserState)
 	if !ok {
-		var ps_o *ParserState_optional
-		if ps_o, ok = p.(*ParserState_optional); ok {
-			ps = ps_o.ParserState
-		}
-	}
-
-	if !ok {
 		return false
 	}
 

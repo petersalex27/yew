@@ -1,12 +1,9 @@
 package parser
 
 import (
-	"math"
-
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
 	"github.com/petersalex27/yew/api/util"
-	//"github.com/petersalex27/yew/internal/symbol"
 )
 
 type state struct {
@@ -34,64 +31,6 @@ func createState(scanner api.ScannerPlus) state {
 	}
 }
 
-type ParserState_optional struct {
-	timesMarked int64
-	*ParserState
-}
-
-func (p *ParserState_optional) acceptRoot(ys yewSource) Parser {
-	p.ast = ys
-	return p
-}
-
-// kinda noop--panics if called when timesMarked <= 0
-func (p *ParserState_optional) report(e error, fatal bool) Parser {
-	if p.timesMarked <= 0 {
-		// this shouldn't have been called if <= 0
-		//
-		// this could have, but should not have, been done by accessing the parser's
-		// fields directly--but, also, calling demarkOptional() more times than markOptional() (or a
-		// combination of the two .-.)
-		panic("optional parser was de-marked more times than it was marked")
-	}
-	return p // ignore the error, as the thing that was being parsed was optional
-}
-
-func (p *ParserState) acceptRoot(ys yewSource) Parser {
-	p.ast = ys
-	return p
-}
-
-func (p *ParserState) markOptional() Parser {
-	return &ParserState_optional{
-		timesMarked: 1,
-		ParserState: p,
-	}
-}
-
-// noop
-func (p *ParserState) demarkOptional() Parser {
-	return p
-}
-
-func (p *ParserState_optional) markOptional() Parser {
-	if p.timesMarked == math.MaxInt64 {
-		// this is insane and should never happen
-		panic("cannot mark optional more than the value of 'math.MaxInt64' times")
-	}
-	p.timesMarked++
-	return p
-}
-
-func (p *ParserState_optional) demarkOptional() Parser {
-	if p.timesMarked > 1 {
-		p.timesMarked--
-	} else {
-		return p.ParserState
-	}
-	return p
-}
-
 func (p *ParserState) dropNewlines() {
 	for token.Newline.Match(p.current()) {
 		p.advance()
@@ -109,8 +48,6 @@ func (p *ParserState) Pos() (int, int) {
 func (p *ParserState) GetPos() api.Position {
 	return p.current().GetPos()
 }
-
-func (p *ParserState) bind(f func(Parser) Parser) Parser { return f(p) }
 
 // adds the error, and if fatal, then returns a *ParserStateFail
 func (p *ParserState) report(e error, fatal bool) Parser {

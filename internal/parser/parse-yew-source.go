@@ -59,10 +59,6 @@ func parseYewSource(p Parser) Parser {
 	if ps, ok := p.(*ParserState); ok {
 		ps.ast = ys
 		p = ps
-	} else if pso, ok := p.(*ParserState_optional); ok {
-		// suspicious, but okay ...
-		pso.ParserState.ast = ys
-		p = pso
 	}
 
 	return p
