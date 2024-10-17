@@ -88,6 +88,7 @@ func makeAlias(n name, ty typ) typeAlias {
 
 func makeTyping(n name, ty typ) typing {
 	return typing{
+		false,
 		data.Nothing[annotations](),
 		data.Nothing[visibility](),
 		data.MakePair(n, ty),

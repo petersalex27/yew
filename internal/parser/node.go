@@ -428,6 +428,7 @@ type (
 
 	// typing, e.g., `x: Int`
 	typing struct {
+		automatic   bool
 		annotations data.Maybe[annotations]
 		visibility  data.Maybe[visibility]
 		typing      data.Pair[name, typ]
@@ -440,7 +441,7 @@ type (
 	upperIdent struct{ data.Solo[api.Token] }
 
 	// visibility modifier
-	visibility struct{ data.Solo[api.Token] }
+	visibility struct{ api.Token }
 
 	visibleBodyElement interface {
 		api.DescribableNode

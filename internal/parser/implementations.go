@@ -368,6 +368,12 @@ func (typeDef typeDef) setVisibility(mv data.Maybe[visibility]) mainElement {
 
 // = typing ========================================================================================
 
+func (typing typing) markAuto(auto api.Token) typing {
+	typing.automatic = true
+	typing.Position = typing.Position.Update(auto)
+	return typing
+}
+
 // typing implements bodyElement
 func (typing typing) setAnnotation(as data.Maybe[annotations]) mainElement {
 	typing.annotate(as)

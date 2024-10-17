@@ -72,6 +72,7 @@ var (
 	with        = token.With.Make()       // with
 	as          = token.As.Make()         // as
 	of          = token.Of.Make()         // of
+	auto        = token.Auto.Make()       // auto
 	derivingTok = token.Deriving.Make()   // deriving
 	requiring   = token.Requiring.Make()  // requiring
 	spec        = token.Spec.Make()       // spec
@@ -230,7 +231,7 @@ var (
 	specInstBodyNode = data.EConstruct[specBody](data.Inl[typing](defNode))                                           // where x = x
 	requiringNode    = data.Construct(defNode)                                                                        // requiring x = x
 	dependencyNode   = pattern(name_x)                                                                                // from x
-	specInstTargeted = makeSpecInst(specHeadNode, data.Just(constrainerNode), specInstBodyNode) 											// spec MyId x = MyId x where x = x
+	specInstTargeted = makeSpecInst(specHeadNode, data.Just(constrainerNode), specInstBodyNode)                       // spec MyId x = MyId x where x = x
 
 	// body nodes
 

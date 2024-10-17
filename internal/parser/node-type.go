@@ -268,7 +268,11 @@ func (n typeDef) Describe() (string, []api.Node) {
 	return n.Type().String(), []api.Node{n.annotations, n.visibility, n.typedef, n.deriving}
 }
 func (n typing) Describe() (string, []api.Node) {
-	return n.Type().String(), []api.Node{n.annotations, n.visibility, n.typing}
+	s := ""
+	if n.automatic {
+		s = "automatic "
+	}
+	return s + n.Type().String(), []api.Node{n.annotations, n.visibility, n.typing}
 }
 func (n unitType) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
@@ -277,7 +281,7 @@ func (n upperIdent) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n visibility) Describe() (string, []api.Node) {
-	return n.Type().String(), n.Children()
+	return n.Type().String(), []api.Node{n.Token}
 }
 func (n whereClause) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()

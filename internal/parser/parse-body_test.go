@@ -13,6 +13,11 @@ import (
 
 // TODO: add tests for ensuring visibility modifiers are correctly parsed and applied
 func TestParseBody(t *testing.T) {
+	var (
+		publicVis = data.Just(visibility{api.Token(public)})
+		openVis   = data.Just(visibility{api.Token(open)})
+	)
+
 	tests := []struct {
 		name  string
 		input []api.Token
@@ -26,10 +31,64 @@ func TestParseBody(t *testing.T) {
 			body_typing, -1,
 		},
 		{
+			"auto typing",
+			// auto x : x
+			[]api.Token{auto, id_x_tok, colon, id_x_tok},
+			data.EMakes[body](typingNode.markAuto(auto).asBodyElement()), -1,
+		},
+		{
+			"auto typing - newline",
+			// auto\nx : x
+			[]api.Token{auto, newline, id_x_tok, colon, id_x_tok},
+			data.EMakes[body](typingNode.markAuto(auto).asBodyElement()), -1,
+		},
+		{
+			"public typing",
+			// public x : x
+			[]api.Token{public, id_x_tok, colon, id_x_tok},
+			data.EMakes[body](typingNode.setVisibility(publicVis).asBodyElement()), -1,
+		},
+		{
+			"public auto typing",
+			// public auto x : x
+			[]api.Token{public, auto, id_x_tok, colon, id_x_tok},
+			data.EMakes[body](typingNode.markAuto(auto).setVisibility(publicVis).asBodyElement()), -1,
+		},
+		{
+			"public auto typing - newline",
+			// public\nauto\nx : x
+			[]api.Token{public, newline, auto, newline, id_x_tok, colon, id_x_tok},
+			data.EMakes[body](typingNode.markAuto(auto).setVisibility(publicVis).asBodyElement()), -1,
+		},
+		{
 			"type def",
 			// MyId : x where MyId : x
 			[]api.Token{id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
 			body_typeDef, -1,
+		},
+		{
+			"public type def",
+			// public MyId : x where MyId : x
+			[]api.Token{public, id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
+			data.EMakes[body](typeDefNode.setVisibility(publicVis).asBodyElement()), -1,
+		},
+		{
+			"open type def",
+			// open MyId : x where MyId : x
+			[]api.Token{open, id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
+			data.EMakes[body](typeDefNode.setVisibility(openVis).asBodyElement()), -1,
+		},
+		{
+			"public type def - newline",
+			// public\nMyId : x where MyId : x
+			[]api.Token{public, newline, id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
+			data.EMakes[body](typeDefNode.setVisibility(publicVis).asBodyElement()), -1,
+		},
+		{
+			"open type def - newline",
+			// open\nMyId : x where MyId : x
+			[]api.Token{open, id_MyId_tok, colon, id_x_tok, where, id_MyId_tok, colon, id_x_tok},
+			data.EMakes[body](typeDefNode.setVisibility(openVis).asBodyElement()), -1,
 		},
 		{
 			"spec def",
@@ -38,10 +97,22 @@ func TestParseBody(t *testing.T) {
 			body_specDef, -1,
 		},
 		{
+			"public spec def",
+			// public spec MyId x where x : x
+			[]api.Token{public, spec, id_MyId_tok, id_x_tok, where, id_x_tok, colon, id_x_tok},
+			data.EMakes[body](specDefNode.setVisibility(publicVis).asBodyElement()), -1,
+		},
+		{
 			"spec inst",
 			// inst MyId x where x = x
 			[]api.Token{inst, id_MyId_tok, id_x_tok, where, id_x_tok, equal, id_x_tok},
 			body_specInst, -1,
+		},
+		{
+			"public spec inst",
+			// public inst MyId x where x = x
+			[]api.Token{public, inst, id_MyId_tok, id_x_tok, where, id_x_tok, equal, id_x_tok},
+			data.EMakes[body](specInstNode.setVisibility(publicVis).asBodyElement()), -1,
 		},
 		{
 			"type alias",
@@ -50,10 +121,22 @@ func TestParseBody(t *testing.T) {
 			body_alias, -1,
 		},
 		{
+			"public type alias",
+			// public alias MyId = MyId
+			[]api.Token{public, alias, id_MyId_tok, equal, id_MyId_tok},
+			data.EMakes[body](aliasNode.setVisibility(publicVis).asBodyElement()), -1,
+		},
+		{
 			"syntax",
 			// syntax `my` x = x
 			[]api.Token{syntaxTok, raw_my_tok, id_x_tok, equal, id_x_tok},
 			body_syntax, -1,
+		},
+		{
+			"public syntax",
+			// public syntax `my` x = x
+			[]api.Token{public, syntaxTok, raw_my_tok, id_x_tok, equal, id_x_tok},
+			data.EMakes[body](syntaxNode.setVisibility(publicVis).asBodyElement()), -1,
 		},
 		{
 			"def",
@@ -787,7 +870,7 @@ func TestParseTypeDef(t *testing.T) {
 		name  string
 		input []api.Token
 		want  mainElement
-		end  int
+		end   int
 	}{
 		{
 			"00",

@@ -30,7 +30,7 @@ body = [annotations_], body elem, {then, [annotations_], body elem} ;
       | spec inst 
       | type def 
       | type alias 
-      | typing 
+      | ["auto", {"\n"}], typing 
       | syntax ; 
   body elem = def | visible body elem ;
   visible body elem = [visibility],
@@ -38,7 +38,7 @@ body = [annotations_], body elem, {then, [annotations_], body elem} ;
       | spec inst 
       | type def 
       | type alias 
-      | typing 
+      | ["auto", {"\n"}], typing 
       | syntax 
       ) ;
   syntax = "syntax", {"\n"}, syntax rule, {"\n"}, "=", {"\n"}, expr ;

@@ -20,7 +20,6 @@ func parseBody(p Parser) (theBody data.Either[data.Ers, data.Maybe[body]]) {
 
 	has1stTerm := false
 
-
 	origin := getOrigin(p)
 	for {
 		es, mFooterAnnots, isMAnnots := parseAnnotations_(p).Break()
@@ -90,6 +89,32 @@ func parseTypeSig(p Parser) data.Either[data.Ers, typing] {
 	t := makeTyping(n, ty)
 	t.Position = t.Position.Update(colon)
 	return data.Ok(t)
+}
+
+// rule:
+//
+//	```
+//	auto typing = "auto", {"\n"}, typing ;
+//	```
+func parseAutoDefTypeSig(p Parser) data.Either[data.Ers, mainElement] {
+	auto, found := getKeywordAtCurrent(p, token.Auto, dropAfter)
+	if !found {
+		// should be impossible to reach this point; if it is, something is wrong
+		//
+		// could be a lot of things: tokens changed between before calling this function (when 'auto'
+		// should flag this function for calling) and actually getting the token, or another possibility
+		// is this function is called from the wrong caller
+		//
+		// regardless, this is almost certainly a bug in the caller
+		return data.Fail[mainElement](ExpectedAuto, p)
+	}
+
+	es, ty, isTy := parseTypeSig(p).Break()
+	if !isTy {
+		return data.PassErs[mainElement](es)
+	}
+	me := ty.markAuto(auto).asMainElement()
+	return data.Ok(me)
 }
 
 // rule:
@@ -209,13 +234,13 @@ func parseTypeConstructor(p Parser, as data.Maybe[annotations]) data.Either[data
 // rule:
 //
 //	```
-//	maybe visibility = [("open" | "public"), {"\n"}] ;
+//	optional visibility = [("open" | "public"), {"\n"}] ;
 //	```
 func parseOptionalVisibility(p Parser) (mv data.Maybe[visibility]) {
 	if vis, found := getKeywordAtCurrent(p, token.Open, dropAfter); found {
-		return data.Just(data.EOne[visibility](vis))
+		return data.Just(visibility{vis})
 	} else if vis, found = getKeywordAtCurrent(p, token.Public, dropAfter); found {
-		return data.Just(data.EOne[visibility](vis))
+		return data.Just(visibility{vis})
 	} else {
 		return data.Nothing[visibility](p)
 	}
@@ -615,25 +640,26 @@ func (attempted structureParseAttempt) getErrorMessageForAttempted(vis data.Mayb
 		return "" // no visibility modifier given, no additional error can be given
 	}
 
-	switch v.Type() {
+	switch v.Token.Type() {
 	case token.Open:
 		switch attempted {
-		case attemptedSpecInst,
-			attemptedSpecDef,
-			attemptedTypeAlias,
-			attemptedSyntax:
-			return IllegalOpenModifier
-		case attemptedTypeDef:
-			return IllegalOpenModifierTyping
 		case attemptedTyping:
 			return IllegalOpenModifierTyping
+		case attemptedDef:
+			return IllegalVisibleDef
+		case attemptedTypeDef:
+			return ""
+		default:
+			return IllegalOpenModifier
 		}
 	case token.Public:
 		if attempted == attemptedDef {
 			return IllegalVisibleDef
 		}
+		return ""
 	}
-	return UnexpectedStructure
+
+	panic("unknown visibility modifier")
 }
 
 // Tries to parse any of the top-level body structures, returning the result and a value encoding
@@ -660,8 +686,9 @@ func optionalParseBasicStructureHelper(p Parser) (res data.Either[data.Ers, data
 	 *
 	 * strategy:
 	 * 	1. lookahead 1 for `spec def`, `spec inst`, `type alias`, and `syntax`
-	 *	2. otherwise, lookahead 2 for `typing` and `type def`, then check for `where` to determine if it is a `type def`
-	 *	3. otherwise, if 1. and 2. data.Fail, try to parse `def`
+	 *	2. otherwise, lookahead 2 for `typing` and `type def`, parse, then check for `where` to determine if it is a `type def`
+	 *  3. lookahead 1 for `auto`
+	 *	4. otherwise, if 1., 2. and 3. fail, try to parse `def`
 	 */
 	// 1. lookahead 1
 	if tt, found := lookahead1Report(p, bodyKeywordsLAs...); found {
@@ -674,6 +701,12 @@ func optionalParseBasicStructureHelper(p Parser) (res data.Either[data.Ers, data
 		// put as attempted typing since typing is the only One that actually matters. `attempted` is
 		// used for visibility related error messages, but a type def can have any visibility modifier
 		result := parseTypeDefOrTyping(p)
+		return data.EitherMap(data.IdErs, data.Just[mainElement])(result), attemptedTyping
+	}
+
+	// 3. lookahead 1 for `auto`
+	if found := lookahead1(p, token.Auto); found {
+		result := parseAutoDefTypeSig(p)
 		return data.EitherMap(data.IdErs, data.Just[mainElement])(result), attemptedTyping
 	}
 
@@ -830,7 +863,7 @@ func parseTypeDefOrTyping(p Parser) data.Either[data.Ers, mainElement] {
 
 	origin := getOrigin(p)
 	p.dropNewlines()
-	
+
 	esDeriving, mDeriving, isDeriving := parseOptionalDerivingClause(p).Break()
 	if !isDeriving {
 		resetOrigin(p, origin)
