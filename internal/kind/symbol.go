@@ -54,6 +54,13 @@ func Sym(name api.Token, ty Type) Symbol {
 	return declare(name, ty)
 }
 
+func InfixSym(name api.Token, ty Type, fix byte, prec byte) Symbol {
+	sym := declare(name, ty)
+	sym.nameType = min(max(fix, None), Infix) // fix nameType in [0, 3]
+	sym.precedence = min(max(prec, 0), 10)    // fix prec in [0, 11)
+	return sym
+}
+
 func getMode(mode api.Token) (int8, string) {
 	switch mode.String() {
 	case "once":

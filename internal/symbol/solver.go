@@ -1,14 +1,32 @@
 package symbol
 
 import (
+	"io"
+	"strings"
+
 	"github.com/petersalex27/yew/api"
+	"github.com/petersalex27/yew/api/token"
 	"github.com/petersalex27/yew/common/stack"
 	"github.com/petersalex27/yew/internal/kind"
 )
 
+func (s *solver) Print(w io.Writer) {
+	w.Write([]byte("Unifications:\n"))
+	w.Write([]byte(s.unifications.String()))
+	w.Write([]byte("\nSymbols:\n"))
+	w.Write([]byte(s.table.symbols.String()))
+	w.Write([]byte("\n-------------"))
+}
+
+func (s *solver) String() string {
+	b := &strings.Builder{}
+	s.Print(b)
+	return b.String()
+}
+
 func (s *solver) GiveType(tok api.Token, ty kind.Type) string {
-	s.table.mu.Lock()
-	defer s.table.mu.Unlock()
+	// s.table.mu.Lock()
+	// defer s.table.mu.Unlock()
 
 	if v, ok := s.table.symbols.Get(tok.String()); ok {
 		if !Unify(s, v.Typing(), ty) {
@@ -48,6 +66,9 @@ func (s *solver) exitScope() {
 }
 
 func (s *solver) RecordNames() {
+	s.freeRange.Push(s.table.freeCounter)
+	s.table.freeCounter = 0
+
 	s.table.symbols.Push(map[string]kind.Symbol{})
 }
 
@@ -56,19 +77,35 @@ func (s *solver) EndRecording() map[string]kind.Symbol {
 	if !ok {
 		panic("unbalanced scopes")
 	}
+
+	// s.table.mu.Lock()
+	// defer s.table.mu.Unlock()
+
+	s.table.freeCounter, ok = s.freeRange.Pop()
+	if !ok {
+		panic("unbalanced free counter stack")
+	}
 	return res
 }
 
-func (s *solver) Declare(tok api.Token) {
-	s.table.mu.Lock()
-	defer s.table.mu.Unlock()
+func (s *solver) Declare(tok api.Token, fix byte, prec byte) {
+	// s.table.mu.Lock()
+	// defer s.table.mu.Unlock()
 
 	// ty := s.table.NewVar()
 	if _, found := s.table.symbols.Get(tok.String()); found {
 		return // already declared
 	}
 
-	s.table.symbols.Map(tok.String(), kind.Sym(tok, s.table.newVar()))
+	var sym kind.Symbol
+	ty := s.table.newVar()
+	if token.Infix.Match(tok) {
+		sym = kind.InfixSym(tok, ty, fix, prec)
+	} else {
+		sym = kind.Sym(tok, ty)
+	}
+
+	s.table.symbols.Map(tok.String(), sym)
 }
 
 func (s *solver) NewVar() kind.Type {

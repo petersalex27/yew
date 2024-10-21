@@ -9,7 +9,7 @@ import (
 
 type ParserStateFail struct{ bad *ParserState }
 
-func (p *ParserStateFail) declare(api.Token) {}
+func (p *ParserStateFail) declare(api.Token, ...byte) {}
 
 func (p *ParserStateFail) newScope() {}
 

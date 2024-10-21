@@ -9,8 +9,6 @@ import (
 	"github.com/petersalex27/yew/internal/source"
 )
 
-
-
 type testScanner struct {
 	tokens []api.Token
 	counter int

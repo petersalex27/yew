@@ -88,6 +88,10 @@ const (
 	ExpectedColonOrRightParen       = "expected ':' or ')'"                                                          // expected-colon-or-right-paren
 	ExpectedConstrainerParam        = "expected a constrainer parameter"                                             // expected-constrainer-param
 	IllegalMultipleModality         = "modalities cannot be applied to multiple terms"                               // illegal-multiple-modality
+	UnknownMetaAnnotation           = "unknown meta annotation"                                                      // unknown-meta-annotation
+	ExpectedInfixId                 = "expected infix identifier"                                                    // expected-infix-id
+	MissingPrecedence               = "missing precedence"                                                           // missing-precedence
+	IllegalPrecedence               = "illegal precedence, expected an integer between 0 and 10"                     // illegal-precedence
 )
 
 func parseError(p parser, e data.Err) error {

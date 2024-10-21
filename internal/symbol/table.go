@@ -3,7 +3,7 @@ package symbol
 import (
 	"math"
 	"strings"
-	"sync"
+	//"sync"
 
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/common/stack"
@@ -14,7 +14,7 @@ import (
 type (
 	Table struct {
 		// all public methods lock this mutex, then call the private method
-		mu sync.Mutex
+		//mu sync.Mutex
 		// freeCounter is the number of free variables declared in this table
 		freeCounter int
 		// symbols is a scoped map from the name of a symbol to the symbol itself
@@ -118,16 +118,16 @@ func (t *Table) newVar() variable {
 }
 
 func (t *Table) NewVar() kind.Type {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	// t.mu.Lock()
+	// defer t.mu.Unlock()
 
 	v := t.newVar()
 	return v
 }
 
 func (t *Table) Declare(tok api.Token, ty kind.Type) string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	// t.mu.Lock()
+	// defer t.mu.Unlock()
 
 	return t.declare(tok, ty)
 }
@@ -151,8 +151,8 @@ func (t *Table) use(tok api.Token) string {
 }
 
 func (t *Table) Use(tok api.Token) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	// t.mu.Lock()
+	// defer t.mu.Unlock()
 	t.use(tok)
 }
 
@@ -162,7 +162,7 @@ type Symbolic interface {
 }
 
 func (t *Table) Track(s Symbolic) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	// t.mu.Lock()
+	// defer t.mu.Unlock()
 	// TODO: implement this method
 }

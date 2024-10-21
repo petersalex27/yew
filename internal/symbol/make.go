@@ -24,3 +24,7 @@ func Const(name api.Token) constant {
 func Var(name api.Token) variable {
 	return variable{name.String(), name.GetPos()}
 }
+
+func Var2(name string, pos api.Position) variable {
+	return variable{name, pos}
+}

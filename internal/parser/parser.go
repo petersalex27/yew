@@ -21,7 +21,7 @@ type parser interface {
 	// drop zero or more newlines
 	dropNewlines()
 	// declare a symbol
-	declare(names api.Token)
+	declare(names api.Token, fix_prec ...byte)
 	// create a new, free variable
 	newVar() kind.Type
 	newScope()

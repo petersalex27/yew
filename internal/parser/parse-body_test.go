@@ -1030,8 +1030,8 @@ func TestParseOptionalVisibility(t *testing.T) {
 //	where body = main elem | "(", {"\n"}, main elem, {then, main elem}, {"\n"}, ")" ;
 //	```
 func TestParseWhereBody(t *testing.T) {
-	wcSimple := makeWhereClause(nil, data.Construct(mainElement(typingNode)))
-	wcDouble := makeWhereClause(nil, data.Construct(mainElement(typingNode), mainElement(typingNode)))
+	wcSimple := makeWhereClause(xMap, data.Construct(mainElement(typingNode)))
+	wcDouble := makeWhereClause(xMap, data.Construct(mainElement(typingNode), mainElement(typingNode)))
 	tests := []struct {
 		name  string
 		input []api.Token

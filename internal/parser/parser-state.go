@@ -51,8 +51,12 @@ func (p *ParserState) GetPos() api.Position {
 	return p.current().GetPos()
 }
 
-func (p *ParserState) declare(name api.Token) {
-	p.solver.Declare(name)
+func (p *ParserState) declare(name api.Token, fix_prec ...byte) {
+	if len(fix_prec) >= 2 {
+		p.solver.Declare(name, fix_prec[0], fix_prec[1])
+	} else {
+		p.solver.Declare(name, kind.None, 0)
+	}
 }
 
 func (p *ParserState) newScope() {

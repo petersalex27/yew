@@ -6,6 +6,8 @@ import (
 	"github.com/petersalex27/yew/internal/symbol"
 )
 
+type tableEntry map[string]symbol.Symbol
+
 type (
 	// a dot followed by a name, e.g., `.run` or list of names separated by dots, e.g., `.run.run`
 	accessList struct{ data.NonEmpty[name] }
@@ -37,7 +39,7 @@ type (
 	}
 
 	caseArm struct {
-		table map[string]symbol.Symbol
+		tableEntry
 		data.Pair[pattern, defBody]
 	}
 
@@ -175,7 +177,7 @@ type (
 	}
 
 	lambdaAbstraction struct {
-		table map[string]symbol.Symbol
+		tableEntry
 		data.Pair[lambdaBinders, expr]
 	}
 
@@ -467,7 +469,7 @@ type (
 
 	// where clause
 	whereClause struct {
-		table map[string]symbol.Symbol
+		tableEntry
 		data.NonEmpty[mainElement]
 	}
 
@@ -483,7 +485,7 @@ type (
 
 	// arm of a with clause
 	withClauseArm struct {
-		table map[string]symbol.Symbol
+		tableEntry
 		data.Pair[withArmLhs, defBody]
 	}
 

@@ -10,6 +10,27 @@ func makeYewSource(h data.Maybe[header], b data.Maybe[body], f data.Maybe[annota
 	return YewSource{h, b, footer{f}, api.WeakenRangeOver[api.Node](h, b, f)}
 }
 
+func resolveHeaderAnnotations(p parser, mHeader data.Maybe[header]) data.Maybe[header] {
+	header, just := mHeader.Break()
+	if !just {
+		return mHeader
+	}
+
+	mod, isMod := header.Fst().Break()
+	if !isMod {
+		return mHeader // nothing to resolve
+	}
+
+	annots, isAnnots := mod.annotations.Break()
+	if !isAnnots {
+		return mHeader // nothing to resolve
+	}
+
+	// now, actually resolve annotations
+	metaAnnots(p, annots)
+	return mHeader
+}
+
 // Parse yew source file from the top down.
 //
 // rule:
@@ -26,6 +47,9 @@ func parseYewSource(p parser) parser {
 	if !isHeader {
 		return writeErrors(p, es)
 	}
+
+	// resolve header annotations
+	header = resolveHeaderAnnotations(p, header)
 
 	// the order is REALLY important here; `then` modifies state
 	if header.IsNothing() || then(p) {

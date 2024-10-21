@@ -13,6 +13,7 @@ import (
 	"github.com/petersalex27/yew/api/token"
 	"github.com/petersalex27/yew/api/util"
 	"github.com/petersalex27/yew/common/data"
+	"github.com/petersalex27/yew/internal/kind"
 	"github.com/petersalex27/yew/internal/source"
 	"github.com/petersalex27/yew/internal/symbol"
 )
@@ -133,8 +134,8 @@ var (
 	lambdaBinderNode       = data.EInl[lambdaBinder](lowerBinder)                                                         // x
 	lambdaBinders1         = data.EConstruct[lambdaBinders](lambdaBinderNode)                                             // x
 	lambdaBinders2         = data.EConstruct[lambdaBinders](lambdaBinderNode, lambdaBinderNode)                           // x, x
-	lambdaAbs1             = makeAbstraction(nil, lambdaBinders1, exprNode)                                               // \x => x
-	lambdaAbs2             = makeAbstraction(nil, lambdaBinders2, exprNode)                                               // \x, x => x
+	lambdaAbs1             = makeAbstraction(xMap, lambdaBinders1, exprNode)                                              // \x => x
+	lambdaAbs2             = makeAbstraction(xMap, lambdaBinders2, exprNode)                                              // \x, x => x
 	typ_x                  = typ(name_x)                                                                                  // x
 	enclosedExpr           = expr(name_x)                                                                                 // x
 	_noAnnots              = data.Nothing[annotations]()                                                                  //
@@ -153,7 +154,7 @@ var (
 	letExprNode            = data.EMakePair[letExpr](letBinding_b, exprNode)                                              // let x := x in x
 	defBodyPossible_x      = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Nothing[whereClause]()) // x
 	defBody_x              = data.EInr[defBody](defBodyPossible_x)                                                        // x
-	caseArmNode            = makeCaseArm(nil, pattern(name_x), defBody_x)                                                 // x => x
+	caseArmNode            = makeCaseArm(xMap, pattern(name_x), defBody_x)                                                // x => x
 	caseExprNode           = data.EMakePair[caseExpr](pattern(name_x), data.EConstruct[caseArms](caseArmNode))            // case x of x => x
 
 	// annotation nodes
@@ -244,7 +245,7 @@ var (
 	defBodyNode             = data.EInr[defBody](defBodyPossible_x)                                                              // x
 	defBodyImpossible       = data.EInl[defBody](data.EOne[impossible](impossibleTok))                                           // impossible
 	defNode                 = def{emptyAnnots, name_x, defBodyNode, api.ZeroPosition()}                                          // x = x
-	whereClauseNode         = makeWhereClause(nil, data.Construct(defNode.asMainElement()))                                      // where x = x
+	whereClauseNode         = makeWhereClause(xMap, data.Construct(defNode.asMainElement()))                                     // where x = x
 	defBodyPossible_where   = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Just(whereClauseNode))        // x where x = x
 	defBodyWhereNode        = data.EInr[defBody](defBodyPossible_where)                                                          // x where x = x
 	defImpossibleNode       = def{emptyAnnots, name_x, defBodyImpossible, api.ZeroPosition()}                                    // x impossible
@@ -280,11 +281,12 @@ var (
 	typeDefNodeWithDeriving = makeTypeDef(upperTypingNode, data.Inl[impossible](singleConsNode), data.Just(derivingNode))        // MyId : x where MyId : x deriving MyId x
 	withArmLhsNode          = data.Inl[data.Pair[pattern, pattern]](pattern(name_x))                                             // x
 	withArmLhsVRNode        = makeWithArmLhsRefined(pattern(name_x), pattern(name_x))                                            // x | x
-	withClauseArmNode       = makeWithClauseArm(nil, withArmLhsNode, defBodyNode)                                                // x => x
-	withClauseVRNode        = makeWithClauseArm(nil, withArmLhsVRNode, defBodyNode)                                              // x | x => x
+	withClauseArmNode       = makeWithClauseArm(xMap, withArmLhsNode, defBodyNode)                                               // x => x
+	withClauseVRNode        = makeWithClauseArm(xMap, withArmLhsVRNode, defBodyNode)                                             // x | x => x
 	withClauseArmsNode      = data.EConstruct[withClauseArms](withClauseArmNode)                                                 // x => x
 	withClauseNode          = makeWithClause(pattern(name_x), withClauseArmsNode)                                                // with x of x => x
-	withClauseArmNodeWhere  = makeWithClauseArm(nil, withArmLhsNode, defBodyWhereNode)                                           // x => x where x = x
+	xMap                    = map[string]kind.Symbol{"x": kind.Sym2("x", symbol.Var2("~a", api.ZeroPosition()))}                 // "x" |-> (x : ~a)
+	withClauseArmNodeWhere  = makeWithClauseArm(xMap, withArmLhsNode, defBodyWhereNode)                                          // x => x where x = x
 	withClauseArmsNodeWhere = data.EConstruct[withClauseArms](withClauseArmNodeWhere)                                            // x => x where x = x
 	withClauseNodeWhere     = makeWithClause(pattern(name_x), withClauseArmsNodeWhere)                                           // with x of x => x where x = x
 )
@@ -400,9 +402,30 @@ func sprintTree(n api.DescribableNode) string {
 }
 
 func equals[n1, n2 api.DescribableNode](x n1, y n2) bool {
+	type entry interface {
+		equals(te2 tableEntry) bool
+		symbols() tableEntry
+	}
+
 	if !x.Type().Match(y) {
 		return false
 	}
+
+	if te, ok := api.DescribableNode(x).(entry); ok {
+		te2, ok := api.DescribableNode(y).(entry)
+		if !ok {
+			return false
+		}
+
+		ok = te.equals(te2.symbols())
+		if !ok {
+			t1 := map[string]symbol.Symbol(te.symbols())
+			t2 := map[string]symbol.Symbol(te2.symbols())
+			fmt.Fprintf(os.Stderr, "expected table\n%v\n, got \n%v\n", t1, t2)
+			return false
+		}
+	}
+
 	nameX, childrenX := x.Describe()
 	nameY, childrenY := y.Describe()
 	if nameX != nameY {
@@ -431,6 +454,26 @@ func equals[n1, n2 api.DescribableNode](x n1, y n2) bool {
 		}
 	}
 	return true
+}
+
+func (te tableEntry) equals(te2 tableEntry) bool {
+	if len(te) != len(te2) {
+		return false
+	}
+
+	for k, v := range te {
+		if v2, ok := te2[k]; !ok {
+			return false
+		} else if v.String() != v2.String() { // TODO: this is definitely not the best way to compare symbols
+			return false
+		}
+	}
+
+	return true
+}
+
+func (te tableEntry) symbols() tableEntry {
+	return te
 }
 
 func parseErrors(p parser, es data.Ers) []error {

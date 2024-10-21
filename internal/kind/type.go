@@ -1,6 +1,8 @@
 package kind
 
 import (
+	"io"
+
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/common/stringer"
 )
@@ -52,9 +54,10 @@ type (
 		Union(string, Type) bool
 		NewVar() Type
 		RecordError(errorMessage string, pos api.Positioned)
-		Declare(api.Token)
+		Declare(api.Token, byte, byte)
 		RecordNames()
 		EndRecording() map[string]Symbol
+		Print(w io.Writer)
 	}
 
 	Variable struct {
