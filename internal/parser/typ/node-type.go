@@ -38,6 +38,7 @@ const (
 	Char
 	ConstrainedType
 	Constrainer
+	ConstrainerParams
 	Constraint
 	Def
 	DefBody
@@ -60,7 +61,7 @@ const (
 	ImportStatement
 	Importing
 	Impossible
-	InnerTypeTerms
+	InnerTypeSeq
 	InnerTyping
 	LambdaAbstraction
 	LambdaBinders
@@ -135,6 +136,8 @@ func (nt nodeType) String() string {
 		return "constrained type"
 	case Constrainer:
 		return "constrainer"
+	case ConstrainerParams:
+		return "constrainer parameters"
 	case Constraint:
 		return "constraint"
 	case Def:
@@ -175,8 +178,8 @@ func (nt nodeType) String() string {
 		return "imports"
 	case Impossible:
 		return "impossible definition body"
-	case InnerTypeTerms:
-		return "inner type terms"
+	case InnerTypeSeq:
+		return "inner type sequence"
 	case InnerTyping:
 		return "inner typing"
 	case LambdaAbstraction:

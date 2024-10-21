@@ -10,6 +10,7 @@ type (
 
 	EmbedsSolo[a api.Node] interface {
 		api.DescribableNode
+		Break() a
 		~struct{ Solo[a] }
 	}
 )
@@ -28,4 +29,8 @@ func SoloMap[a, b api.Node](f func(a) b) func(Solo[a]) Solo[b] {
 	return func(s Solo[a]) Solo[b] {
 		return One(f(s.one))
 	}
+}
+
+func (s Solo[a]) Break() a {
+	return s.one
 }

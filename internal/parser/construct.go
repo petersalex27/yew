@@ -3,6 +3,7 @@ package parser
 import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/common/data"
+	"github.com/petersalex27/yew/internal/kind"
 )
 
 func holeAsPatternAtom(h api.Token) patternAtom {
@@ -17,9 +18,9 @@ func nameAsPatternAtom(n name) patternAtom {
 	return data.Inr[literal](data.Inr[hole](n))
 }
 
-func constructLambdaAbstraction(backslash api.Token, binders lambdaBinders, arrow api.Token) func(expr) data.Either[data.Ers, lambdaAbstraction] {
+func constructLambdaAbstraction(backslash api.Token, table map[string]kind.Symbol, binders lambdaBinders, arrow api.Token) func(expr) data.Either[data.Ers, lambdaAbstraction] {
 	return func(e expr) data.Either[data.Ers, lambdaAbstraction] {
-		la := data.EMakePair[lambdaAbstraction](binders, e)
+		la := makeAbstraction(table, binders, e)
 		la.Position = la.Update(backslash)
 		la.Position = la.Update(arrow)
 		return data.Ok(la)
@@ -131,7 +132,7 @@ func makeStdSyntaxRuleIdent(id ident) syntaxRuleIdent {
 	return syntaxRuleIdent{false, id, id.GetPos()}
 }
 
-func makeEmptyYewSource() yewSource {
+func makeEmptyYewSource() YewSource {
 	return makeYewSource(
 		data.Nothing[header](),
 		data.Nothing[body](),
@@ -158,10 +159,22 @@ func makeWithArmLhsRefined(pat1, pat2 pattern) withArmLhs {
 	return data.Inr[pattern](data.MakePair(pat1, pat2))
 }
 
-func makeWithClauseArm(lhs withArmLhs, db defBody) withClauseArm {
-	return data.EMakePair[withClauseArm](lhs, db)
+func makeWithClauseArm(table map[string]kind.Symbol, lhs withArmLhs, db defBody) withClauseArm {
+	return withClauseArm{table, data.MakePair(lhs, db)}
 }
 
 func makeModule(id lowerIdent) module {
 	return module{data.Nothing[annotations](), data.One(id), id.Position}
+}
+
+func makeCaseArm(table map[string]kind.Symbol, pat pattern, db defBody) caseArm {
+	return caseArm{table, data.MakePair(pat, db)}
+}
+
+func makeWhereClause(table map[string]kind.Symbol, elems data.NonEmpty[mainElement]) whereClause {
+	return whereClause{table, elems}
+}
+
+func makeAbstraction(table map[string]kind.Symbol, binders lambdaBinders, e expr) lambdaAbstraction {
+	return lambdaAbstraction{table, data.MakePair(binders, e)}
 }

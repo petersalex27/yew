@@ -28,6 +28,14 @@ type (
 	}
 )
 
+func Coalesce[b, c EmbedsSolo[a], a api.Node](ebc Either[b, c]) a {
+	l, r, isR := ebc.Break()
+	if isR {
+		return r.Break()
+	}
+	return l.Break()
+}
+
 func (e inLeft[a, b]) Update(p api.Positioned) Either[a, b] {	
 	e.Position = e.Position.Update(p)
 	return e

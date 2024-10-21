@@ -108,6 +108,20 @@ func (s *MapStack[a, b]) Get(key a) (val b, found bool) {
 	return val, found
 }
 
+// searches for the key in the maps starting from the top and going down
+func (s *MapStack[a, b]) Find(key a) (val b, found bool) {
+	if s.ctr == 0 {
+		return val, false
+	}
+
+	for i := s.ctr - 1; i >= 0; i-- {
+		if val, found := s.data[i][key]; found {
+			return val, true
+		}
+	}
+	return val, false
+}
+
 // checks if the key exists in the top map
 func (s *MapStack[a, b]) Exists(key a) (found bool) {
 	_, found = s.Get(key)

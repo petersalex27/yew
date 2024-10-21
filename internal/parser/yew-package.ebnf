@@ -1,0 +1,18 @@
+yew package source = declaration, then, language, then, body ;
+declaration = ["standard", {"\n"}], "package", {"\n"}, lower ident ;
+language = lower ident, version ;
+body = body element, {then, body element} ;
+body element = require clause | define clause ;
+require clause = "require", {"\n"}, require clause body ;
+require clause body = 
+    require body element 
+    | "(", {"\n"}, require body element, {then, require body element}, {"\n"}, ")" ;
+define clause = "define", {"\n"}, "type", {"\n"}, "system", {"\n"}, define clause body ;
+define clause body = define clause element | "(", {"\n"}, define clause element, {then, define clause element}, {"\n"}, ")" ;
+define clause element = ["public", {"\n"}], (constant | axiom | rule) ;
+constant = "constant", {"\n"}, ident ; 
+axiom = "axiom", {"\n"}, ident, {"\n"}, ":=", {"\n"}, ident, {"\n"}, ":", {"\n"}, ident ;
+rule = "rule", {"\n"}, ident, {"\n"}, ":=", {"\n"}, ident, {"\n"}, "~>", {"\n"}, ident, {"\n"}, ":", {"\n"}, ident ;
+
+then = "\n", {"\n"} ;
+version = ? REGEX "v(@latest|@stable|[0-9]+[.]([][0-9]+))" ? ;

@@ -67,12 +67,71 @@ func maybeParseConstrainer(p parser, enclosed bool) (*data.Ers, data.Maybe[const
 	if enclosed {
 		p.dropNewlines()
 	}
-	es, pat, isPat := ParsePattern(p).Break()
-	if !isPat {
+	es, cps, isCps := parseConstrainerParams(p).Break()
+	if !isCps {
 		return &es, data.Nothing[constrainer](p) // return error
 	}
 
-	return nil, data.Just(data.EMakePair[constrainer](upper, pat))
+	return nil, data.Just(data.EMakePair[constrainer](upper, cps))
+}
+
+func parseMaybeConstrainerParam(p parser) (*data.Ers, data.Maybe[constrainerParam]) {
+	var cp constrainerParam
+
+	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
+
+	id, just := parseIdent(p).Break()
+	if !just {
+		return nil, data.Nothing[constrainerParam](p)
+	}
+
+	if !found {
+		return nil, data.Just(data.MakePair[ident, data.Maybe[typ]](id, data.Nothing[typ]()))
+	}
+
+	mty := data.Nothing[typ]()
+	
+	colon, found := getKeywordAtCurrent(p, token.Colon, dropBeforeAndAfter)
+	if found { // parse typing
+		tyRes := parseEnclosedType(p)
+		es, ty, isTy := tyRes.Break()
+		if !isTy {
+			return &es, data.Nothing[constrainerParam](p)
+		}
+		mty = data.Just(ty)
+	}
+
+	rparen, found := getKeywordAtCurrent(p, token.RightParen, dropBefore)
+	if !found {
+		e := data.MkErr(ExpectedColonOrRightParen, p)
+		es := data.Nil[data.Err](1).Snoc(e)
+		return &es, data.Nothing[constrainerParam](p)
+	}
+
+	cp = data.MakePair(id, mty)
+	cp.Position = cp.Update(lparen).Update(rparen)
+	if found {
+		cp.Position = cp.Update(colon)
+	}
+
+	return nil, data.Just(cp)
+}
+
+// constrainer param = ident | "(", {"\n"}, ident, {"\n"}, ":", {"\n"}, enc type, {"\n"}, ")" ;
+func parseConstrainerParams(p parser) data.Either[data.Ers, constrainerParams] {
+	es, mcp := parseMaybeConstrainerParam(p)
+	if es != nil {
+		return data.PassErs[constrainerParams](*es)
+	} else if cp, just := mcp.Break(); !just {
+		return data.Fail[constrainerParams](ExpectedConstrainerParam, p)
+	} else {
+		var cps data.NonEmpty[constrainerParam]
+		es, cps, _ = parseOneOrMore(p, cp, fun.Constant[parser](true), parseMaybeConstrainerParam)
+		if es != nil {
+			return data.PassErs[constrainerParams](*es)
+		}
+		return data.Ok(constrainerParams{cps})
+	}
 }
 
 func constraintElemLA(p parser) bool {

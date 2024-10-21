@@ -97,21 +97,46 @@ func (lex *Lexer) additionListener() {
 	}
 }
 
-func Init(src api.Source) *Lexer {
+// create a new, empty lexer
+func New() *Lexer {
 	lex := new(Lexer)
 
 	lex.SetKeepComments(false)
-	lex.SourceCode = (source.SourceCode{}).Set(src).(source.SourceCode)
+	lex.SourceCode = source.SourceCode{}
 	lex.Line = 1
 	lex.SavedChar = stack.New[int]()
-
-	lex.keywords = make(map[string]token.Type, len(keywords))
-	maps.Copy(lex.keywords, keywords)
 
 	lex.action = make(chan nextAction, 1)
 	lex.additions = make(chan string, 1)
 	lex.restore = lex.copyState()
 
+	return lex
+}
+
+// map is copied, preventing changes to the original map from affecting the lexer
+//
+// do not mutate the map while the this function is running--this function is not thread-safe
+func (lex *Lexer) LoadReserved(reserved map[string]token.Type) {
+	if len(lex.keywords) != 0 {
+		panic("reserved keywords already loaded")
+	}
+	lex.keywords = make(map[string]token.Type, len(reserved))
+	maps.Copy(lex.keywords, reserved)
+}
+
+func (lex *Lexer) Load(src api.Source) bool {
+	if len(lex.SourceCode.Source) > 0 || lex.SourceCode.Path() != "" {
+		return false // already loaded
+	}
+
+	lex.SourceCode = (source.SourceCode{}).Set(src).(source.SourceCode)
+	return true
+} 
+
+func Init(src api.Source) *Lexer {
+	lex := New()
+	lex.Load(src)
+	lex.LoadReserved(keywords)
 	return lex
 }
 
@@ -216,4 +241,12 @@ func (lex *Lexer) readUntil(char byte) (string, bool) {
 		builder.WriteByte(in)
 	}
 	return builder.String(), ok
+}
+
+// ready to load source code
+func (lex *Lexer) CreateSimilar() api.ScannerPlus {
+	out := New()
+	out.LoadReserved(lex.keywords)
+	out.SetKeepComments(lex.keepComments)
+	return out
 }

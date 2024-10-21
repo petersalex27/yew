@@ -1030,6 +1030,8 @@ func TestParseOptionalVisibility(t *testing.T) {
 //	where body = main elem | "(", {"\n"}, main elem, {then, main elem}, {"\n"}, ")" ;
 //	```
 func TestParseWhereBody(t *testing.T) {
+	wcSimple := makeWhereClause(nil, data.Construct(mainElement(typingNode)))
+	wcDouble := makeWhereClause(nil, data.Construct(mainElement(typingNode), mainElement(typingNode)))
 	tests := []struct {
 		name  string
 		input []api.Token
@@ -1038,32 +1040,32 @@ func TestParseWhereBody(t *testing.T) {
 		{
 			"single",
 			[]api.Token{id_x_tok, colon, id_x_tok},
-			data.EConstruct[whereClause](mainElement(typingNode)),
+			wcSimple,
 		},
 		{
 			"enclosed - 00",
 			[]api.Token{lparen, id_x_tok, colon, id_x_tok, rparen},
-			data.EConstruct[whereClause](mainElement(typingNode)),
+			wcSimple,
 		},
 		{
 			"enclosed - 01",
 			[]api.Token{lparen, id_x_tok, colon, id_x_tok, newline, rparen},
-			data.EConstruct[whereClause](mainElement(typingNode)),
+			wcSimple,
 		},
 		{
 			"enclosed - 10",
 			[]api.Token{lparen, newline, id_x_tok, colon, id_x_tok, rparen},
-			data.EConstruct[whereClause](mainElement(typingNode)),
+			wcSimple,
 		},
 		{
 			"enclosed - 11",
 			[]api.Token{lparen, newline, id_x_tok, colon, id_x_tok, newline, rparen},
-			data.EConstruct[whereClause](mainElement(typingNode)),
+			wcSimple,
 		},
 		{
 			"multiple",
 			[]api.Token{lparen, newline, id_x_tok, colon, id_x_tok, newline, id_x_tok, colon, id_x_tok, newline, rparen},
-			data.EConstruct[whereClause](mainElement(typingNode), mainElement(typingNode)),
+			wcDouble,
 		},
 	}
 
@@ -1076,6 +1078,7 @@ func TestParseWhereBody(t *testing.T) {
 //
 // parseOptionalWhereClause just grabs where token and calls parseWhereBody
 func TestParseOptionalWhereClause(t *testing.T) {
+	wcSimple := makeWhereClause(nil, data.Construct(mainElement(typingNode)))
 	tests := []struct {
 		name  string
 		input []api.Token
@@ -1091,7 +1094,7 @@ func TestParseOptionalWhereClause(t *testing.T) {
 		{
 			"non-empty",
 			[]api.Token{where, id_x_tok, colon, id_x_tok},
-			data.Just(data.EConstruct[whereClause](mainElement(typingNode))),
+			data.Just(wcSimple),
 			-1,
 		},
 		{
@@ -1103,7 +1106,7 @@ func TestParseOptionalWhereClause(t *testing.T) {
 		{
 			"where clause, followed by more",
 			[]api.Token{where, id_x_tok, colon, id_x_tok, newline, id_x_tok, colon, id_x_tok},
-			data.Just(data.EConstruct[whereClause](mainElement(typingNode))),
+			data.Just(wcSimple),
 			4, // should NOT read newline
 		},
 	}

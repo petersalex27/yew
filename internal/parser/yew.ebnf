@@ -55,8 +55,11 @@ body = [annotations_], body elem, {then, [annotations_], body elem} ;
     deriving clause = "deriving", {"\n"}, deriving body ;
     deriving body = constrainer | "(", {"\n"}, constrainer, {{"\n"}, ",", {"\n"}, constrainer}, [{"\n"}, ","], {"\n"}, ")" ;
   type alias = "alias", {"\n"}, name, {"\n"}, "=", {"\n"}, type ;
-  constrainer = upper ident, pattern | "(", {"\n"}, enc constrainer, {"\n"}, ")" ;
-  enc constrainer = upper ident, {"\n"}, pattern ;
+  constrainer = 
+    upper ident, constrainer param, {constrainer param} 
+    | "(", {"\n"}, enc constrainer, {"\n"}, ")" ;
+  enc constrainer = upper ident, {"\n"}, constrainer param, {"\n"}, {constrainer param} ;
+  constrainer param = ident | "(", {"\n"}, ident, {"\n"}, ":", {"\n"}, enc type, {"\n"}, ")" ;
   spec head = [constraint, {"\n"}, "=>", {"\n"}], constrainer ;
   spec def = "spec", {"\n"}, spec head, [{"\n"}, spec dependency], {"\n"}, "where", {"\n"}, spec body, [{"\n"}, requiring clause] ;
     spec dependency = "from", {"\n"}, pattern ;
@@ -77,13 +80,14 @@ body = [annotations_], body elem, {then, [annotations_], body elem} ;
     constraint elem = {upper ident, {"\n"}, ",", {"\n"}}, enc constrainer ;
   typing = ["auto", {"\n"}], name, {"\n"}, ":", {"\n"}, type ;
   pattern typing = pattern, {"\n"}, ":", {"\n"}, type ;
-  enc type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], enc type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
-  type = ["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], type tail | "(", {"\n"}, enc type, {"\n"}, ")" ;
+  forall head = "forall", {"\n"}, forall binders, {"\n"}, "in" ;
+  enc type = [forall head, {"\n"}], (enc type tail | "(", {"\n"}, enc type, {"\n"}, ")") ;
+  type = [forall head, {"\n"}], (type tail | "(", {"\n"}, enc type, {"\n"}, ")") ;
   type tail = type term, {type term rhs}, [{"\n"}, function rhs] ;
   enc type tail = type term, {{"\n"}, type term rhs}, [{"\n"}, function rhs] ;
     type term rhs = type term | access ;
-    function rhs = arrow, {"\n"}, type tail ;
     arrow = "->" | "=>" ;
+    function rhs = arrow, {"\n"}, type tail ;
     type term =
         expr atom
         | "_" | "()" | "="
@@ -111,7 +115,7 @@ body = [annotations_], body elem, {then, [annotations_], body elem} ;
       view refined pattern = pattern, {"\n"}, "|" ;
   pattern atom = literal | name | "[]" | hole ;
   pattern = pattern term, {pattern term rhs} ;
-  access = ".", {"\n"}, name ;
+  access = ".", {"\n"}, name, {{"\n"}, access} ;
   pattern term rhs = pattern term | access ;
   enc pattern = enc pattern term, {{"\n"}, enc pattern term rhs} ;
   enc pattern term = "=" | pattern term ; 

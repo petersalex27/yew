@@ -17,5 +17,8 @@ type ScannerPlus interface {
 	//
 	// Noop when the scanner is already in its initial state
 	Restore()
+	// Return the source code that the scanner is scanning
 	SrcCode() SourceCode
+	// Create a new scanner with the same basic structure, but with accepting new input
+	CreateSimilar() ScannerPlus
 }

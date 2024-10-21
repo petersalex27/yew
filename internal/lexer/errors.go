@@ -6,8 +6,8 @@
 package lexer
 
 import (
-	"github.com/petersalex27/yew/internal/errors"
 	"github.com/petersalex27/yew/api/token"
+	"github.com/petersalex27/yew/internal/errors"
 )
 
 const (
@@ -19,6 +19,7 @@ const (
 	UnexpectedUnderscore  string = "unexpected underscore"
 	UnexpectedSymbol      string = "unexpected symbol"
 	ExpectedAnnotationId  string = "annotation must have an identifier"
+	UnexpectedEndOfLine   string = "unexpected end of line"
 )
 
 // adds an error constructed using lexer's data and the message string passed as an argument

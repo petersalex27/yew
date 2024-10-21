@@ -3,11 +3,12 @@ package parser
 import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/common/data"
+	"github.com/petersalex27/yew/internal/symbol"
 )
 
 type (
-	// a dot followed by a name, e.g., `.run`
-	access struct{ data.Solo[api.Token] }
+	// a dot followed by a name, e.g., `.run` or list of names separated by dots, e.g., `.run.run`
+	accessList struct{ data.NonEmpty[name] }
 
 	// an annotation, e.g., `--@infixr 0 ($)` and `[@infixr 0 ($)]`
 	annotation = data.Either[flatAnnotation, enclosedAnnotation]
@@ -35,7 +36,10 @@ type (
 		data.Either[def, visibleBodyElement]
 	}
 
-	caseArm struct{ data.Pair[pattern, defBody] }
+	caseArm struct {
+		table map[string]symbol.Symbol
+		data.Pair[pattern, defBody]
+	}
 
 	caseArms struct{ data.NonEmpty[caseArm] }
 
@@ -43,12 +47,18 @@ type (
 
 	// a constrained type, e.g., `Eq a => a`
 	constrainedType struct {
-		data.Pair[constraint, typ]
+		data.Pair[typ, typ]
 	}
 
 	// a thing that constrains
 	constrainer struct {
-		data.Pair[upperIdent, pattern]
+		data.Pair[upperIdent, constrainerParams]
+	}
+
+	constrainerParam = data.Pair[ident, data.Maybe[typ]]
+
+	constrainerParams struct {
+		data.NonEmpty[constrainerParam]
 	}
 
 	// a type constraint
@@ -60,7 +70,7 @@ type (
 
 	constraintElem = data.Pair[data.List[upperIdent], constrainer]
 
-	constraintUnverified struct{ data.Solo[typ] }
+	//constraintUnverified struct{ possibleConstraint }
 
 	constraintVerified struct {
 		data.NonEmpty[data.Pair[data.List[upperIdent], constrainer]]
@@ -156,15 +166,18 @@ type (
 
 	impossible struct{ data.Solo[api.Token] }
 
-	innerTypeTerms struct{ data.NonEmpty[typ] }
+	innerTypeSeq struct{ data.NonEmpty[typ] }
+
+	innerTypingNames = data.Either[data.Pair[modality, name], data.NonEmpty[name]]
 
 	innerTyping struct {
-		mode   data.Maybe[modality]
-		typing data.Pair[innerTypeTerms, typ]
-		api.Position
+		data.Pair[innerTypingNames, typ]
 	}
 
-	lambdaAbstraction struct{ data.Pair[lambdaBinders, expr] }
+	lambdaAbstraction struct {
+		table map[string]symbol.Symbol
+		data.Pair[lambdaBinders, expr]
+	}
 
 	// a binder specifically in the binding part of lambda abstractions
 	//
@@ -248,6 +261,7 @@ type (
 	pattern interface {
 		api.DescribableNode
 		updatePosPattern(p api.Positioned) pattern
+		//secondPass(*symbol.Table) pattern
 	}
 
 	// a pattern representing an application
@@ -398,6 +412,7 @@ type (
 	typ interface {
 		api.DescribableNode
 		api.Positioned
+		//kind.Typeable
 		updatePosTyp(p api.Positioned) typ
 	}
 	// type alias
@@ -446,11 +461,15 @@ type (
 	visibleBodyElement interface {
 		api.DescribableNode
 		mainElement
+		//declare(p parser) data.Either[data.Ers, mainElement]
 		setVisibility(v data.Maybe[visibility]) mainElement
 	}
 
 	// where clause
-	whereClause struct{ data.NonEmpty[mainElement] }
+	whereClause struct {
+		table map[string]symbol.Symbol
+		data.NonEmpty[mainElement]
+	}
 
 	// '_' pattern
 	wildcard struct{ data.Solo[api.Token] }
@@ -460,14 +479,19 @@ type (
 		data.Pair[pattern, withClauseArms]
 	}
 
+	withArmLhs = data.Either[pattern, data.Pair[pattern, pattern]]
+
 	// arm of a with clause
-	withClauseArm struct{ data.Pair[withArmLhs, defBody] }
+	withClauseArm struct {
+		table map[string]symbol.Symbol
+		data.Pair[withArmLhs, defBody]
+	}
 
 	// arms of a with clause
 	withClauseArms struct{ data.NonEmpty[withClauseArm] }
 
 	// yew source code file
-	yewSource struct {
+	YewSource struct {
 		// the meta section is primarily distinguished by semantics, but it does require a module
 		// declaration to indicate its *possible* presence--which is its syntactic component
 		//meta data.Maybe[meta]
@@ -489,8 +513,6 @@ type (
 		// the yew source--which is something
 		footer footer
 		// position range of the yew source file
-		api.Position
+		pos api.Position
 	}
 )
-
-type withArmLhs = data.Either[pattern, data.Pair[pattern, pattern]]

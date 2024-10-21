@@ -85,6 +85,9 @@ const (
 	UnexpectedEOF                   = "unexpected end of file"                                                       // unexpected-eof
 	UnexpectedStructure             = "unexpected structure in source body"                                          // unexpected-structure
 	UnexpectedToken                 = "unexpected token"                                                             // unexpected-token
+	ExpectedColonOrRightParen       = "expected ':' or ')'"                                                          // expected-colon-or-right-paren
+	ExpectedConstrainerParam        = "expected a constrainer parameter"                                             // expected-constrainer-param
+	IllegalMultipleModality         = "modalities cannot be applied to multiple terms"                               // illegal-multiple-modality
 )
 
 func parseError(p parser, e data.Err) error {

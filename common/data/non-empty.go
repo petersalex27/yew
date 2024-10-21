@@ -78,6 +78,13 @@ func MapNonEmpty[a, b api.Node](f func(a) b) func(xs NonEmpty[a]) NonEmpty[b] {
 	}
 }
 
+func MapNonEmptyToSlice[a api.Node, b any](f func(a) b) func(xs NonEmpty[a]) []b {
+	listMap := ListMapToSlice(f)
+	return func(xs NonEmpty[a]) []b {
+		return append(listMap(Nil[a](1).Snoc(xs.first)), listMap(xs.rest)...)
+	}
+}
+
 func (xs NonEmpty[a]) Head() a { return xs.first }
 
 func (xs NonEmpty[a]) Tail() List[a] { return xs.rest }

@@ -155,7 +155,7 @@ func parseLetBinding(p parser) data.Either[data.Ers, letBinding] {
 //	colon equal assignment = [":=", {"\n"}, expr] ;
 //	```
 func parseMaybeColonEqualAssignment(p parser) (*data.Ers, data.Maybe[expr]) {
-	colonEqual, found := getKeywordAtCurrent(p, token.ColonEqual, dropAfter)
+	colonEqual, found := getKeywordAtCurrent(p, token.ColonEqual, dropBeforeAndAfter)
 	if !found { // this is okay, assignment is optional--at least syntactically
 		return nil, data.Nothing[expr](p)
 	}
@@ -200,7 +200,6 @@ func parseMaybeBindingGroupMember(p parser) (*data.Ers, data.Maybe[bindingGroupM
 		}
 	}
 
-	p.dropNewlines()
 	es, mExpression := parseMaybeColonEqualAssignment(p)
 	if es != nil {
 		return es, data.Nothing[bindingGroupMember](p)
@@ -272,7 +271,9 @@ func parseCaseArms(p parser) data.Either[data.Ers, caseArms] {
 //	case arm = pattern, {"\n"}, def body thick arrow ;
 //	```
 func maybeParseCaseArm(p parser) (*data.Ers, data.Maybe[caseArm]) {
+	p.newScope() // create a scope for the pattern to live in
 	es, mPat := maybeParsePattern(p, false)
+	table := p.exitScope() // retrieve the table of binders
 	if es != nil {
 		return es, data.Nothing[caseArm](p)
 	} else if mPat.IsNothing() {
@@ -288,7 +289,7 @@ func maybeParseCaseArm(p parser) (*data.Ers, data.Maybe[caseArm]) {
 	if !isBodyRight {
 		return &esBody, data.Nothing[caseArm](p)
 	}
-	return nil, data.Just(data.EMakePair[caseArm](pat, body))
+	return nil, data.Just(makeCaseArm(table, pat, body))
 }
 
 // Not a real rule, a helper function for parsing enclosed expressions
@@ -345,6 +346,7 @@ func parseExprAtom(p parser) data.Either[data.Ers, exprAtom] {
 	if matchCurrentBackslash(p) {
 		return data.Cases(parseLambdaAbstraction(p), data.Inl[exprAtom, data.Ers], fun.Compose(data.Ok, data.Inr[patternAtom, lambdaAbstraction]))
 	}
+	// names declared w/in
 	return data.Cases(parsePatternAtom(p), data.Inl[exprAtom, data.Ers], fun.Compose(data.Ok, data.Inl[lambdaAbstraction, patternAtom]))
 }
 
@@ -361,11 +363,16 @@ func parseLambdaAbstraction(p parser) data.Either[data.Ers, lambdaAbstraction] {
 		return data.Fail[lambdaAbstraction](ExpectedLambdaAbstraction, p)
 	}
 
+	p.newScope() // create a scope for the binders to live in
+
 	es, binders, isRight := parseSepSequenced[lambdaBinders](p,
 		ExpectedLambdaAbstraction,
 		token.Comma,
 		parseMaybeLambdaBinder,
 	).Break()
+
+	table := p.exitScope() // retrieve the table of binders
+
 	if !isRight {
 		return data.PassErs[lambdaAbstraction](es)
 	}
@@ -376,7 +383,7 @@ func parseLambdaAbstraction(p parser) data.Either[data.Ers, lambdaAbstraction] {
 	}
 	return data.Cases(ParseExpr(p),
 		data.Inl[lambdaAbstraction, data.Ers],
-		constructLambdaAbstraction(backslash, binders, arrow),
+		constructLambdaAbstraction(backslash, table, binders, arrow),
 	)
 }
 
@@ -391,7 +398,7 @@ func parseMaybeLambdaBinder(p parser) (*data.Ers, data.Maybe[lambdaBinder]) {
 		p.advance()
 		return nil, data.Just(data.EInr[lambdaBinder](data.EOne[wildcard](underscore)))
 	}
-	es, mBinder := parseMaybeBinder(p)
+	es, mBinder := parseMaybeBinder(p) // names declared w/in
 	if es != nil {
 		return es, data.Nothing[lambdaBinder](p)
 	}
@@ -411,7 +418,7 @@ func parseMaybeLambdaBinder(p parser) (*data.Ers, data.Maybe[lambdaBinder]) {
 // this.
 func parseMaybeBinder(p parser) (*data.Ers, data.Maybe[binder]) {
 	if matchCurrentLeftParen(p) {
-		es, mPat := maybeParsePattern(p, false)
+		es, mPat := maybeParsePattern(p, false) // names declared w/in
 		if es != nil {
 			return es, data.Nothing[binder](p)
 		}
@@ -424,5 +431,8 @@ func parseMaybeBinder(p parser) (*data.Ers, data.Maybe[binder]) {
 	if !isSomething {
 		return nil, data.Nothing[binder](p)
 	}
+	// declare ident
+	tok := data.Cases(id, (lowerIdent).Break, (upperIdent).Break)
+	p.declare(tok)
 	return nil, data.Just(data.Inl[pattern](id))
 }

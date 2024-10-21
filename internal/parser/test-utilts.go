@@ -14,6 +14,7 @@ import (
 	"github.com/petersalex27/yew/api/util"
 	"github.com/petersalex27/yew/common/data"
 	"github.com/petersalex27/yew/internal/source"
+	"github.com/petersalex27/yew/internal/symbol"
 )
 
 // there are obviously lots of ridiculous definitions here, but they are all representative of syntactically valid yew code
@@ -113,18 +114,16 @@ var (
 	exprAtomNode           = data.Inl[lambdaAbstraction](patternAtomNode)                                                 // x
 	exprNode               = expr(name_x)                                                                                 // x
 	_exprGroup             = data.Construct(exprNode, exprNode)                                                           // x x
-	_exprAccGroup          = data.Construct[expr](access(name_x), access(name_x))                                         // .x.x
 	_patternGroup          = data.Construct[pattern](name_x, name_x)                                                      // x x
-	_patternAccGroup       = data.Construct[pattern](access(name_x), access(name_x))                                      // .x.x
 	exprAppNode            = expr(data.EMakePair[exprApp](exprNode, data.Singleton(exprNode)))                            // x x
 	exprAppNode2           = expr(data.EMakePair[exprApp](exprNode, _exprGroup))                                          // x x x
-	exprAppAccess          = expr(data.EMakePair[exprApp](exprNode, data.Singleton[expr](access(name_x))))                // x.x
-	exprAppAccessDouble    = expr(data.EMakePair[exprApp](exprNode, _exprAccGroup))                                       // x.x.x
+	exprAppAccess          = expr(data.EMakePair[exprApp](exprNode, data.Singleton[expr](_singleAcc)))                    // x.x
+	exprAppAccessDouble    = expr(data.EMakePair[exprApp](exprNode, data.Construct[expr](_accGroup)))                     // x.x.x
 	patternNode            = pattern(name_x)                                                                              // x
 	patternAppNode         = pattern(data.EMakePair[patternApp](patternNode, data.Singleton(patternNode)))                // x x
 	patternAppNode2        = pattern(data.EMakePair[patternApp](patternNode, _patternGroup))                              // x x x
-	patternAppAccess       = pattern(data.EMakePair[patternApp](patternNode, data.Singleton[pattern](access(name_x))))    // x.x
-	patternAppAccessDouble = pattern(data.EMakePair[patternApp](patternNode, _patternAccGroup))                           // x.x.x
+	patternAppAccess       = pattern(data.EMakePair[patternApp](patternNode, data.Singleton[pattern](_singleAcc)))        // x.x
+	patternAppAccessDouble = pattern(data.EMakePair[patternApp](patternNode, data.Construct[pattern](_accGroup)))         // x.x.x
 	encPattern             = pattern(patternEnclosed{NonEmpty: enc})                                                      // ( x )
 	encPattern2            = pattern(patternEnclosed{NonEmpty: pattern_x_x})                                              // (x, x)
 	encPatternImplicit     = pattern(patternEnclosed{NonEmpty: enc, implicit: true})                                      // {x}
@@ -134,8 +133,8 @@ var (
 	lambdaBinderNode       = data.EInl[lambdaBinder](lowerBinder)                                                         // x
 	lambdaBinders1         = data.EConstruct[lambdaBinders](lambdaBinderNode)                                             // x
 	lambdaBinders2         = data.EConstruct[lambdaBinders](lambdaBinderNode, lambdaBinderNode)                           // x, x
-	lambdaAbs1             = data.EMakePair[lambdaAbstraction](lambdaBinders1, exprNode)                                  // \x => x
-	lambdaAbs2             = data.EMakePair[lambdaAbstraction](lambdaBinders2, exprNode)                                  // \x, x => x
+	lambdaAbs1             = makeAbstraction(nil, lambdaBinders1, exprNode)                                               // \x => x
+	lambdaAbs2             = makeAbstraction(nil, lambdaBinders2, exprNode)                                               // \x, x => x
 	typ_x                  = typ(name_x)                                                                                  // x
 	enclosedExpr           = expr(name_x)                                                                                 // x
 	_noAnnots              = data.Nothing[annotations]()                                                                  //
@@ -154,7 +153,7 @@ var (
 	letExprNode            = data.EMakePair[letExpr](letBinding_b, exprNode)                                              // let x := x in x
 	defBodyPossible_x      = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Nothing[whereClause]()) // x
 	defBody_x              = data.EInr[defBody](defBodyPossible_x)                                                        // x
-	caseArmNode            = data.EMakePair[caseArm](pattern(name_x), defBody_x)                                          // x => x
+	caseArmNode            = makeCaseArm(nil, pattern(name_x), defBody_x)                                                 // x => x
 	caseExprNode           = data.EMakePair[caseExpr](pattern(name_x), data.EConstruct[caseArms](caseArmNode))            // case x of x => x
 
 	// annotation nodes
@@ -171,39 +170,44 @@ var (
 
 	// type nodes
 
-	_typeAccGroup                     = data.Construct[typ](access(name_x), access(name_x))                             // .x.x
-	appTypeNode                       = typ(data.EMakePair[appType](typ_x, data.Singleton(typ_x)))                      // x x
-	appTypeAccessNode                 = typ(data.EMakePair[appType](typ_x, data.Singleton[typ](access(name_x))))        // x.x
-	appTypeAccessDoubleNode           = typ(data.EMakePair[appType](typ_x, _typeAccGroup))                              // x.x.x
-	eraseMultiplicity                 = data.EOne[modality](eraseTok)                                                   // erase
-	onceMultiplicity                  = data.EOne[modality](onceTok)                                                    // once
-	innerTypeTermsSeq                 = data.EConstruct[innerTypeTerms](typ_x, typ_x)                                   // x, x
-	innerTypeTermsPairNode            = data.MakePair(data.EConstruct[innerTypeTerms](typ_x), typ_x)                    // x : x
-	innerTypeTermsSeqPairNode         = data.MakePair(innerTypeTermsSeq, typ_x)                                         // x, x : x
-	innerTypingNode                   = innerTyping{mode: data.Nothing[modality](), typing: innerTypeTermsPairNode}     // x : x
-	onceInnerTypingNode               = innerTyping{mode: data.Just(onceMultiplicity), typing: innerTypeTermsPairNode}  // once x : x
-	eraseInnerTypingNode              = innerTyping{mode: data.Just(eraseMultiplicity), typing: innerTypeTermsPairNode} // erase x : x
-	innerTypingSeqNode                = innerTyping{mode: data.Nothing[modality](), typing: innerTypeTermsSeqPairNode}  // x, x : x
-	defaultExprNode                   = data.EOne[defaultExpr](exprNode)                                                // x
-	implicitTypingNode_default        = data.EMakePair[implicitTyping](innerTypingNode, defaultExprNode)                // x : x := x
-	implicitTypingNode                = innerTypingNode                                                                 // x : x
-	implicitTypingNodeSeq_default     = data.EMakePair[implicitTyping](innerTypingSeqNode, defaultExprNode)             // x, x : x := x
-	implicitTypingNodeSeq             = innerTypingSeqNode                                                              // x, x : x
-	enclosedTypeNode                  = enclosedType{false, typ_x}                                                      // ( x )
-	enclosedTypeSeqNode               = enclosedType{false, innerTypeTermsSeq}                                          // ( x, x )
-	enclosedTypingNode                = enclosedType{false, innerTypingNode}                                            // ( x : x )
-	enclosedOnceTypingNode            = enclosedType{false, onceInnerTypingNode}                                        // ( once x : x )
-	enclosedEraseTypingNode           = enclosedType{false, eraseInnerTypingNode}                                       // ( erase x : x )
-	enclosedTypingSeqNode             = enclosedType{false, innerTypingSeqNode}                                         // ( x, x : x )
-	implicitEnclosedTypeNode          = enclosedType{true, typ_x}                                                       // { x }
-	implicitEnclosedTypingNode        = enclosedType{true, innerTypingNode}                                             // { x : x }
-	implicitEnclosedOnceTypingNode    = enclosedType{true, onceInnerTypingNode}                                         // { once x : x }
-	implicitEnclosedEraseTypingNode   = enclosedType{true, eraseInnerTypingNode}                                        // { erase x : x }
-	implicitEnclosedTypingNode_def    = enclosedType{true, implicitTypingNode_default}                                  // { x : x := x }
-	implicitEnclosedTypingSeqNode_def = enclosedType{true, implicitTypingNodeSeq_default}                               // { x, x : x := x }
-	implicitEnclosedTypeSeqNode       = enclosedType{true, innerTypeTermsSeq}                                           // { x, x }
-	implicitEnclosedTypingSeqNode     = enclosedType{true, implicitTypingNodeSeq}                                       // { x, x : x }
-	forallTypeNode                    = data.EMakePair[forallType](data.EConstruct[forallBinders](lowerId), typ_x)      // forall x in x
+	_accGroup                         = data.EConstruct[accessList](name_x, name_x)                                // .x.x
+	_singleAcc                        = data.EConstruct[accessList](name_x)                                        // .x
+	appTypeNode                       = typ(data.EMakePair[appType](typ_x, data.Singleton(typ_x)))                 // x x
+	appTypeAccessNode                 = typ(data.EMakePair[appType](typ_x, data.Singleton[typ](_singleAcc)))       // x.x
+	appTypeAccessDoubleNode           = typ(data.EMakePair[appType](typ_x, data.Singleton[typ](_accGroup)))        // x.x.x
+	eraseMultiplicity                 = data.EOne[modality](eraseTok)                                              // erase
+	onceMultiplicity                  = data.EOne[modality](onceTok)                                               // once
+	innerTypeTermsSeq                 = data.EConstruct[innerTypeSeq](typ_x, typ_x)                                // x, x
+	innerTypeTermsPairNode            = data.MakePair(data.EConstruct[innerTypeSeq](typ_x), typ_x)                 // x : x
+	innerTypeTermsSeqPairNode         = data.MakePair(innerTypeTermsSeq, typ_x)                                    // x, x : x
+	innerNamesNoMode                  = data.Inr[data.Pair[modality, name]](data.Construct(name_x))                // x
+	innerNamesSeq                     = data.Inr[data.Pair[modality, name]](data.Construct(name_x, name_x))        // x, x
+	innerNamesErase                   = data.Inl[data.NonEmpty[name]](data.MakePair(eraseMultiplicity, name_x))    // erase x
+	innerNamesOnce                    = data.Inl[data.NonEmpty[name]](data.MakePair(onceMultiplicity, name_x))     // once x
+	innerTypingNode                   = data.EMakePair[innerTyping](innerNamesNoMode, typ_x)                       // x : x
+	onceInnerTypingNode               = data.EMakePair[innerTyping](innerNamesOnce, typ_x)                         // once x : x
+	eraseInnerTypingNode              = data.EMakePair[innerTyping](innerNamesErase, typ_x)                        // erase x : x
+	innerTypingSeqNode                = data.EMakePair[innerTyping](innerNamesSeq, typ_x)                          // x, x : x
+	defaultExprNode                   = data.EOne[defaultExpr](exprNode)                                           // x
+	implicitTypingNode_default        = data.EMakePair[implicitTyping](innerTypingNode, defaultExprNode)           // x : x := x
+	implicitTypingNode                = innerTypingNode                                                            // x : x
+	implicitTypingNodeSeq_default     = data.EMakePair[implicitTyping](innerTypingSeqNode, defaultExprNode)        // x, x : x := x
+	implicitTypingNodeSeq             = innerTypingSeqNode                                                         // x, x : x
+	enclosedTypeNode                  = enclosedType{false, typ_x}                                                 // ( x )
+	enclosedTypeSeqNode               = enclosedType{false, innerTypeTermsSeq}                                     // ( x, x )
+	enclosedTypingNode                = enclosedType{false, innerTypingNode}                                       // ( x : x )
+	enclosedOnceTypingNode            = enclosedType{false, onceInnerTypingNode}                                   // ( once x : x )
+	enclosedEraseTypingNode           = enclosedType{false, eraseInnerTypingNode}                                  // ( erase x : x )
+	enclosedTypingSeqNode             = enclosedType{false, innerTypingSeqNode}                                    // ( x, x : x )
+	implicitEnclosedTypeNode          = enclosedType{true, typ_x}                                                  // { x }
+	implicitEnclosedTypingNode        = enclosedType{true, innerTypingNode}                                        // { x : x }
+	implicitEnclosedOnceTypingNode    = enclosedType{true, onceInnerTypingNode}                                    // { once x : x }
+	implicitEnclosedEraseTypingNode   = enclosedType{true, eraseInnerTypingNode}                                   // { erase x : x }
+	implicitEnclosedTypingNode_def    = enclosedType{true, implicitTypingNode_default}                             // { x : x := x }
+	implicitEnclosedTypingSeqNode_def = enclosedType{true, implicitTypingNodeSeq_default}                          // { x, x : x := x }
+	implicitEnclosedTypeSeqNode       = enclosedType{true, innerTypeTermsSeq}                                      // { x, x }
+	implicitEnclosedTypingSeqNode     = enclosedType{true, implicitTypingNodeSeq}                                  // { x, x : x }
+	forallTypeNode                    = data.EMakePair[forallType](data.EConstruct[forallBinders](lowerId), typ_x) // forall x in x
 
 	// header nodes
 
@@ -224,14 +228,15 @@ var (
 
 	// spec inst/def nodes
 
-	constrainerNode  = data.EMakePair[constrainer](MyId_as_upper, pattern(name_x))                                    // MyId x
-	vConstraintNode  = data.EConstruct[constraintVerified](data.MakePair(data.Nil[upperIdent](), constrainerNode))    // MyId x
-	vConstraint2Node = data.EConstruct[constraintVerified](data.MakePair(data.Makes(MyId_as_upper), constrainerNode)) // MyId, MyId x
-	specDefBodyNode  = data.EConstruct[specBody](data.Inr[def](typingNode))                                           // where x : x
-	specInstBodyNode = data.EConstruct[specBody](data.Inl[typing](defNode))                                           // where x = x
-	requiringNode    = data.Construct(defNode)                                                                        // requiring x = x
-	dependencyNode   = pattern(name_x)                                                                                // from x
-	specInstTargeted = makeSpecInst(specHeadNode, data.Just(constrainerNode), specInstBodyNode)                       // spec MyId x = MyId x where x = x
+	constrainerParam_x = data.MakePair[ident, data.Maybe[typ]](lowerId, data.Nothing[typ]())                                // x
+	constrainerNode    = data.EMakePair[constrainer](MyId_as_upper, data.EConstruct[constrainerParams](constrainerParam_x)) // MyId x
+	vConstraintNode    = data.EConstruct[constraintVerified](data.MakePair(data.Nil[upperIdent](), constrainerNode))        // MyId x
+	vConstraint2Node   = data.EConstruct[constraintVerified](data.MakePair(data.Makes(MyId_as_upper), constrainerNode))     // MyId, MyId x
+	specDefBodyNode    = data.EConstruct[specBody](data.Inr[def](typingNode))                                               // where x : x
+	specInstBodyNode   = data.EConstruct[specBody](data.Inl[typing](defNode))                                               // where x = x
+	requiringNode      = data.Construct(defNode)                                                                            // requiring x = x
+	dependencyNode     = pattern(name_x)                                                                                    // from x
+	specInstTargeted   = makeSpecInst(specHeadNode, data.Just(constrainerNode), specInstBodyNode)                           // spec MyId x = MyId x where x = x
 
 	// body nodes
 
@@ -239,11 +244,10 @@ var (
 	defBodyNode             = data.EInr[defBody](defBodyPossible_x)                                                              // x
 	defBodyImpossible       = data.EInl[defBody](data.EOne[impossible](impossibleTok))                                           // impossible
 	defNode                 = def{emptyAnnots, name_x, defBodyNode, api.ZeroPosition()}                                          // x = x
-	whereClauseNode         = data.EConstruct[whereClause](defNode.asMainElement())                                              // where x = x
+	whereClauseNode         = makeWhereClause(nil, data.Construct(defNode.asMainElement()))                                      // where x = x
 	defBodyPossible_where   = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Just(whereClauseNode))        // x where x = x
 	defBodyWhereNode        = data.EInr[defBody](defBodyPossible_where)                                                          // x where x = x
 	defImpossibleNode       = def{emptyAnnots, name_x, defBodyImpossible, api.ZeroPosition()}                                    // x impossible
-	unvConstraintNode       = data.EOne[constraintUnverified](appTypeNode)                                                       // x x
 	specHeadNode            = data.EMakePair[specHead](data.Nothing[constraintVerified](), constrainerNode)                      // MyId x
 	specHeadConstrNode      = data.EMakePair[specHead](data.Just(vConstraintNode), constrainerNode)                              // MyId x => MyId x
 	specDefNode             = makeSpecDef(specHeadNode, data.Nothing[pattern](), specDefBodyNode, data.Nothing[specRequiring]()) // spec MyId x where x : x
@@ -276,11 +280,11 @@ var (
 	typeDefNodeWithDeriving = makeTypeDef(upperTypingNode, data.Inl[impossible](singleConsNode), data.Just(derivingNode))        // MyId : x where MyId : x deriving MyId x
 	withArmLhsNode          = data.Inl[data.Pair[pattern, pattern]](pattern(name_x))                                             // x
 	withArmLhsVRNode        = makeWithArmLhsRefined(pattern(name_x), pattern(name_x))                                            // x | x
-	withClauseArmNode       = makeWithClauseArm(withArmLhsNode, defBodyNode)                                                     // x => x
-	withClauseVRNode        = makeWithClauseArm(withArmLhsVRNode, defBodyNode)                                                   // x | x => x
+	withClauseArmNode       = makeWithClauseArm(nil, withArmLhsNode, defBodyNode)                                                // x => x
+	withClauseVRNode        = makeWithClauseArm(nil, withArmLhsVRNode, defBodyNode)                                              // x | x => x
 	withClauseArmsNode      = data.EConstruct[withClauseArms](withClauseArmNode)                                                 // x => x
 	withClauseNode          = makeWithClause(pattern(name_x), withClauseArmsNode)                                                // with x of x => x
-	withClauseArmNodeWhere  = makeWithClauseArm(withArmLhsNode, defBodyWhereNode)                                                // x => x where x = x
+	withClauseArmNodeWhere  = makeWithClauseArm(nil, withArmLhsNode, defBodyWhereNode)                                           // x => x where x = x
 	withClauseArmsNodeWhere = data.EConstruct[withClauseArms](withClauseArmNodeWhere)                                            // x => x where x = x
 	withClauseNodeWhere     = makeWithClause(pattern(name_x), withClauseArmsNodeWhere)                                           // with x of x => x where x = x
 )
@@ -311,7 +315,7 @@ func initTestParser(input []api.Token) *ParserState {
 		SourceCode: createTestSourceCodeFromTokens(input),
 	}
 
-	return &ParserState{state: state{scanner: scanner, tokens: input}}
+	return &ParserState{state: state{scanner: scanner, tokens: input, solver: symbol.Solver(symbol.New())}}
 }
 
 func runResultTest[a api.DescribableNode](p parser, t *testing.T, want a, fut func(p parser) data.Either[data.Ers, a]) {

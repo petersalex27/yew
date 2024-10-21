@@ -6,13 +6,8 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-func makeYewSource(h data.Maybe[header], b data.Maybe[body], f data.Maybe[annotations]) yewSource {
-	return yewSource{
-		header:   h,
-		body:     b,
-		footer:   footer{f},
-		Position: api.WeakenRangeOver[api.Node](h, b, f),
-	}
+func makeYewSource(h data.Maybe[header], b data.Maybe[body], f data.Maybe[annotations]) YewSource {
+	return YewSource{h, b, footer{f}, api.WeakenRangeOver[api.Node](h, b, f)}
 }
 
 // Parse yew source file from the top down.

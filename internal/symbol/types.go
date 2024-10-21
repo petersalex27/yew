@@ -1,47 +1,40 @@
 package symbol
 
-import "github.com/petersalex27/yew/api"
+import (
+	"github.com/petersalex27/yew/api"
+	"github.com/petersalex27/yew/internal/kind"
+)
 
 type (
-	variable string
-
-	Pi struct {
-		domain sym
-		target api.Type
+	variable struct {
+		x string
+		api.Position
 	}
 
-	Constant struct {
-		// X part of X.c version of a constant's name, used to disambiguate constants with the same
-		// name in different namespaces
-		namespace string
-		// c part of X.c version of a constant's name, the standard way of referring to it
+	pi struct {
+		domain kind.Symbol
+		target kind.Type
+		api.Position
+	}
+
+	implicitPi struct {
+		pi
+	}
+
+	constant struct {
 		name string
+		api.Position
 	}
 )
 
-func (s sym) Pipe(into api.Type) api.Type {
-	return into.Apply(s)
-}
+func (v variable) AsType(kind.Solver) kind.Type { return v }
 
-func (s sym) Apply(a api.Type) api.App {
-	return api.App{s, a}
-}
-
-// if the symbol's kind is a constant, return the name of the constant
-func (s sym) Constant() string {
-	return s.typ.Constant()
-}
-
-func (s sym) Break() (head string, tail []api.Type) {
-	return s.typ.Break()
-}
-
-func (v variable) Pipe(into api.Type) api.Type {
+func (v variable) Pipe(into kind.Type) kind.Type {
 	return into.Apply(v)
 }
 
-func (r variable) Apply(a api.Type) api.App {
-	return api.App{r, a}
+func (r variable) Apply(a kind.Type) kind.App {
+	return kind.Apply(r, a)
 }
 
 // always returns ""--free variables are not constants
@@ -50,42 +43,64 @@ func (v variable) Constant() string {
 }
 
 // returns the name of the variable and an empty list
-func (v variable) Break() (head string, tail []api.Type) {
-	return string(v), []api.Type{}
+func (v variable) Break() (head string, tail []kind.Type) {
+	return v.x, []kind.Type{}
 }
 
-func (p Pi) Pipe(into api.Type) api.Type {
+func (v variable) String() string {
+	return v.x
+}
+
+func (p pi) AsType(kind.Solver) kind.Type { return p }
+
+func (p pi) Pipe(into kind.Type) kind.Type {
 	return into.Apply(p)
 }
 
-func (p Pi) Apply(a api.Type) api.App {
-	return api.App{p, a}
+func (p pi) Apply(a kind.Type) kind.App {
+	return kind.Apply(p, a)
 }
 
 // always returns ""--pi types are not constants
-func (p Pi) Constant() string {
+func (p pi) Constant() string {
 	return ""
 }
 
 // returns the domain and target of the pi type and `->` as the head
-func (p Pi) Break() (head string, tail []api.Type) {
-	return "->", []api.Type{p.domain, p.target}
+func (p pi) Break() (head string, tail []kind.Type) {
+	return "->", []kind.Type{p.domain.Typing(), p.target}
 }
 
-func (c Constant) Pipe(into api.Type) api.Type {
+func (p pi) String() string {
+	domain := p.domain.String()
+	target := p.target.String()
+	if _, domPi := p.domain.Typing().(pi); domPi {
+		domain = "(" + domain + ")"
+	}
+
+	return domain + " -> " + target
+}
+
+func (c constant) AsType(kind.Solver) kind.Type { return c }
+
+func (c constant) Pipe(into kind.Type) kind.Type {
 	return into.Apply(c)
 }
 
-func (c Constant) Apply(a api.Type) api.App {
-	return api.App{c, a}
+func (c constant) Apply(a kind.Type) kind.App {
+	return kind.Apply(c, a)
 }
 
 // returns the name of the constant (with the namespace prepended)
-func (c Constant) Constant() string {
-	return c.namespace + "." + c.name
+func (c constant) Constant() string {
+	return c.name
 }
 
 // returns the qualified name of the constant and an empty list
-func (c Constant) Break() (head string, tail []api.Type) {
-	return c.Constant(), []api.Type{}
+func (c constant) Break() (head string, tail []kind.Type) {
+	return c.Constant(), []kind.Type{}
+}
+
+func (c constant) String() string {
+	return c.name
 }

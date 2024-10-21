@@ -14,7 +14,7 @@ func TestParseYewSource(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  yewSource
+		want  YewSource
 	}{
 		{
 			"source - 0000 (empty footer only)",
@@ -149,12 +149,12 @@ func TestParseYewSource(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		fut := func(p parser) data.Either[data.Ers, yewSource] {
+		fut := func(p parser) data.Either[data.Ers, YewSource] {
 			p = parseYewSource(p)
 			if ps, ok := p.(*ParserState); ok {
 				return data.Ok(ps.ast)
 			} else {
-				return data.Fail[yewSource]("(test failure) could not parse yew source", p)
+				return data.Fail[YewSource]("(test failure) could not parse yew source", p)
 			}
 		}
 		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut, -1))

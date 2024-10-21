@@ -84,9 +84,15 @@ func (xs List[a]) Append(es ...a) List[a] {
 
 func ListMap[a, b api.Node](f func(a) b) func(List[a]) List[b] {
 	return func(xs List[a]) List[b] {
-		ys := Nil[b](len(xs.elements))
+		return Nil[b](xs.Len()).Append(ListMapToSlice(f)(xs)...)
+	}
+}
+
+func ListMapToSlice[a api.Node, b any](f func(a) b) func(List[a]) []b {
+	return func(xs List[a]) []b {
+		ys := make([]b, 0, len(xs.elements))
 		for _, x := range xs.elements {
-			ys = ys.Snoc(f(x))
+			ys = append(ys, f(x))
 		}
 		return ys
 	}

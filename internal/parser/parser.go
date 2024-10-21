@@ -3,6 +3,7 @@ package parser
 import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/common/data"
+	"github.com/petersalex27/yew/internal/kind"
 )
 
 // parser is the interface for parsing source code
@@ -19,6 +20,12 @@ type parser interface {
 	advance()
 	// drop zero or more newlines
 	dropNewlines()
+	// declare a symbol
+	declare(names api.Token)
+	// create a new, free variable
+	newVar() kind.Type
+	newScope()
+	exitScope() map[string]kind.Symbol
 }
 
 // initialize the parser, providing it with a scanner to read tokens from
@@ -38,8 +45,21 @@ func Init(scanner api.ScannerPlus) parser {
 //
 // SEE: `Init`
 func Run(p parser) api.Node {
-	parseYewSource(p)
+	p = parseYewSource(p)
+	if ps, ok := p.(*ParserState); ok {
+		return ps.ast
+	}
 	return nil
+}
+
+func Errors(p parser) (errors []error, warnings []error) {
+	var ps *ParserState
+	if ps_, ok := p.(*ParserState); ok {
+		ps = ps_
+	} else {
+		ps = p.(*ParserStateFail).bad
+	}
+	return ps.errors, ps.warnings
 }
 
 func then(p parser) bool {

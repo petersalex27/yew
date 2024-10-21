@@ -103,9 +103,18 @@ const (
 	EndOfTokens = _token_types_proper_end_
 )
 
+// package file tokens
+
+const (
+	Package Type = iota + 1 + _token_types_proper_end_
+	Require
+	_package_tokens_end_
+	Version = _package_tokens_end_
+)
+
 const (
 	/* = Symbol related commands ======================================================== */
-	Import_c Type = iota + 1 + _token_types_proper_end_
+	Import_c Type = iota + 1 + _package_tokens_end_
 
 	/* = Info query commands ============================================================ */
 	Instances_c
@@ -264,11 +273,25 @@ func ProperTypeString(ty Type) string {
 	case EndOfTokens:
 		return "EndOfTokens"
 	default:
-		return "?UnknownTokenType"
+		return UnknownTokenTypeString
+	}
+}
+
+func PackageTypeString(ty Type) string {
+	switch ty {
+	case Package:
+		return "Package"
+	case Require:
+		return "Require"
+	default:
+		return UnknownTokenTypeString
 	}
 }
 
 func (ty Type) String() string {
+	if ty > _token_types_proper_end_ && ty <= _package_tokens_end_ {
+		return PackageTypeString(ty)
+	}
 	s := ProperTypeString(ty)
 	if InReplMode() && s == UnknownTokenTypeString {
 		s = ty.CommandString()

@@ -366,7 +366,7 @@ func (lex *Lexer) remainingLine() (line string, ok bool) {
 	start, end := lex.Pos, endPositions[lex.Line-1]
 	if start >= end {
 		return "", false
-	} else if lex.Source[end-1] == '\n' { 
+	} else if lex.Source[end-1] == '\n' {
 		// this will be true except for the last line
 		end--
 	}
@@ -486,7 +486,7 @@ func (lex *Lexer) symbol() token.Token {
 
 func (lex *Lexer) infix() token.Token {
 	lex.SavedChar.Push(lex.Pos)
-	
+
 	line, ok := lex.remainingLine()
 	if !ok {
 		panic("bug: function called without verifying readable source exists")
@@ -496,12 +496,12 @@ func (lex *Lexer) infix() token.Token {
 	if pStr = common.MethodId.Match(line); pStr != nil {
 		ln := len(*pStr)
 		lex.Pos += len(*pStr)
-		tok := token.MethodSymbol.MakeValued((*pStr)[2:ln-1]) // remove leading "(." and trailing ")"
+		tok := token.MethodSymbol.MakeValued((*pStr)[2 : ln-1]) // remove leading "(." and trailing ")"
 		return lex.output(tok)
 	} else if pStr = common.InfixId.Match(line); pStr != nil {
 		ln := len(*pStr)
 		lex.Pos += len(*pStr)
-		tok := token.Infix.MakeValued((*pStr)[1:ln-1]) // remove leading "(" and trailing ")"
+		tok := token.Infix.MakeValued((*pStr)[1 : ln-1]) // remove leading "(" and trailing ")"
 		return lex.output(tok)
 	} else {
 		panic("bug: source was not validated before calling infix")
@@ -520,7 +520,7 @@ func getEscape(r rune, escapeString bool) (c byte, ok bool) {
 		return byte(r), true
 	} else if ok = !escapeString && r == '\''; ok {
 		return byte(r), true
-	} 
+	}
 	return 0, false
 }
 
@@ -949,6 +949,77 @@ func (lex *Lexer) Scan() (tok api.Token) {
 	}
 
 	return lex.analyze()
+}
+
+type packageLexer struct {
+	*Lexer
+}
+
+func InitPackageLexer(src api.Source) *packageLexer {
+	return &packageLexer{Init(src)}
+}
+
+func (lex *packageLexer) maybeOutputPackageKeyword(id string) token.Token {
+	if id == "package" {
+		return token.Package.MakeValued("package")
+	} else if id == "require" {
+		return token.Require.MakeValued("require")
+	}
+
+	return token.Id.MakeValued(id)
+}
+
+func (lex *packageLexer) Scan() api.Token {
+	if lex.Line == 0 {
+		lex.fixLineChar()
+	}
+
+	lex.skipWhitespace()
+	lex.SavedChar.Push(lex.Pos)
+	c, _ := lex.nextChar()
+	if c == '\n' {
+		tok := token.Newline.MakeValued("\n")
+		lex.Line++
+		return lex.output(tok)
+	}
+
+	var eof bool
+	// get rid of comment
+	if k, _ := lex.peek(); c == '-' && k == '-' {
+		for {
+			if c, eof = lex.nextChar(); c == '\n' || eof {
+				_, _ = lex.SavedChar.Pop()
+				return lex.Scan()
+			}
+		}
+	}
+
+	switch c {
+	case '(':
+		return lex.output(token.LeftParen.Make())
+	case ')':
+		return lex.output(token.RightParen.Make())
+	case ',':
+		return lex.output(token.Comma.Make())
+	}
+
+	line, ok := lex.remainingLine()
+	if !ok {
+		return lex.error(UnexpectedEndOfLine)
+	}
+
+	if res := common.Version.Match(line); res != nil {
+		lex.Pos += len(*res)
+		return lex.output(token.Version.MakeValued(*res))
+	} else if res = common.AlphanumericId.Match(line); res != nil {
+		lex.Pos += len(*res)
+		return lex.maybeOutputPackageKeyword(*res)
+	} else if res = common.SimpleString.Match(line); res != nil {
+		lex.Pos += len(*res)
+		return lex.output(token.StringValue.MakeValued(*res))
+	}
+
+	return lex.error(UnexpectedSymbol)
 }
 
 // NOTE: panics if not in repl mode

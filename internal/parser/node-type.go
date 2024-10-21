@@ -6,23 +6,25 @@ import (
 	t "github.com/petersalex27/yew/internal/parser/typ"
 )
 
-func (n access) Type() api.NodeType               { return t.Access }
-func (n annotations) Type() api.NodeType          { return t.Annotations }
-func (n appType) Type() api.NodeType              { return t.AppType }
-func (n body) Type() api.NodeType                 { return t.Body }
-func (n enclosedAnnotation) Type() api.NodeType   { return t.EnclosedAnnotation }
-func (n caseArm) Type() api.NodeType              { return t.CaseArm }
-func (n caseArms) Type() api.NodeType             { return t.CaseArms }
-func (n caseExpr) Type() api.NodeType             { return t.CaseExpr }
-func (n constrainedType) Type() api.NodeType      { return t.ConstrainedType }
-func (n constrainer) Type() api.NodeType          { return t.Constrainer }
-func (n constraintUnverified) Type() api.NodeType { return t.Constraint }
-func (n constraintVerified) Type() api.NodeType   { return t.Constraint }
-func (n def) Type() api.NodeType                  { return t.Def }
-func (n defBody) Type() api.NodeType              { return n.Either.Type() }
-func (n defBodyPossible) Type() api.NodeType      { return t.DefBody }
-func (n defaultExpr) Type() api.NodeType          { return t.DefaultExpr }
-func (n deriving) Type() api.NodeType             { return t.Deriving }
+func (n accessList) Type() api.NodeType         { return t.Access }
+func (n annotations) Type() api.NodeType        { return t.Annotations }
+func (n appType) Type() api.NodeType            { return t.AppType }
+func (n body) Type() api.NodeType               { return t.Body }
+func (n enclosedAnnotation) Type() api.NodeType { return t.EnclosedAnnotation }
+func (n caseArm) Type() api.NodeType            { return t.CaseArm }
+func (n caseArms) Type() api.NodeType           { return t.CaseArms }
+func (n caseExpr) Type() api.NodeType           { return t.CaseExpr }
+func (n constrainedType) Type() api.NodeType    { return t.ConstrainedType }
+func (n constrainer) Type() api.NodeType        { return t.Constrainer }
+func (n constrainerParams) Type() api.NodeType  { return t.ConstrainerParams }
+
+// func (n constraintUnverified) Type() api.NodeType { return t.Constraint }
+func (n constraintVerified) Type() api.NodeType { return t.Constraint }
+func (n def) Type() api.NodeType                { return t.Def }
+func (n defBody) Type() api.NodeType            { return n.Either.Type() }
+func (n defBodyPossible) Type() api.NodeType    { return t.DefBody }
+func (n defaultExpr) Type() api.NodeType        { return t.DefaultExpr }
+func (n deriving) Type() api.NodeType           { return t.Deriving }
 func (n enclosedType) Type() api.NodeType {
 	return ifThenElse(n.implicit, t.ImplicitType, t.EnclosedType)
 }
@@ -39,7 +41,7 @@ func (n importStatement) Type() api.NodeType   { return t.ImportStatement }
 func (n importing) Type() api.NodeType         { return t.Importing }
 func (n importPathIdent) Type() api.NodeType   { return t.ImportPathIdent }
 func (n impossible) Type() api.NodeType        { return t.Impossible }
-func (n innerTypeTerms) Type() api.NodeType    { return t.InnerTypeTerms }
+func (n innerTypeSeq) Type() api.NodeType      { return t.InnerTypeSeq }
 func (n innerTyping) Type() api.NodeType       { return t.InnerTyping }
 func (n lambdaAbstraction) Type() api.NodeType { return t.LambdaAbstraction }
 func (n lambdaBinders) Type() api.NodeType     { return t.LambdaBinders }
@@ -50,8 +52,8 @@ func (n lowerIdent) Type() api.NodeType        { return t.LowerIdent }
 
 //func (n meta) Type() api.NodeType              { return t.Meta }
 
-func (n modality) Type() api.NodeType          { return t.Modality }
-func (n module) Type() api.NodeType            { return t.Module }
+func (n modality) Type() api.NodeType { return t.Modality }
+func (n module) Type() api.NodeType   { return t.Module }
 func (n name) Type() api.NodeType {
 	// try to get most specific type for name
 	chs := n.Solo.Children()
@@ -71,28 +73,31 @@ func (n patternApp) Type() api.NodeType    { return t.PatternApp }
 func (n patternEnclosed) Type() api.NodeType {
 	return ifThenElse(n.implicit, t.PatternImplicitArg, t.PatternEnclosed)
 }
-func (n rawString) Type() api.NodeType           { return t.RawString }
-func (n specBody) Type() api.NodeType            { return t.SpecBody }
-func (n specHead) Type() api.NodeType            { return t.SpecHead }
-func (n specDef) Type() api.NodeType             { return t.SpecDef }
-func (n specInst) Type() api.NodeType            { return t.SpecInst }
-func (n syntax) Type() api.NodeType              { return t.Syntax }
-func (n syntaxRule) Type() api.NodeType          { return t.SyntaxRule }
-func (n syntaxRuleIdent) Type() api.NodeType     { return t.SyntaxRuleIdent }
-func (n typeAlias) Type() api.NodeType           { return t.TypeAlias }
-func (n typeConstructor) Type() api.NodeType     { return t.TypeConstructor }
-func (n typeDef) Type() api.NodeType             { return t.TypeDef }
-func (n typing) Type() api.NodeType              { return t.Typing }
-func (n unitType) Type() api.NodeType            { return t.UnitType }
-func (n upperIdent) Type() api.NodeType          { return t.UpperIdent }
-func (n visibility) Type() api.NodeType          { return t.Visibility }
-func (n whereClause) Type() api.NodeType         { return t.WhereClause }
-func (n wildcard) Type() api.NodeType            { return t.Wildcard }
-func (n withClause) Type() api.NodeType          { return t.WithClause }
-func (n withClauseArm) Type() api.NodeType       { return t.WithClauseArm }
-func (n withClauseArms) Type() api.NodeType      { return t.WithClauseArms }
-func (n yewSource) Type() api.NodeType           { return t.YewSource }
+func (n rawString) Type() api.NodeType       { return t.RawString }
+func (n specBody) Type() api.NodeType        { return t.SpecBody }
+func (n specHead) Type() api.NodeType        { return t.SpecHead }
+func (n specDef) Type() api.NodeType         { return t.SpecDef }
+func (n specInst) Type() api.NodeType        { return t.SpecInst }
+func (n syntax) Type() api.NodeType          { return t.Syntax }
+func (n syntaxRule) Type() api.NodeType      { return t.SyntaxRule }
+func (n syntaxRuleIdent) Type() api.NodeType { return t.SyntaxRuleIdent }
+func (n typeAlias) Type() api.NodeType       { return t.TypeAlias }
+func (n typeConstructor) Type() api.NodeType { return t.TypeConstructor }
+func (n typeDef) Type() api.NodeType         { return t.TypeDef }
+func (n typing) Type() api.NodeType          { return t.Typing }
+func (n unitType) Type() api.NodeType        { return t.UnitType }
+func (n upperIdent) Type() api.NodeType      { return t.UpperIdent }
+func (n visibility) Type() api.NodeType      { return t.Visibility }
+func (n whereClause) Type() api.NodeType     { return t.WhereClause }
+func (n wildcard) Type() api.NodeType        { return t.Wildcard }
+func (n withClause) Type() api.NodeType      { return t.WithClause }
+func (n withClauseArm) Type() api.NodeType   { return t.WithClauseArm }
+func (n withClauseArms) Type() api.NodeType  { return t.WithClauseArms }
+func (n YewSource) Type() api.NodeType       { return t.YewSource }
 
+func (n accessList) Describe() (string, []api.Node) {
+	return n.Type().String(), n.Children()
+}
 func (n annotations) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
@@ -120,9 +125,13 @@ func (n constrainedType) Describe() (string, []api.Node) {
 func (n constrainer) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n constraintUnverified) Describe() (string, []api.Node) {
+func (n constrainerParams) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
+
+//	func (n constraintUnverified) Describe() (string, []api.Node) {
+//		return n.Type().String(), n.Children()
+//	}
 func (n constraintVerified) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
@@ -183,11 +192,11 @@ func (n importPathIdent) Describe() (string, []api.Node) {
 func (n impossible) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n innerTypeTerms) Describe() (string, []api.Node) {
+func (n innerTypeSeq) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n innerTyping) Describe() (string, []api.Node) {
-	return n.Type().String(), []api.Node{n.mode, n.typing}
+	return n.Type().String(), n.Children()
 }
 func (n lambdaAbstraction) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
@@ -298,6 +307,6 @@ func (n withClauseArm) Describe() (string, []api.Node) {
 func (n withClauseArms) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n yewSource) Describe() (string, []api.Node) {
+func (n YewSource) Describe() (string, []api.Node) {
 	return n.Type().String(), []api.Node{ /*n.meta,*/ n.header, n.body, n.footer}
 }

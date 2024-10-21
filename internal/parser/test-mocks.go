@@ -36,5 +36,9 @@ func (s *testScanner) Restore() {}
 
 func (s *testScanner) SrcCode() api.SourceCode { return s.SourceCode }
 
+func (s *testScanner) CreateSimilar() api.ScannerPlus {
+	return &testScanner{}
+}
+
 var _ api.ScannerPlus = &testScanner{}
 

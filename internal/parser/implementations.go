@@ -4,6 +4,8 @@ import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/util/fun"
 	"github.com/petersalex27/yew/common/data"
+	"github.com/petersalex27/yew/internal/kind"
+	"github.com/petersalex27/yew/internal/symbol"
 )
 
 var (
@@ -20,22 +22,36 @@ var (
 // = access ========================================================================================
 
 // access implements expr
-func (expr access) updatePosExpr(p api.Positioned) expr {
+func (expr accessList) updatePosExpr(p api.Positioned) expr {
 	expr.Position = expr.Update(p)
 	return expr
 }
 
 // access implements pattern
-func (pat access) updatePosPattern(p api.Positioned) pattern {
+func (pat accessList) updatePosPattern(p api.Positioned) pattern {
 	pat.Position = pat.Update(p)
 	return pat
 }
 
 // access implements typ
-func (ty access) updatePosTyp(p api.Positioned) typ {
+func (ty accessList) updatePosTyp(p api.Positioned) typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
+
+// func maybeTailAsType(mt data.Maybe[data.NonEmpty[name]], s kind.Solver) kind.Type {
+// 	if t, isT := mt.Break(); !isT {
+// 		return s.NewVar()
+// 	} else {
+// 		return accessList{t}.AsType(s)
+// 	}
+// }
+
+// func (a accessList) AsType(s kind.Solver) kind.Type {
+// 	h, mt := a.Head().Break(), a.Tail().Strengthen()
+// 	// h : a -> TypeOf mt
+// 	return symbol.Sym(h, symbol.Pi(symbol.Sym2("", s.NewVar()), maybeTailAsType(mt, s)))
+// }
 
 // = appType =======================================================================================
 
@@ -58,7 +74,7 @@ func (expr caseExpr) updatePosExpr(p api.Positioned) expr {
 // = constraintUnverified ==========================================================================
 
 // constraintUnverified implements constraint
-func (c constraintUnverified) asConstraint() constraint { return c }
+//func (c constraintUnverified) asConstraint() constraint { return c }
 
 // = constraintVerified ============================================================================
 
@@ -72,6 +88,11 @@ func (ty constrainedType) updatePosTyp(p api.Positioned) typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
+
+// func (ty constrainedType) AsType(s kind.Solver) kind.Type {
+// 	constraint, typ := ty.Pair.Split()
+// 	return symbol.Implicit(symbol.Sym2("", constraint.AsType(s)), typ.AsType(s))
+// }
 
 // = def ===========================================================================================
 
@@ -110,6 +131,21 @@ func (ty forallType) updatePosTyp(p api.Positioned) typ {
 	return ty
 }
 
+// func (ty forallType) AsType(s kind.Solver) kind.Type {
+// 	l, r, isR := ty.Fst().Head().Break()
+// 	var h kind.Type
+// 	if isR {
+// 		h = symbol.Var(r.Break())
+// 	} else {
+// 		h = symbol.Var(l.Break())
+// 	}
+// 	if ty.Fst().Len() == 1 {
+// 		return symbol.Pi(symbol.Sym2("", h), ty.Snd().AsType(s))
+// 	}
+// 	head, _ := ty.Fst().Tail().Strengthen().Break()
+// 	return symbol.Pi(symbol.Sym2("", h), data.EMakePair[forallType](forallBinders{head}, ty.Snd()).AsType(s))
+// }
+
 // = functionType ==================================================================================
 
 // functionType implements typ
@@ -117,6 +153,10 @@ func (ty functionType) updatePosTyp(p api.Positioned) typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
+
+// func (ty functionType) AsType(s kind.Solver) kind.Type {
+// 	return symbol.Pi(symbol.Sym2("", ty.Fst().AsType(s)), ty.Snd().AsType(s))
+// }
 
 // = hole ==========================================================================================
 
@@ -147,10 +187,21 @@ func (h hole) updatePosTyp(p api.Positioned) typ {
 // = innerTypeTerms ================================================================================
 
 // innerTypeTerms implements typ
-func (ty innerTypeTerms) updatePosTyp(p api.Positioned) typ {
+func (ty innerTypeSeq) updatePosTyp(p api.Positioned) typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
+
+// func (itt innerTypeTerms) AsType(s kind.Solver) kind.Type {
+// 	if itt.Len() == 1 {
+// 		return itt.Head().AsType(s)
+// 	}
+
+// 	fst := itt.Head()
+// 	tail := itt.Tail()
+// 	snd, _ := tail.Strengthen().Break()
+// 	return symbol.Const(token.Id.MakeValued("(,)")).Apply(fst.AsType(s)).Apply(innerTypeTerms{snd}.AsType(s))
+// }
 
 // = innerTyping ===================================================================================
 
@@ -161,6 +212,28 @@ func (ty innerTyping) updatePosTyp(p api.Positioned) typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
+
+// func (ty innerTyping) AsType(s kind.Solver) kind.Type {
+// 	term := ty.typing.Fst()
+// 	typ := ty.typing.Snd().AsType(s)
+
+// 	if mode, isModal := ty.mode.Break(); isModal {
+// 		if term.Len() != 1 {
+// 			// input was not validated earlier
+// 			panic("a modality can only be applied to a single term")
+// 		}
+
+// 		head := term.Head().Break()
+// 		modality := mode.Break()
+// 		sym, msg := symbol.Modal(modality, head, typ)
+// 		if msg != "" {
+// 			s.RecordError(msg, ty)
+// 		}
+// 		return sym
+// 	}
+
+// 	return symbol.Sym(term, typ)
+// }
 
 // = implicitTyping ================================================================================
 
@@ -188,6 +261,20 @@ func (ty lambdaAbstraction) updatePosTyp(p api.Positioned) typ {
 	return ty
 }
 
+// func (ty lambdaAbstraction) AsTerm(s kind.Solver) api.Term {
+
+// }
+
+// func (ty lambdaAbstraction) AsType(s kind.Solver) kind.Type {
+// 	head, tail := ty.Pair.Split()
+// 	var binder lambdaBinder = head.Head()
+// 	idOrPat, wild, isWild := binder.Break()
+// 	if !isWild {
+// 		s
+// 	}
+// 	return symbol.Pi(symbol.Sym2("", head.AsType(s)), tail.AsType(s))
+// }
+
 // = letExpr =======================================================================================
 
 func (e letExpr) asExpr() expr { return expr(e) }
@@ -211,6 +298,10 @@ func (lit literal) updatePosPattern(p api.Positioned) pattern {
 	lit.Position = lit.Update(p)
 	return lit
 }
+
+// func (lit literal) AsType(*kind.Solver) kind.Type {
+
+// }
 
 // literal implements expr
 func (lit literal) updatePosExpr(p api.Positioned) expr {
@@ -237,6 +328,8 @@ func (n name) updatePosPattern(p api.Positioned) pattern {
 	n.Position = n.Update(p)
 	return n
 }
+
+func (n name) AsType(s kind.Solver) kind.Type { return symbol.Var(n.Break()) }
 
 // name implements expr
 func (n name) updatePosExpr(p api.Positioned) expr {
@@ -274,7 +367,9 @@ func (spec specDef) setAnnotation(as data.Maybe[annotations]) mainElement {
 	return spec
 }
 
-func (spec specDef) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(spec)) }
+func (spec specDef) asBodyElement() bodyElement {
+	return data.EInr[bodyElement](visibleBodyElement(spec))
+}
 
 // specDef implements mainElement
 func (spec specDef) asMainElement() mainElement { return spec }
@@ -286,6 +381,23 @@ func (spec specDef) setVisibility(mv data.Maybe[visibility]) mainElement {
 	return spec
 }
 
+// func (spec specDef) declare(p parser) data.Either[data.Ers, mainElement] {
+// 	name, params := spec.specHead.Pair.Snd().Split()
+// 	// build type for spec
+// 	z := symbol.Const(token.Id.MakeValued("Type"))
+// 	f := data.FoldRight(func(pr data.Pair[ident, data.Maybe[typ]], acc kind.Type) kind.Type {
+// 		var ty kind.Type
+// 		if typeable, _ := pr.Snd().Break(); pr.Snd().IsNothing() {
+// 			ty = p.newVar()
+// 		} else {
+// 			ty = typeable.AsType()
+// 		}
+// 		fst := data.Coalesce(pr.Fst())
+// 		return symbol.Pi(symbol.Sym(fst, ty), acc)
+// 	}, z)
+// 	p.declare(name.Break(), pat)
+// }
+
 // = specInst ======================================================================================
 
 // specInst implements bodyElement
@@ -294,7 +406,9 @@ func (inst specInst) setAnnotation(as data.Maybe[annotations]) mainElement {
 	return inst
 }
 
-func (inst specInst) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(inst)) }
+func (inst specInst) asBodyElement() bodyElement {
+	return data.EInr[bodyElement](visibleBodyElement(inst))
+}
 
 // specInst implements mainElement
 func (inst specInst) asMainElement() mainElement { return inst }
@@ -314,7 +428,9 @@ func (syntax syntax) setAnnotation(as data.Maybe[annotations]) mainElement {
 	return syntax
 }
 
-func (syntax syntax) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(syntax)) }
+func (syntax syntax) asBodyElement() bodyElement {
+	return data.EInr[bodyElement](visibleBodyElement(syntax))
+}
 
 // syntax implements mainElement
 func (syntax syntax) asMainElement() mainElement { return syntax }
@@ -334,7 +450,9 @@ func (alias typeAlias) setAnnotation(as data.Maybe[annotations]) mainElement {
 	return alias
 }
 
-func (alias typeAlias) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(alias)) }
+func (alias typeAlias) asBodyElement() bodyElement {
+	return data.EInr[bodyElement](visibleBodyElement(alias))
+}
 
 // typeAlias implements mainElement
 func (typeAlias typeAlias) asMainElement() mainElement { return typeAlias }
@@ -354,7 +472,9 @@ func (typeDef typeDef) setAnnotation(as data.Maybe[annotations]) mainElement {
 	return typeDef
 }
 
-func (typeDef typeDef) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(typeDef)) }
+func (typeDef typeDef) asBodyElement() bodyElement {
+	return data.EInr[bodyElement](visibleBodyElement(typeDef))
+}
 
 // typeDef implements mainElement
 func (typeDef typeDef) asMainElement() mainElement { return typeDef }
@@ -380,7 +500,9 @@ func (typing typing) setAnnotation(as data.Maybe[annotations]) mainElement {
 	return typing
 }
 
-func (typing typing) asBodyElement() bodyElement { return data.EInr[bodyElement](visibleBodyElement(typing)) }
+func (typing typing) asBodyElement() bodyElement {
+	return data.EInr[bodyElement](visibleBodyElement(typing))
+}
 
 // typing implements mainElement
 func (typing typing) asMainElement() mainElement { return typing }

@@ -4,6 +4,8 @@ import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
 	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/internal/kind"
+	"github.com/petersalex27/yew/internal/symbol"
 )
 
 type state struct {
@@ -12,13 +14,13 @@ type state struct {
 	tokenCounter int
 	errors       []error
 	warnings     []error
-	//names        *symbol.Table
+	solver       kind.Solver
 }
 
 // State for parsing
 type ParserState struct {
 	state
-	ast yewSource
+	ast YewSource
 }
 
 func createState(scanner api.ScannerPlus) state {
@@ -27,7 +29,7 @@ func createState(scanner api.ScannerPlus) state {
 		tokens:   nil,
 		errors:   make([]error, 0),
 		warnings: make([]error, 0),
-		//names:    symbol.New(),
+		solver:   symbol.Solver(symbol.New()),
 	}
 }
 
@@ -47,6 +49,22 @@ func (p *ParserState) Pos() (int, int) {
 
 func (p *ParserState) GetPos() api.Position {
 	return p.current().GetPos()
+}
+
+func (p *ParserState) declare(name api.Token) {
+	p.solver.Declare(name)
+}
+
+func (p *ParserState) newScope() {
+	p.solver.RecordNames()
+}
+
+func (p *ParserState) exitScope() map[string]symbol.Symbol {
+	return p.solver.EndRecording()
+}
+
+func (p *ParserState) newVar() kind.Type {
+	return p.solver.NewVar()
 }
 
 // adds the error, and if fatal, then returns a *ParserStateFail

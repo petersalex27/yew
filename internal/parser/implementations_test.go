@@ -11,22 +11,9 @@ import (
 
 // ensure all these implement bodyElement
 
-// func Test_assert_bodyElement(*testing.T) {
-// 	var (
-// 		_ bodyElement = typing{}
-// 		_ bodyElement = typeDef{}
-// 		_ bodyElement = specDef{}
-// 		_ bodyElement = specInst{}
-// 		_ bodyElement = typeAlias{}
-// 		_ bodyElement = syntax{}
-// 		_ bodyElement = def{}
-// 	)
-// 	// yippee!
-// }
-
 func Test_assert_constraint(*testing.T) {
 	var (
-		_ constraint = constraintUnverified{}
+		//_ constraint = constraintUnverified{}
 		_ constraint = constraintVerified{}
 	)
 	// yippee!
@@ -38,7 +25,7 @@ func Test_assert_expr(*testing.T) {
 		_ expr = literal{}
 		_ expr = hole{}
 		_ expr = name{}
-		_ expr = access{}
+		_ expr = accessList{}
 		_ expr = lambdaAbstraction{}
 		_ expr = letExpr{}
 		// it's not a mistake that lambdaAbstraction is missing, it's included w/in exprRoot
@@ -67,11 +54,11 @@ func Test_assert_typ(*testing.T) {
 		_ typ = literal{}
 		_ typ = hole{}
 		_ typ = name{}
-		_ typ = access{}
+		_ typ = accessList{}
 		_ typ = lambdaAbstraction{}
 		_ typ = forallType{}
 		_ typ = functionType{}
-		_ typ = innerTypeTerms{}
+		_ typ = innerTypeSeq{}
 		_ typ = innerTyping{}
 		_ typ = implicitTyping{}
 		_ typ = unitType{}
@@ -94,7 +81,7 @@ func Test_assert_visibleBodyElement(*testing.T) {
 
 func Test_assert_DescribableNode(t *testing.T) {
 	var (
-		_ api.DescribableNode = access{}
+		_ api.DescribableNode = accessList{}
 		_ api.DescribableNode = annotations{}
 		_ api.DescribableNode = appType{}
 		_ api.DescribableNode = body{}
@@ -103,7 +90,7 @@ func Test_assert_DescribableNode(t *testing.T) {
 		_ api.DescribableNode = caseExpr{}
 		_ api.DescribableNode = constrainedType{}
 		_ api.DescribableNode = constrainer{}
-		_ api.DescribableNode = constraintUnverified{}
+		//_ api.DescribableNode = constraintUnverified{}
 		_ api.DescribableNode = constraintVerified{}
 		_ api.DescribableNode = def{}
 		_ api.DescribableNode = defBody{}
@@ -123,7 +110,7 @@ func Test_assert_DescribableNode(t *testing.T) {
 		_ api.DescribableNode = implicitTyping{}
 		_ api.DescribableNode = importing{}
 		_ api.DescribableNode = impossible{}
-		_ api.DescribableNode = innerTypeTerms{}
+		_ api.DescribableNode = innerTypeSeq{}
 		_ api.DescribableNode = innerTyping{}
 		_ api.DescribableNode = lambdaAbstraction{}
 		_ api.DescribableNode = lambdaBinders{}
@@ -160,7 +147,7 @@ func Test_assert_DescribableNode(t *testing.T) {
 		_ api.DescribableNode = withClause{}
 		_ api.DescribableNode = withClauseArm{}
 		_ api.DescribableNode = withClauseArms{}
-		_ api.DescribableNode = yewSource{}
+		_ api.DescribableNode = YewSource{}
 	)
 	// yippee!
 }

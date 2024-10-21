@@ -35,6 +35,11 @@ var (
 	octRegex = regexp.MustCompile(`0[oO][0-7](_[0-7]+)*`)
 	// bin literal regex
 	binRegex = regexp.MustCompile(`0[bB][01](_[01]+)*`)
+
+	// simple string regex
+	simpleStringRegex = regexp.MustCompile(`"[^\n\r]*"`)
+	// version regex // TODO: update to include pre-release suffixes, @latest tag, and @stable tag
+	versionRegex = regexp.MustCompile(`v([0-9]+([.][0-9]+){2}(@[a-z]+[.][0-9]+)?|@latest|@stable)`)
 )
 
 type stringer interface {
@@ -63,6 +68,27 @@ func Is_symbolCase(s string) bool {
 
 func Is_symbolCase2[r stringer](s r) bool {
 	return Is_symbolCase(s.String())
+}
+
+func IsConstructorId(s string) bool {
+	// infix upper ident | upper ident | infix symbol | symbol
+	lnS := len(s)
+	ps := InfixId.Match(s)
+	if ps != nil && len(*ps) == lnS {
+		return true
+	}
+
+	ps = PascalCaseId.Match(s)
+	if ps != nil && len(*ps) == lnS {
+		return true
+	}
+
+	ps = SymbolId.Match(s)
+	return ps != nil && len(*ps) == lnS 
+}
+
+func IsConstructorId2[r stringer](s r) bool {
+	return IsConstructorId(s.String())
 }
 
 func IsAlphanumericId(s string) bool {
@@ -132,6 +158,9 @@ const (
 	HexLiteral
 	OctLiteral
 	BinLiteral
+
+	SimpleString
+	Version
 )
 
 var regexMap = map[regexIdentifier]*regexp.Regexp{
@@ -150,6 +179,9 @@ var regexMap = map[regexIdentifier]*regexp.Regexp{
 	HexLiteral:       hexRegex,
 	OctLiteral:       octRegex,
 	BinLiteral:       binRegex,
+
+	SimpleString: simpleStringRegex,
+	Version:      versionRegex,
 }
 
 func (id regexIdentifier) Match(s string) *string {

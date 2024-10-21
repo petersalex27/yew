@@ -99,6 +99,27 @@ func (s *Stack[a]) Flush() []a {
 	return out
 }
 
+// resets the counter to zero
+//
+// In general, there is no public way to get the stack's data slice, so this method
+// does not provide any less safety than Free. One might wish to use Free instead, however,
+// if one knows that the previous stack grew quite large and the next uses will be significantly
+// smaller.
+//
+// SEE: Free for a more thorough "Reset", freeing memory and resetting the capacity and counter
+func (s *Stack[a]) Reset() {
+	s.ctr = 0
+}
+
+func (s *Stack[a]) Free() {
+	// lose all references to the data slice--this will cause the GC to eventually free the memory
+	// 
+	// worth noting: grow will re-init the data slice, preventing nil-pointer errors, so this is safe
+	s.data = nil
+	s.cap = 0
+	s.ctr = 0
+}
+
 func (s *Stack[a]) Len() int { return s.ctr }
 
 func (s *Stack[a]) Push(e a) {
@@ -107,6 +128,26 @@ func (s *Stack[a]) Push(e a) {
 	}
 	s.data[s.ctr] = e
 	s.ctr++
+}
+
+func (s *Stack[a]) PushAll(elems ...a) {
+	// could just call Push, but this avoids unnecessary program stack manipulation
+
+	if s.cap-s.ctr < 0 {
+		panic("stack: counter exceeds capacity")
+	}
+
+	elemLen := len(elems)
+
+	for s.cap-s.ctr < elemLen {
+		// will either panic or grow larger, eventually terminating
+		s.grow()
+	}
+
+	for _, elem := range elems {
+		s.data[s.ctr] = elem
+		s.ctr++
+	}
 }
 
 func (s *Stack[a]) Peek() (top a, ok bool) {
@@ -128,18 +169,25 @@ const (
 )
 
 func (s *Stack[a]) grow() {
-	if s.cap == 0 {
+	// make sure non-negative
+	oldCap := max(0, s.cap)
+
+	// set new cap
+	if oldCap == 0 {
 		s.cap = smallCap
-	} else if s.cap < math.MaxInt {
-		s.cap *= 2 // this works b/c starting cap is factor of 2
+	} else if oldCap < math.MaxInt {
+		s.cap = oldCap * 2 // this works b/c starting cap is factor of 2
 	} else {
 		// that's a lotta data ...
 		panic("stack: cannot grow beyond max capacity")
 	}
 
-	old := s.data
-	s.data = make([]a, s.cap)
-	if old != nil {
-		copy(s.data, old)
+	// set new data slice
+	oldData := s.data
+	s.data = make([]a, s.cap) // w/ new cap
+	if oldCap != 0 {
+		// copy old (counted) data into new data
+		ctr := max(s.ctr, 1) // ensure positive ctr
+		copy(s.data, oldData[:ctr])
 	}
 }

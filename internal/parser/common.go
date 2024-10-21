@@ -131,26 +131,6 @@ func maybeParseParenEnclosed[a api.Node](p parser, parseFunc func(parser) (*data
 	return nil, api.ZeroPosition().Update(lparen).Update(rparen), res
 }
 
-// if the current token's type matches `keyword`, updates the position at `pos` and returns
-// true; otherwise, returns false and leaves `pos` unchanged.
-//
-//	```
-//	rule = [keyword, {"\n"}] ;
-//	```
-//
-// NOTE: if `pos` is nil, then everything above happens with the exception that the position is not updated
-//
-// SEE: `getKeywordAtCurrent` to return the token and found status instead
-func parseKeywordAtCurrent(p parser, keyword token.Type, pos *api.Position) (found bool) {
-	var token api.Token
-	if token, found = getKeywordAtCurrent(p, keyword, dropAfter); found {
-		if pos != nil {
-			*pos = pos.Update( /* keyword */ token)
-		}
-	}
-	return found
-}
-
 func parseEnclosedOpener(p parser) (opener api.Token, closerType token.Type, found bool) {
 	closerType = token.RightParen
 	opener, found = getKeywordAtCurrent(p, token.LeftParen, dropAfter)

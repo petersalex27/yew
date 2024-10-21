@@ -39,15 +39,19 @@ func maybePatternAtom(p parser) (*data.Ers, data.Maybe[patternAtom]) {
 	var n name
 	var isSomething bool
 	if matchCurrent(token.EmptyBracketEnclosure)(p) {
-		n = data.EOne[name](p.current())
+		nilList := p.current()
+		n = data.EOne[name](nilList)
 		p.advance()
 	} else if matchCurrent(token.Hole)(p) {
-		h := holeAsPatternAtom(p.current())
+		hole := p.current()
+		h := holeAsPatternAtom(hole)
 		p.advance()
 		return nil, data.Just(h)
 	} else if n, isSomething = maybeParseName(p).Break(); !isSomething {
 		return nil, data.Nothing[patternAtom](p)
 	}
+	// declare name
+	p.declare(n.Break())
 	return nil, data.Just(nameAsPatternAtom(n))
 }
 
@@ -93,11 +97,13 @@ func maybeParsePattern(p parser, enclosed bool) (*data.Ers, data.Maybe[pattern])
 func closeEnclosedPattern(p parser, opener api.Token, closerType token.Type) func(patternEnclosed) data.Either[data.Ers, pattern] {
 	return func(ps patternEnclosed) data.Either[data.Ers, pattern] {
 		ps.Position = ps.Update(opener)
-		if !parseKeywordAtCurrent(p, closerType, &ps.Position) {
+		closer, found := getKeywordAtCurrent(p, closerType, dropBefore)
+		if !found {
 			isRp := token.RightParen.Int() == closerType.Int()
 			return data.Fail[pattern](ifThenElse(isRp, ExpectedRightParen, ExpectedRightBrace), p)
 		}
 		ps.implicit = token.LeftBrace.Match(opener)
+		ps.Position = ps.Update(closer)
 		return data.Ok[pattern](ps)
 	}
 }
@@ -107,24 +113,33 @@ func closeEnclosedPattern(p parser, opener api.Token, closerType token.Type) fun
 //	```
 //	access = ".", {"\n"}, name ;
 //	```
-func parseAccess(p parser) (_ *data.Ers, acc access) {
+func parseAccess(p parser) (_ *data.Ers, acc accessList) {
 	dot, found := getKeywordAtCurrent(p, token.Dot, dropAfter)
 	if !found {
 		e := data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedAccessDot, p))
 		return &e, acc
 	}
 
-	es, mName := parseMaybeName(p)
-	if es != nil {
-		return es, acc
-	} else if name, just := mName.Break(); !just {
-		e := data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedName, p))
-		return &e, acc
-	} else {
-		acc = access(name)
-		acc.Position = acc.Update(dot)
-		return nil, acc
+	res := parseSepSequenced[accessList](
+		p, ExpectedName, token.Dot, 
+		func(p parser) (*data.Ers, data.Maybe[name]) {
+			return nil, maybeParseName(p)
+		},
+	)
+
+	es, names, isNames := res.Break()
+	if !isNames {
+		return &es, acc
 	}
+
+	// declare all names
+	for _, name := range names.Elements() {
+		p.declare(name.Break())
+	}
+
+	acc = names
+	acc.Position = acc.Update(dot)
+	return nil, acc
 }
 
 func maybeParsePatternTermHelper(p parser, enclosed bool, rhs bool) (*data.Ers, data.Maybe[pattern]) {
@@ -136,8 +151,10 @@ func maybeParsePatternTermHelper(p parser, enclosed bool, rhs bool) (*data.Ers, 
 		return nil, data.Just[pattern](res)
 	} else if enclosed && matchCurrentEqual(p) {
 		// allow '=' to be used as a pattern term as long as the term(s) is/are enclosed
-		eq := pattern(data.EOne[name](p.current()))
+		equalTok := p.current()
+		eq := pattern(data.EOne[name](equalTok))
 		p.advance()
+		p.declare(equalTok)
 		return nil, data.Just(eq)
 	}
 
@@ -172,7 +189,6 @@ func maybeParsePatternTermHelper(p parser, enclosed bool, rhs bool) (*data.Ers, 
 	}
 	pe := patternEnclosed{NonEmpty: pats.NonEmpty}
 
-	p.dropNewlines()
 	res := closeEnclosedPattern(p, opener, closerType)(pe)
 	esOut, out, isRight := res.Break()
 	if !isRight {

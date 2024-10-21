@@ -154,13 +154,12 @@ func constructFunction(lhs typ, isFunctionType bool) func(parser, typ) data.Eith
 		if isFunctionType {
 			return data.Ok(makeFunc(lhs, rhs))
 		} // else, constraint
-		return data.Ok(makeUnverifiedConstrainedType(lhs, rhs))
+		return data.Ok[typ](makeConstrainedType(lhs, rhs))
 	}
 }
 
-func makeUnverifiedConstrainedType(lhs, rhs typ) typ {
-	var constraint constraint = data.EOne[constraintUnverified](lhs)
-	return data.EMakePair[constrainedType](constraint, rhs)
+func makeConstrainedType(lhs, rhs typ) constrainedType {
+	return data.EMakePair[constrainedType](lhs, rhs)
 }
 
 func parseForallBinders(p parser, forallKey api.Token) data.Either[data.Ers, forallBinders] {
@@ -213,28 +212,28 @@ func maybeParseTypeTermRhs(p parser) (*data.Ers, data.Maybe[typ]) {
 }
 
 func maybeParseTypeTermHelper(p parser, rhs bool) (*data.Ers, data.Maybe[typ]) {
-	var lhsTerm data.Either[data.Ers, typ]
+	var termRes data.Either[data.Ers, typ]
 	if rhs && lookahead1(p, token.Dot) {
 		es, acc := parseAccess(p)
 		if es != nil {
 			return es, data.Nothing[typ](p)
 		}
-		lhsTerm = data.Ok[typ](acc)
+		termRes = data.Ok[typ](acc)
 	} else if lookahead1(p, exprAtomLAs...) {
-		lhsTerm = data.Cases(parseExprAtom(p), data.PassErs[typ], exprAtomAsExprRes)
+		termRes = data.Cases(parseExprAtom(p), data.PassErs[typ], exprAtomAsExprRes)
 	} else if lookahead1(p, typeTermExceptionLAs...) {
-		lhsTerm = parseTypeTermException(p) // "_", "()", or "="
+		termRes = parseTypeTermException(p) // "_", "()", or "="
 	} else if lookahead1(p, token.LeftParen, token.LeftBrace) {
-		lhsTerm = parseEnclosedType(p)
+		termRes = parseEnclosedType(p)
 	} else {
 		return nil, data.Nothing[typ](p)
 	}
 
-	es, lhs, isRight := lhsTerm.Break()
+	es, term, isRight := termRes.Break()
 	if !isRight {
 		return &es, data.Nothing[typ](p)
 	}
-	return nil, data.Just(lhs)
+	return nil, data.Just(term)
 }
 
 // ASSUMPTION: the current token is Either "_", "()", "="
@@ -260,6 +259,7 @@ func parseJustAppTypeOrJustType(p parser, lhs typ, enclosed bool) (*data.Ers, ty
 	if lhs == nil {
 		panic("lhs cannot be nil")
 	}
+
 	es, types, has2ndTerm := parseOneOrMore(p, lhs, enclosedDependentIt(enclosed), maybeParseTypeTermRhs)
 	if es != nil {
 		return es, nil
@@ -349,7 +349,7 @@ func parseEnclosedType(p parser) (out data.Either[data.Ers, typ]) {
 	}
 }
 
-func parseEnclosedRhs(p parser, lhs innerTypeTerms, opener api.Token, closerType token.Type, implicit bool, mModality data.Maybe[modality], colon api.Token) data.Either[data.Ers, typ] {
+func parseEnclosedRhs(p parser, lhs innerTypeSeq, opener api.Token, closerType token.Type, implicit bool, mModality data.Maybe[modality], colon api.Token) data.Either[data.Ers, typ] {
 	// parse typing and assemble inner type signature
 	ty := parseType(p, true)
 	typing := data.Cases(ty, data.PassErs[innerTyping], assembleInnerTyping(mModality, lhs, colon))
@@ -403,11 +403,49 @@ func closeEnclosedTyp(p parser, opener api.Token, closerType token.Type) func(ty
 	}
 }
 
-func assembleInnerTyping(modality data.Maybe[modality], lhs innerTypeTerms, colon api.Token) func(typ) data.Either[data.Ers, innerTyping] {
+func getNames(mModality data.Maybe[modality], lhs innerTypeSeq) data.Either[data.Ers, innerTypingNames] {
+	var terms data.NonEmpty[name]
+	fst := lhs.Head()
+	tail := lhs.Tail()
+	if n, ok := fst.(name); ok {
+		terms = data.Singleton(n)
+	} else {
+		return data.Fail[innerTypingNames](ExpectedName, fst)
+	}
+
+	for tail.Len() > 0 {
+		ty, _ := tail.Head().Break()
+		if n, ok := ty.(name); ok {
+			terms = terms.Snoc(n)
+		} else {
+			return data.Fail[innerTypingNames](ExpectedName, tail.Head())
+		}
+
+		tail, _ = tail.Tail().Break()
+	}
+
+	var names innerTypingNames
+	if mode, ok := mModality.Break(); ok {
+		if terms.Len() != 1 {
+			return data.Fail[innerTypingNames](IllegalMultipleModality, lhs)
+		}
+
+		names = data.Inl[data.NonEmpty[name]](data.MakePair(mode, terms.Head()))
+	} else {
+		names = data.Inr[data.Pair[modality, name]](terms)
+	}
+	return data.Ok(names)
+}
+
+func assembleInnerTyping(mModality data.Maybe[modality], lhs innerTypeSeq, colon api.Token) func(typ) data.Either[data.Ers, innerTyping] {
 	return func(t typ) data.Either[data.Ers, innerTyping] {
-		typing := data.MakePair(lhs, t)
-		it := innerTyping{mode: modality, typing: typing}
-		it.Position = api.WeakenRangeOver[api.Node](colon, modality, typing)
+		es, names, isNames := getNames(mModality, lhs).Break()
+		if !isNames {
+			return data.PassErs[innerTyping](es)
+		}
+
+		it := data.EMakePair[innerTyping](names, t)
+		it.Position = api.WeakenRangeOver[api.Node](colon, mModality, it)
 		return data.Ok(it)
 	}
 }
@@ -417,6 +455,6 @@ func assembleInnerTyping(modality data.Maybe[modality], lhs innerTypeTerms, colo
 //	```
 //	inner type terms = type tail, [{{"\n"}, ",", {"\n"}, type tail}, [{"\n"}, ","]] ;
 //	```
-func parseInnerTypeTerms(p parser) data.Either[data.Ers, innerTypeTerms] {
-	return parseSepSequenced[innerTypeTerms](p, ExpectedType, token.Comma, fun.BinBind1st_PairTarget(parseMaybeTypeTail, true))
+func parseInnerTypeTerms(p parser) data.Either[data.Ers, innerTypeSeq] {
+	return parseSepSequenced[innerTypeSeq](p, ExpectedType, token.Comma, fun.BinBind1st_PairTarget(parseMaybeTypeTail, true))
 }
