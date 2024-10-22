@@ -165,7 +165,7 @@ func getKeywordAtCurrent(p parser, keyword token.Type, dropBits dropNewlineBits)
 	origin := getOrigin(p)
 	defer func() {
 		if !found {
-			resetOrigin(p, origin)
+			setOrigin(p, origin)
 		}
 	}()
 
@@ -316,7 +316,7 @@ func parseOneOrMore[a api.Node](p parser, lhs a, startIt func(p parser) bool, f 
 		origin = getOrigin(p)
 	}
 
-	resetOrigin(p, origin)
+	setOrigin(p, origin)
 
 	return nil, group, has2ndTerm
 }
@@ -347,8 +347,8 @@ func parseHandledSepSequenced[b data.EmbedsNonEmpty[a], a api.Node](p parser, er
 		if es, mRhs := maybeParse(p); es != nil {
 			return data.PassErs[b](*es)
 		} else if rhs, just := mRhs.Break(); !just {
-			resetOrigin(p, origin) // undo dropNewlines
-			break                  // no rhs, trailing comma, end loop
+			setOrigin(p, origin) // undo dropNewlines
+			break                // no rhs, trailing comma, end loop
 		} else {
 			terms = terms.Snoc(rhs)
 		}
@@ -380,4 +380,12 @@ func parseSepSequencedGroup[a api.Node](p parser, emptyErrorMsg string, sep toke
 	}
 	group.NonEmpty.Position = group.Update(lparen).Update(rparen)
 	return data.Ok(group.NonEmpty)
+}
+
+func parseErrors(p parser, es data.Ers) []error {
+	errs := make([]error, es.Len())
+	for i, e := range es.Elements() {
+		errs[i] = parseError(p, e)
+	}
+	return errs
 }

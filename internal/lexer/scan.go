@@ -964,6 +964,8 @@ func (lex *packageLexer) maybeOutputPackageKeyword(id string) token.Token {
 		return token.Package.MakeValued("package")
 	} else if id == "require" {
 		return token.Require.MakeValued("require")
+	} else if id == "use" {
+		return token.Use.MakeValued("use")
 	}
 
 	return token.Id.MakeValued(id)
@@ -976,14 +978,15 @@ func (lex *packageLexer) Scan() api.Token {
 
 	lex.skipWhitespace()
 	lex.SavedChar.Push(lex.Pos)
-	c, _ := lex.nextChar()
+	c, eof := lex.nextChar()
 	if c == '\n' {
 		tok := token.Newline.MakeValued("\n")
 		lex.Line++
 		return lex.output(tok)
+	} else if eof {
+		return lex.output(token.EndOfTokens.Make())
 	}
 
-	var eof bool
 	// get rid of comment
 	if k, _ := lex.peek(); c == '-' && k == '-' {
 		for {
@@ -1003,6 +1006,8 @@ func (lex *packageLexer) Scan() api.Token {
 		return lex.output(token.Comma.Make())
 	}
 
+	lex.ungetChar() // this is so the first char is included in the token
+
 	line, ok := lex.remainingLine()
 	if !ok {
 		return lex.error(UnexpectedEndOfLine)
@@ -1013,10 +1018,11 @@ func (lex *packageLexer) Scan() api.Token {
 		return lex.output(token.Version.MakeValued(*res))
 	} else if res = common.AlphanumericId.Match(line); res != nil {
 		lex.Pos += len(*res)
-		return lex.maybeOutputPackageKeyword(*res)
+		return lex.output(lex.maybeOutputPackageKeyword(*res))
 	} else if res = common.SimpleString.Match(line); res != nil {
 		lex.Pos += len(*res)
-		return lex.output(token.StringValue.MakeValued(*res))
+		s := (*res)[1:len(*res)-1] // remove leading and trailing '"'
+		return lex.output(token.StringValue.MakeValued(s))
 	}
 
 	return lex.error(UnexpectedSymbol)

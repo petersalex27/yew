@@ -18,7 +18,7 @@ func parseModulePartOfHeader(p parser) data.Either[data.Ers, data.Maybe[module]]
 	}
 
 	if m, just := mMod.Break(); !just {
-		resetOrigin(p, origin)
+		setOrigin(p, origin)
 	} else {
 		// apply annotations to module
 		m.annotate(mAnnots)
@@ -62,7 +62,7 @@ func parseHeader(p parser) data.Either[data.Ers, data.Maybe[header]] {
 	// if imports are NOT found, and b/c the `then` might have succeeded above, if the origin has
 	// changed, the `then` sequences a body element or the footer instead; so, reset the origin
 	if imports.IsEmpty() {
-		resetOrigin(p, origin)
+		setOrigin(p, origin)
 	}
 
 	return data.Ok(makePossibleHeader(mMod, imports))
@@ -127,7 +127,7 @@ func parseImportsHelper(p parser, as data.Maybe[annotations]) data.Either[data.E
 		}
 	}
 
-	resetOrigin(p, origin)
+	setOrigin(p, origin)
 	return data.Ok(importStatements)
 }
 
@@ -256,7 +256,7 @@ func maybeParsePackageImport(p parser) (*data.Ers, data.Maybe[packageImport]) {
 	if es != nil {
 		return es, data.Nothing[packageImport](p)
 	} else if selections.IsNothing() {
-		resetOrigin(p, origin)
+		setOrigin(p, origin)
 	}
 
 	pi := data.EMakePair[packageImport](path, selections)

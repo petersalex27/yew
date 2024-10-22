@@ -778,3 +778,64 @@ func TestAnalyzeRawString(t *testing.T) {
 		}
 	}
 }
+
+func TestPackageLexerScan(t *testing.T) {
+	tests := []struct {
+		source string
+		expect token.Token
+	}{
+		{
+			source: "package",
+			expect: token.Token{Value: "package", Typ: token.Package, End: 7},
+		},
+		{
+			source: "require",
+			expect: token.Token{Value: "require", Typ: token.Require, End: 7},
+		},
+		{
+			source: "use",
+			expect: token.Token{Value: "use", Typ: token.Use, End: 3},
+		},
+		{
+			source: "v1.0.0",
+			expect: token.Token{Value: "v1.0.0", Typ: token.Version, End: 6},
+		},
+		{
+			source: "identifier",
+			expect: token.Token{Value: "identifier", Typ: token.Id, End: 10},
+		},
+		{
+			source: "\"string\"",
+			expect: token.Token{Value: "string", Typ: token.StringValue, End: 8},
+		},
+		{
+			source: "(",
+			expect: token.Token{Value: "(", Typ: token.LeftParen, End: 1},
+		},
+		{
+			source: ")",
+			expect: token.Token{Value: ")", Typ: token.RightParen, End: 1},
+		},
+		{
+			source: ",",
+			expect: token.Token{Value: ",", Typ: token.Comma, End: 1},
+		},
+		{
+			source: "\n",
+			expect: token.Token{Value: "\n", Typ: token.Newline, End: 1},
+		},
+		{
+			source: "-- comment",
+			expect: token.Token{Value: "", Typ: token.EndOfTokens, Start:10, End: 10}, // Comment should be skipped
+		},
+	}
+
+	for _, test := range tests {
+		lex := InitPackageLexer(util.StringSource(test.source))
+
+		actual := lex.Scan().(token.Token)
+		if !actual.Equals(test.expect) {
+			t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+		}
+	}
+}

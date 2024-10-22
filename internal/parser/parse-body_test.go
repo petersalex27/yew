@@ -355,6 +355,16 @@ func TestParseConstructorName(t *testing.T) {
 			[]api.Token{infix_dollar_tok},
 			data.Just(name_infix_dollar),
 		},
+		{
+			"[]",
+			[]api.Token{nilListTok},
+			data.Just(data.EOne[name](nilListTok)),
+		},
+		{
+			"()",
+			[]api.Token{unitTypeTok},
+			data.Just(data.EOne[name](unitTypeTok)),
+		},
 	}
 
 	for _, test := range tests {

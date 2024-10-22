@@ -231,8 +231,8 @@ var (
 
 	constrainerParam_x = data.MakePair[ident, data.Maybe[typ]](lowerId, data.Nothing[typ]())                                // x
 	constrainerNode    = data.EMakePair[constrainer](MyId_as_upper, data.EConstruct[constrainerParams](constrainerParam_x)) // MyId x
-	vConstraintNode    = data.EConstruct[constraintVerified](data.MakePair(data.Nil[upperIdent](), constrainerNode))        // MyId x
-	vConstraint2Node   = data.EConstruct[constraintVerified](data.MakePair(data.Makes(MyId_as_upper), constrainerNode))     // MyId, MyId x
+	vConstraintNode    = data.EConstruct[constraint](data.MakePair(data.Nil[upperIdent](), constrainerNode))                // MyId x
+	vConstraint2Node   = data.EConstruct[constraint](data.MakePair(data.Makes(MyId_as_upper), constrainerNode))             // MyId, MyId x
 	specDefBodyNode    = data.EConstruct[specBody](data.Inr[def](typingNode))                                               // where x : x
 	specInstBodyNode   = data.EConstruct[specBody](data.Inl[typing](defNode))                                               // where x = x
 	requiringNode      = data.Construct(defNode)                                                                            // requiring x = x
@@ -249,7 +249,7 @@ var (
 	defBodyPossible_where   = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Just(whereClauseNode))        // x where x = x
 	defBodyWhereNode        = data.EInr[defBody](defBodyPossible_where)                                                          // x where x = x
 	defImpossibleNode       = def{emptyAnnots, name_x, defBodyImpossible, api.ZeroPosition()}                                    // x impossible
-	specHeadNode            = data.EMakePair[specHead](data.Nothing[constraintVerified](), constrainerNode)                      // MyId x
+	specHeadNode            = data.EMakePair[specHead](data.Nothing[constraint](), constrainerNode)                              // MyId x
 	specHeadConstrNode      = data.EMakePair[specHead](data.Just(vConstraintNode), constrainerNode)                              // MyId x => MyId x
 	specDefNode             = makeSpecDef(specHeadNode, data.Nothing[pattern](), specDefBodyNode, data.Nothing[specRequiring]()) // spec MyId x where x : x
 	specInstNode            = makeSpecInst(specHeadNode, data.Nothing[constrainer](), specInstBodyNode)                          // spec MyId x where x = x
@@ -474,14 +474,6 @@ func (te tableEntry) equals(te2 tableEntry) bool {
 
 func (te tableEntry) symbols() tableEntry {
 	return te
-}
-
-func parseErrors(p parser, es data.Ers) []error {
-	errs := make([]error, es.Len())
-	for i, e := range es.Elements() {
-		errs[i] = parseError(p, e)
-	}
-	return errs
 }
 
 func printErrors(es ...error) {

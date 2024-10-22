@@ -71,16 +71,6 @@ func (expr caseExpr) updatePosExpr(p api.Positioned) expr {
 	return expr
 }
 
-// = constraintUnverified ==========================================================================
-
-// constraintUnverified implements constraint
-//func (c constraintUnverified) asConstraint() constraint { return c }
-
-// = constraintVerified ============================================================================
-
-// constraintVerified implements constraint
-func (c constraintVerified) asConstraint() constraint { return c }
-
 // = constrainedType ===============================================================================
 
 // constrainedType implements typ

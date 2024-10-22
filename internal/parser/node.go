@@ -49,7 +49,7 @@ type (
 
 	// a constrained type, e.g., `Eq a => a`
 	constrainedType struct {
-		data.Pair[typ, typ]
+		data.Pair[constraint, typ]
 	}
 
 	// a thing that constrains
@@ -63,18 +63,16 @@ type (
 		data.NonEmpty[constrainerParam]
 	}
 
-	// a type constraint
-	// [([..], A a), ([..], B b a), ..]
-	constraint interface {
-		api.DescribableNode
-		asConstraint() constraint
-	}
-
 	constraintElem = data.Pair[data.List[upperIdent], constrainer]
 
-	//constraintUnverified struct{ possibleConstraint }
-
-	constraintVerified struct {
+	// a type constraint
+	// 	```
+	//	A a
+	//	(A a, B b)
+	//	(A, B, C a, D b a)
+	//	```
+	// etc.
+	constraint struct {
 		data.NonEmpty[data.Pair[data.List[upperIdent], constrainer]]
 	}
 
@@ -336,7 +334,7 @@ type (
 	}
 
 	specHead struct {
-		data.Pair[data.Maybe[constraintVerified], constrainer]
+		data.Pair[data.Maybe[constraint], constrainer]
 	}
 
 	// A spec instance. Examples of various forms it can take:
@@ -491,6 +489,12 @@ type (
 
 	// arms of a with clause
 	withClauseArms struct{ data.NonEmpty[withClauseArm] }
+
+	YewModule struct {
+		name string // name of the module
+		// sources in the module
+		data.List[YewSource]
+	}
 
 	// yew source code file
 	YewSource struct {

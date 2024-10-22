@@ -108,6 +108,7 @@ const (
 const (
 	Package Type = iota + 1 + _token_types_proper_end_
 	Require
+	Use
 	_package_tokens_end_
 	Version = _package_tokens_end_
 )
@@ -283,6 +284,10 @@ func PackageTypeString(ty Type) string {
 		return "Package"
 	case Require:
 		return "Require"
+	case Use:
+		return "Use"
+	case Version:
+		return "Version"
 	default:
 		return UnknownTokenTypeString
 	}

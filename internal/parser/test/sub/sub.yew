@@ -1,0 +1,6 @@
+module sub
+
+(List) : Type -> Uint -> Type where (
+  [] : a List 0
+  (::) : a -> a List n -> a List (1 + n)
+)

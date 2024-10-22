@@ -1,0 +1,13 @@
+module test
+
+Bool : Type where True, False : Bool
+
+Nat : Type where (
+  Zero : Nat
+  Succ : Nat -> Nat
+)
+
+main : IO ()
+main = do (
+  print "Hello, World!\n"
+)

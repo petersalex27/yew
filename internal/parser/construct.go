@@ -178,3 +178,7 @@ func makeWhereClause(table map[string]kind.Symbol, elems data.NonEmpty[mainEleme
 func makeAbstraction(table map[string]kind.Symbol, binders lambdaBinders, e expr) lambdaAbstraction {
 	return lambdaAbstraction{table, data.MakePair(binders, e)}
 }
+
+func makeYewPackageSource(name lowerIdent, lang language, body data.List[packageBodyElement], mods data.List[YewModule]) YewPackageSource {
+	return YewPackageSource{name, lang, body, mods, api.WeakenRangeOver[api.Positioned](name, lang, body, mods)}
+}

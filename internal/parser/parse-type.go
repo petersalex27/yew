@@ -81,9 +81,11 @@ func parseType(p parser, enclosed bool) data.Either[data.Ers, typ] {
 // rule:
 //
 //	```
-//	type tail = type term, {type term rhs}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
+//	type tail = type term, {type term rhs}, [{"\n"}, function rhs] ;
 //	```
 func parseMaybeTypeTail(p parser, enclosed bool) (*data.Ers, data.Maybe[typ]) {
+	origin := getOrigin(p)
+
 	es, mTerm := maybeParseTypeTerm(p)
 	if es != nil {
 		return es, data.Nothing[typ](p)
@@ -99,28 +101,77 @@ func parseMaybeTypeTail(p parser, enclosed bool) (*data.Ers, data.Maybe[typ]) {
 		return es, data.Nothing[typ](p)
 	}
 
-	arrow, isFunctionType := getKeywordAtCurrent(p, token.Arrow, dropBeforeAndAfter)
-	var isConstrainedType bool
-	if !isFunctionType {
-		arrow, isConstrainedType = getKeywordAtCurrent(p, token.ThickArrow, dropBeforeAndAfter)
+	// parse function rhs
+	return parseMaybeFunctionRhs(p, head, origin, enclosed)
+}
+
+// rule:
+//
+//	```
+//	arrow = {"\n"}, ("->" | "=>"), {"\n"} ;
+//	```
+func getArrow(p parser) (arrow api.Token, found bool) {
+	arrow, found = getKeywordAtCurrent(p, token.Arrow, dropBeforeAndAfter)
+	if !found {
+		arrow, found = getKeywordAtCurrent(p, token.ThickArrow, dropBeforeAndAfter)
 	}
-	if !isFunctionType && !isConstrainedType {
-		// not a function type, return term
-		return nil, data.Just(head)
+	return arrow, found
+}
+
+// rule:
+//
+//	```
+//	function rhs = ("->" | "=>"), {"\n"}, type tail ;
+//	```
+func parseMaybeFunctionRhs(p parser, lhs typ, origin int, enclosed bool) (*data.Ers, data.Maybe[typ]) {
+	arrowOrigin := getOrigin(p) // location before parsing arrow
+
+	arrow, found := getArrow(p)
+	if !found {
+		return nil, data.Just(lhs) // not a function type, return term
 	}
 
-	// otherwise, create function
-	functionRes := runCases(p,
-		fun.Bind1stOf2(parseTypeTail, enclosed),
-		passParseErs[typ],
-		constructFunction(head, isFunctionType),
-	)
-	esFull, function, isFunction := functionRes.Break()
-	if !isFunction {
-		return &esFull, data.Nothing[typ](p)
+	// builds function type from rhs
+	var fromRhs func(typ) typ
+
+	if token.ThickArrow.Match(arrow) { // this means lhs is a constraint
+		arrowEndOrigin := getOrigin(p)
+
+		// unfortunately, this is a bit inefficient, but it keeps things simple--we need to re-parse the input
+		// as a constraint
+		p = setOrigin(p, origin)
+		result := parseConstraint(p)
+		es, constraint, isConstraint := result.Break()
+		if !isConstraint {
+			return &es, data.Nothing[typ](p)
+		}
+
+		// no need to parse arrow again, check that position ends at the same place as the arrow start
+		if arrowOrigin != getOrigin(p) {
+			// failed to parse constraint
+			e := data.MkErr(UnexpectedToken, p)
+			es := data.Makes(e)
+			return &es, data.Nothing[typ](p)
+		}
+
+		setOrigin(p, arrowEndOrigin) // set to after the arrow (and possible newlines)
+
+		fromRhs = makeConstrainedType(constraint)
+	} else {
+		fromRhs = fun.Curry(makeFunc)(lhs)
 	}
-	// update position to include whichever arrow was parsed ("->" or "=>")
+
+	construct := fun.Compose(data.Ok, fromRhs)
+
+	res := parseTypeTail(p, enclosed)
+
+	es, function, isFunction := data.Cases(res, data.PassErs[typ], construct).Break()
+	if !isFunction {
+		return &es, data.Nothing[typ](p)
+	}
+
 	function = function.updatePosTyp(arrow)
+
 	return nil, data.Just(function)
 }
 
@@ -143,23 +194,10 @@ func parseTypeTail(p parser, enclosed bool) data.Either[data.Ers, typ] {
 	return data.Fail[typ](ExpectedType, p)
 }
 
-// constructs Either a function or constrained type (constrained by an unverified constraint)
-//
-// the constraint will be verified during type checking
-func constructFunction(lhs typ, isFunctionType bool) func(parser, typ) data.Either[data.Ers, typ] {
-	if lhs == nil {
-		panic("lhs cannot be nil")
+func makeConstrainedType(constraint constraint) func(typ) typ {
+	return func(rhs typ) typ {
+		return data.EMakePair[constrainedType](constraint, rhs)
 	}
-	return func(p parser, rhs typ) data.Either[data.Ers, typ] {
-		if isFunctionType {
-			return data.Ok(makeFunc(lhs, rhs))
-		} // else, constraint
-		return data.Ok[typ](makeConstrainedType(lhs, rhs))
-	}
-}
-
-func makeConstrainedType(lhs, rhs typ) constrainedType {
-	return data.EMakePair[constrainedType](lhs, rhs)
 }
 
 func parseForallBinders(p parser, forallKey api.Token) data.Either[data.Ers, forallBinders] {
@@ -456,5 +494,6 @@ func assembleInnerTyping(mModality data.Maybe[modality], lhs innerTypeSeq, colon
 //	inner type terms = type tail, [{{"\n"}, ",", {"\n"}, type tail}, [{"\n"}, ","]] ;
 //	```
 func parseInnerTypeTerms(p parser) data.Either[data.Ers, innerTypeSeq] {
-	return parseSepSequenced[innerTypeSeq](p, ExpectedType, token.Comma, fun.BinBind1st_PairTarget(parseMaybeTypeTail, true))
+	maybeParse := fun.BinBind1st_PairTarget(parseMaybeTypeTail, true)
+	return parseSepSequenced[innerTypeSeq](p, ExpectedType, token.Comma, maybeParse)
 }

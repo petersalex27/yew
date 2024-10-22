@@ -92,7 +92,23 @@ const (
 	ExpectedInfixId                 = "expected infix identifier"                                                    // expected-infix-id
 	MissingPrecedence               = "missing precedence"                                                           // missing-precedence
 	IllegalPrecedence               = "illegal precedence, expected an integer between 0 and 10"                     // illegal-precedence
+	ExpectedVersion                 = "expected version"                                                             // expected-version
+	ExpectedPackageRequirement      = "expected package requirement"                                                 // expected-package-requirement
+	ExpectedPackageLanguage         = "expected package language declaration"                                        // expected-package-language
+	ExpectedPackageName             = "expected package name"                                                        // expected-package-name
+	ExpectedPackage                 = "expected 'package'"                                                           // expected-package
+	InvalidVersion                  = "invalid version"                                                              // invalid-version
+	UnknownRelativeVersionTag       = "unknown relative version tag"                                                 // unknown-relative-version-tag
+	UnexpectedModuleName            = "unexpected module name"                                                       // unexpected-module-name
 )
+
+func ModuleNameErrorMsg(expected string) string {
+	if expected == "" {
+		return UnexpectedModuleName
+	}
+
+	return "expected module name '" + expected + "'"
+}
 
 func parseError(p parser, e data.Err) error {
 	start, end := e.Pos()

@@ -90,7 +90,7 @@ func parseMaybeConstrainerParam(p parser) (*data.Ers, data.Maybe[constrainerPara
 	}
 
 	mty := data.Nothing[typ]()
-	
+
 	colon, found := getKeywordAtCurrent(p, token.Colon, dropBeforeAndAfter)
 	if found { // parse typing
 		tyRes := parseEnclosedType(p)
@@ -195,7 +195,7 @@ func maybeParseConstraintGroup(p parser) (*data.Ers, data.Maybe[data.NonEmpty[co
 	}
 
 	// require at least one constraint elem
-	res := parseGroup[constraintVerified](p, ExpectedConstraintElem, maybeParseConstraintElem)
+	res := parseGroup[constraint](p, ExpectedConstraintElem, maybeParseConstraintElem)
 
 	es, c, isC := res.Break()
 	if !isC {
@@ -210,24 +210,24 @@ func maybeParseConstraintGroup(p parser) (*data.Ers, data.Maybe[data.NonEmpty[co
 //	```
 //	constraint = "(", {"\n"}, constraint group, {"\n"}, ")" | constrainer ;
 //	```
-func parseConstraint(p parser) data.Either[data.Ers, constraintVerified] {
+func parseConstraint(p parser) data.Either[data.Ers, constraint] {
 	// if constraint group, parens are handled in call--note that this doesn't follow the rule exactly ...
 	es, mCG := maybeParseConstraintGroup(p)
 	if es != nil {
-		return data.Inl[constraintVerified](*es)
+		return data.Inl[constraint](*es)
 	} else if cg, just := mCG.Break(); just {
-		return data.Ok(constraintVerified{cg})
+		return data.Ok(constraint{cg})
 	}
 
 	esC, c := maybeParseConstrainer(p, false)
 	if esC != nil {
-		return data.Inl[constraintVerified](*esC)
+		return data.Inl[constraint](*esC)
 	} else if c, just := c.Break(); just {
 		ce := data.MakePair(data.Nil[upperIdent](), c) // constraint elem
 		cg := data.Singleton(ce)                       // constraint group
-		return data.Ok(constraintVerified{cg})
+		return data.Ok(constraint{cg})
 	} else {
-		return data.Fail[constraintVerified](ExpectedConstraint, p)
+		return data.Fail[constraint](ExpectedConstraint, p)
 	}
 }
 
@@ -258,7 +258,7 @@ func parseSpecHead(p parser) data.Either[data.Ers, specHead] {
 	if isCaseA {
 		ta, found := getKeywordAtCurrent(p, token.ThickArrow, dropBeforeAndAfter)
 		if !found {
-			sh = data.EMakePair[specHead](data.Nothing[constraintVerified](p), c.Head().Snd())
+			sh = data.EMakePair[specHead](data.Nothing[constraint](p), c.Head().Snd())
 			return data.Ok(sh)
 		} // else found, fall out of branch
 		thickArrow = ta

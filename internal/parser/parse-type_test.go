@@ -198,7 +198,7 @@ func TestParseTypeTail(t *testing.T) {
 			"constrained type",
 			[]api.Token{id_MyId_tok, id_x_tok, thickArrow, id_x_tok},
 			// MyId x => x
-			makeConstrainedType(data.MakeApp[appType](typ(name_MyId), typ_x), typ_x),
+			makeConstrainedType(vConstraintNode)(typ_x),
 			false,
 		},
 	}

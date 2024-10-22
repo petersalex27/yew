@@ -27,7 +27,7 @@ func parseBody(p parser) (theBody data.Either[data.Ers, data.Maybe[body]]) {
 			return data.PassErs[data.Maybe[body]](es)
 		} else if isMAnnots && lookahead1(p, token.EndOfTokens) {
 			// at footer
-			resetOrigin(p, origin)
+			setOrigin(p, origin)
 			theBody = data.Ok(data.Just(sourceBody))
 			break
 		}
@@ -200,6 +200,13 @@ func maybeParseConstructorName(p parser) (*data.Ers, data.Maybe[name]) {
 		return nil, data.Nothing[name](p)
 	}
 
+	// check for "()" or "[]"
+	if lookahead1(p, token.EmptyBracketEnclosure, token.EmptyParenEnclosure) {
+		cur := p.current()
+		p.advance()
+		return nil, data.Just(data.EOne[name](cur))
+	}
+
 	tok := p.current()
 	// infix ids are not stored w/ parens, so this will work for both infix and non-infix
 	if common.Is_camelCase2(tok) {
@@ -333,7 +340,7 @@ func maybeParseDef(p parser) (*data.Ers, data.Maybe[def]) {
 	es, pat := _parseDef_ParsePattern(p)
 	if es != nil {
 		// reset the origin and return Nothing (no error)
-		resetOrigin(p, origin)
+		setOrigin(p, origin)
 		return nil, data.Nothing[def](p)
 	} // else, keep origin and enforce non-Nothing result. This must be a def
 
@@ -408,7 +415,7 @@ func parseOptionalWhereClause(p parser) data.Either[data.Ers, data.Maybe[whereCl
 //	where body = main elem | "(", {"\n"}, main elem, {then, main elem}, {"\n"}, ")" ;
 //	```
 func parseWhereBody(p parser) data.Either[data.Ers, whereClause] {
-	type whereBody struct { data.NonEmpty[mainElement] }
+	type whereBody struct{ data.NonEmpty[mainElement] }
 	p.newScope()
 	es, wb, isWB := parseGroup[whereBody](p, ExpectedMainElement, maybeParseMainElement).Break()
 	table := p.exitScope()
@@ -540,7 +547,7 @@ func parseSyntaxRule(p parser) data.Either[data.Ers, syntaxRule] {
 			origin = getOrigin(p) // update origin
 			p.dropNewlines()
 		} else {
-			resetOrigin(p, origin)
+			setOrigin(p, origin)
 			break
 		}
 	}
@@ -881,10 +888,10 @@ func parseTypeDefOrTyping(p parser) data.Either[data.Ers, mainElement] {
 
 	esDeriving, mDeriving, isDeriving := parseOptionalDerivingClause(p).Break()
 	if !isDeriving {
-		resetOrigin(p, origin)
+		setOrigin(p, origin)
 		return data.PassErs[mainElement](esDeriving)
 	} else if mDeriving.IsNothing() {
-		resetOrigin(p, origin)
+		setOrigin(p, origin)
 	}
 
 	td := makeTypeDef(sig, tdb, mDeriving)

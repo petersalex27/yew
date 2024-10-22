@@ -2,6 +2,7 @@ package token
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/util"
@@ -37,7 +38,7 @@ func (token Token) Debug() string {
 }
 
 func (token Token) Describe() (value string, alwaysNil []api.Node) {
-	return token.Typ.String() + ": " + token.Value, nil
+	return token.Typ.String() + ": " + fmt.Sprintf("%q", token.Value), nil
 }
 
 func (token Token) Type() api.NodeType { return token.Typ }

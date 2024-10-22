@@ -9,16 +9,6 @@ import (
 	"github.com/petersalex27/yew/api"
 )
 
-// ensure all these implement bodyElement
-
-func Test_assert_constraint(*testing.T) {
-	var (
-		//_ constraint = constraintUnverified{}
-		_ constraint = constraintVerified{}
-	)
-	// yippee!
-}
-
 func Test_assert_expr(*testing.T) {
 	var (
 		_ expr = caseExpr{}
@@ -91,7 +81,7 @@ func Test_assert_DescribableNode(t *testing.T) {
 		_ api.DescribableNode = constrainedType{}
 		_ api.DescribableNode = constrainer{}
 		//_ api.DescribableNode = constraintUnverified{}
-		_ api.DescribableNode = constraintVerified{}
+		_ api.DescribableNode = constraint{}
 		_ api.DescribableNode = def{}
 		_ api.DescribableNode = defBody{}
 		_ api.DescribableNode = defBodyPossible{}

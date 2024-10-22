@@ -19,12 +19,12 @@ func (n constrainer) Type() api.NodeType        { return t.Constrainer }
 func (n constrainerParams) Type() api.NodeType  { return t.ConstrainerParams }
 
 // func (n constraintUnverified) Type() api.NodeType { return t.Constraint }
-func (n constraintVerified) Type() api.NodeType { return t.Constraint }
-func (n def) Type() api.NodeType                { return t.Def }
-func (n defBody) Type() api.NodeType            { return n.Either.Type() }
-func (n defBodyPossible) Type() api.NodeType    { return t.DefBody }
-func (n defaultExpr) Type() api.NodeType        { return t.DefaultExpr }
-func (n deriving) Type() api.NodeType           { return t.Deriving }
+func (n constraint) Type() api.NodeType      { return t.Constraint }
+func (n def) Type() api.NodeType             { return t.Def }
+func (n defBody) Type() api.NodeType         { return n.Either.Type() }
+func (n defBodyPossible) Type() api.NodeType { return t.DefBody }
+func (n defaultExpr) Type() api.NodeType     { return t.DefaultExpr }
+func (n deriving) Type() api.NodeType        { return t.Deriving }
 func (n enclosedType) Type() api.NodeType {
 	return ifThenElse(n.implicit, t.ImplicitType, t.EnclosedType)
 }
@@ -93,6 +93,7 @@ func (n wildcard) Type() api.NodeType        { return t.Wildcard }
 func (n withClause) Type() api.NodeType      { return t.WithClause }
 func (n withClauseArm) Type() api.NodeType   { return t.WithClauseArm }
 func (n withClauseArms) Type() api.NodeType  { return t.WithClauseArms }
+func (n YewModule) Type() api.NodeType       { return t.YewModule }
 func (n YewSource) Type() api.NodeType       { return t.YewSource }
 
 func (n accessList) Describe() (string, []api.Node) {
@@ -132,7 +133,7 @@ func (n constrainerParams) Describe() (string, []api.Node) {
 //	func (n constraintUnverified) Describe() (string, []api.Node) {
 //		return n.Type().String(), n.Children()
 //	}
-func (n constraintVerified) Describe() (string, []api.Node) {
+func (n constraint) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n def) Describe() (string, []api.Node) {

@@ -75,6 +75,7 @@ const (
 	Modality
 	Name
 	PackageImport
+	PackageLanguage
 	PatternApp
 	PatternEnclosed
 	PatternImplicitArg
@@ -99,6 +100,11 @@ const (
 	WithClause
 	WithClauseArm
 	WithClauseArms
+	YewModule
+	YewPackageSource
+	YewPackageRequirements
+	YewPackageVersionCanonical
+	YewPackageVersionRelative
 	_last_node_type_ // last node type =======================================
 	YewSource        = _last_node_type_
 	UnknownNodeType  = _last_node_type_ + 1 // unknown marker =================
@@ -208,6 +214,8 @@ func (nt nodeType) String() string {
 		return "import path identifier"
 	case PackageImport:
 		return "package import"
+	case PackageLanguage:
+		return "package language"
 	case PatternApp:
 		return "pattern application"
 	case PatternEnclosed:
@@ -256,6 +264,16 @@ func (nt nodeType) String() string {
 		return "with clause arm"
 	case WithClauseArms:
 		return "with clause arms"
+	case YewModule:
+		return "yew module"
+	case YewPackageSource:
+		return "yew package source"
+	case YewPackageRequirements:
+		return "package requirements"
+	case YewPackageVersionCanonical:
+		return "canonical version"
+	case YewPackageVersionRelative:
+		return "relative version"
 	case YewSource:
 		return "yew source"
 	}

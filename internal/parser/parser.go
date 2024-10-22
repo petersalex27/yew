@@ -28,6 +28,13 @@ type parser interface {
 	exitScope() map[string]kind.Symbol
 }
 
+func GetErrors(p parser) []error {
+	if ps, ok := p.(*ParserState); ok {
+		return ps.errors
+	}
+	return p.(*ParserStateFail).bad.errors
+}
+
 // initialize the parser, providing it with a scanner to read tokens from
 func Init(scanner api.ScannerPlus) parser {
 	ps := &ParserState{
@@ -78,7 +85,7 @@ func getOrigin(p parser) int {
 }
 
 // noop in the case of a ParserStateFail as Parser instance
-func resetOrigin(p parser, origin int) parser {
+func setOrigin(p parser, origin int) parser {
 	if ps, ok := p.(*ParserState); ok {
 		ps.tokenCounter = origin
 		p = ps

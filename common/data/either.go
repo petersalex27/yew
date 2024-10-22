@@ -12,7 +12,9 @@ type (
 		Children() []api.Node
 	}
 
-	EmbedsEither[a, b api.Node] interface{
+	Result[a api.Node] Either[Ers, a]
+
+	EmbedsEither[a, b api.Node] interface {
 		api.DescribableNode
 		~struct{ Either[a, b] }
 	}
@@ -36,12 +38,12 @@ func Coalesce[b, c EmbedsSolo[a], a api.Node](ebc Either[b, c]) a {
 	return l.Break()
 }
 
-func (e inLeft[a, b]) Update(p api.Positioned) Either[a, b] {	
+func (e inLeft[a, b]) Update(p api.Positioned) Either[a, b] {
 	e.Position = e.Position.Update(p)
 	return e
 }
 
-func (e inRight[a, b]) Update(p api.Positioned) Either[a, b]{
+func (e inRight[a, b]) Update(p api.Positioned) Either[a, b] {
 	e.Position = e.Position.Update(p)
 	return e
 }
@@ -88,7 +90,7 @@ func Ok[a api.Node](x a) Either[Ers, a] { return Inr[Ers](x) }
 func SeqResult[a api.Node](msg string) func(ma Maybe[a]) Either[Ers, a] {
 	return func(ma Maybe[a]) Either[Ers, a] {
 		unit, isJust := ma.Break()
-		if !isJust{
+		if !isJust {
 			return Fail[a](msg, ma)
 		}
 		return Ok(unit)
@@ -110,7 +112,6 @@ func Cases[a, b api.Node, c any](eab Either[a, b], f func(a) c, g func(b) c) c {
 	}
 	return f(lhs)
 }
-
 
 func EitherMap[a, b, d, c api.Node](f func(a) c, g func(b) d) func(Either[a, b]) Either[c, d] {
 	return func(eab Either[a, b]) Either[c, d] {
