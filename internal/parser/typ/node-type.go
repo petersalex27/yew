@@ -68,12 +68,17 @@ const (
 	LetBinding
 	LetExpr
 	Literal
+	LiteralChar
+	LiteralFloat
+	LiteralInt
+	LiteralString
 	LowerIdent
 	MainElem
 	Meta
 	Module
 	Modality
 	Name
+	OfDef
 	PackageImport
 	PackageLanguage
 	PatternApp
@@ -198,6 +203,14 @@ func (nt nodeType) String() string {
 		return "let expression"
 	case Literal:
 		return "literal"
+	case LiteralChar:
+		return "char literal"
+	case LiteralFloat:
+		return "float literal"
+	case LiteralInt:
+		return "int literal"
+	case LiteralString:
+		return "string literal"
 	case LowerIdent:
 		return "lower identifier"
 	case MainElem:
@@ -210,6 +223,8 @@ func (nt nodeType) String() string {
 		return "modality"
 	case Name:
 		return "name"
+	case OfDef:
+		return "'of' definition"
 	case ImportPathIdent:
 		return "import path identifier"
 	case PackageImport:

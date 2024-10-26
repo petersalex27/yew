@@ -48,6 +48,7 @@ func Solver(table *Table) *solver {
 		stack.NewMap[string, kind.Type](),
 		stack.New[int](),
 		table,
+		stack.NewMap[string, kind.Term](),
 		make([]errorRecord, 0),
 		stack.New[kind.Type](),
 	}
@@ -115,3 +116,7 @@ func (s *solver) NewVar() kind.Type {
 func (s *solver) RecordError(err string, pos api.Positioned) {
 	s.errors = append(s.errors, errorRecord{err, pos})
 }
+
+func (s *solver) Introduce(scope map[string]kind.Term) { s.terms.Push(scope) }
+
+func (s *solver) Abolish() { _, _ = s.terms.Pop() }

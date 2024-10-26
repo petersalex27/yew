@@ -91,7 +91,7 @@ func TestParseSpecDef(t *testing.T) {
 	var (
 		depNoReq = makeSpecDef(specHeadNode, data.Just(dependencyNode), specDefBodyNode, data.Nothing[requiringClause]())
 		depReq   = makeSpecDef(specHeadNode, data.Just(dependencyNode), specDefBodyNode, data.Just(requiringNode))
-		noDepReq = makeSpecDef(specHeadNode, data.Nothing[pattern](), specDefBodyNode, data.Just(requiringNode))
+		noDepReq = makeSpecDef(specHeadNode, data.Nothing[Pattern](), specDefBodyNode, data.Just(requiringNode))
 	)
 	tests := []struct {
 		name  string
@@ -281,7 +281,7 @@ func TestParseOptionalSpecDependency(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  data.Maybe[pattern]
+		want  data.Maybe[Pattern]
 		end   int
 	}{
 		{
@@ -307,7 +307,7 @@ func TestParseOptionalSpecDependency(t *testing.T) {
 		{
 			"not parsed",
 			[]api.Token{id_x_tok},
-			data.Nothing[pattern](), 0,
+			data.Nothing[Pattern](), 0,
 		},
 	}
 

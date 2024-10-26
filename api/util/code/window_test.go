@@ -1,10 +1,10 @@
-package util_test
+package code_test
 
 import (
 	"testing"
 
 	"github.com/petersalex27/yew/api"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
 	"github.com/petersalex27/yew/internal/source"
 )
 
@@ -114,7 +114,7 @@ func TestWindow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			srcCode := (source.SourceCode{}).Set(tt.source)
-			result := util.Window(srcCode, tt.start, tt.end)
+			result := code.Window(srcCode, tt.start, tt.end)
 			if result != tt.expected {
 				t.Errorf("expected window (raw strings):\n`%s`\n, got \n`%s`\n(interpreted strings):\n%q\n%q\n", tt.expected, result, tt.expected, result)
 			}

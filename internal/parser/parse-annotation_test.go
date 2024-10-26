@@ -9,14 +9,14 @@ import (
 
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/tree"
 	"github.com/petersalex27/yew/common/data"
 )
 
 func Test_assert_annotatable(*testing.T) {
 	type annotatable interface{ annotate(data.Maybe[annotations]) }
 	var (
-		_ annotatable = &def{}
+		_ annotatable = &Def{}
 		_ annotatable = &specDef{}
 		_ annotatable = &specInst{}
 		_ annotatable = &typeDef{}
@@ -188,10 +188,10 @@ func TestParseOptionalEnclosedAnnotation(t *testing.T) {
 				return // nothing to compare
 			} else if !equals(actual, test.expected) {
 				b := &strings.Builder{}
-				util.PrintTree(b, test.expected)
+				tree.PrintTree(b, test.expected)
 				exp := b.String()
 				b.Reset()
-				util.PrintTree(b, actual)
+				tree.PrintTree(b, actual)
 				act := b.String()
 				t.Errorf("expected \n%s\n, got \n%s\n", exp, act)
 			}

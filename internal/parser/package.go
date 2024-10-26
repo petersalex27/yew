@@ -9,9 +9,10 @@ import (
 
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
 	"github.com/petersalex27/yew/common/data"
 	"github.com/petersalex27/yew/internal/lexer"
+	"github.com/petersalex27/yew/internal/symbol"
 )
 
 // package file nodes
@@ -20,13 +21,23 @@ type (
 		name lowerIdent
 		lang language
 		body data.List[packageBodyElement]
-		mods data.List[YewModule]
 		api.Position
+
+		// non-syntax related data
+
+		mods map[string]YewModule
+		// all the symbols required by the package
+		dependencies map[string]map[string]symbol.Symbol
+		// each module mapped to its symbols
+		exports map[string]map[string]symbol.Symbol
+		// directory that yew.package file resides in
+		path string
 	}
 
 	packageBodyElement interface {
 		api.Node
 		packageBodyElement() packageBodyElement
+		process(*YewPackageSource) []error
 	}
 
 	requirement = data.Pair[api.Token, version]
@@ -55,7 +66,7 @@ func parsePackage(scanner api.ScannerPlus, packageRootDir string) (YewPackageSou
 
 	p := Init(scanner)
 
-	yps, es := parseYewPackageSource(p, modSources)
+	yps, es := parseYewPackageSource(packageRootDir, p, modSources)
 	if len(es) > 0 {
 		return yps, es
 	}
@@ -63,25 +74,35 @@ func parsePackage(scanner api.ScannerPlus, packageRootDir string) (YewPackageSou
 	return yps, nil
 }
 
-func BuildPackage(packageRootDir string) (YewPackageSource, []error) {
+func BuildPackage(packageRootDir string) (yps YewPackageSource, warnings []error, errors []error) {
+	// get the absolute path of the package root directory
 	var err error
 	packageRootDir, err = filepath.Abs(packageRootDir)
 	if err != nil {
-		return YewPackageSource{}, []error{err}
+		return YewPackageSource{}, []error{}, []error{err}
 	}
 
+	// get the source for the package file
 	yewDotPackage := filepath.Join(packageRootDir, "yew.package")
-	src, err := util.FileSource(yewDotPackage)
+	src, err := code.FileSource(yewDotPackage)
 	if err != nil {
-		return YewPackageSource{}, []error{err}
+		return YewPackageSource{}, []error{}, []error{err}
 	}
 
-	yps, errs := parsePackage(lexer.InitPackageLexer(src), packageRootDir)
-	if len(errs) > 0 {
-		return yps, errs
+	warnings = []error{}
+
+	// parse the package file and its modules
+	yps, errors = parsePackage(lexer.InitPackageLexer(src), packageRootDir)
+	if len(errors) > 0 {
+		return yps, warnings, errors
 	}
 
-	return yps, nil
+	// process the package source
+	if errors, warnings = yps.process(); len(errors) > 0 {
+		return yps, warnings, errors
+	}
+
+	return yps, warnings, nil
 }
 
 func getModuleName(mHeader data.Maybe[header]) string {
@@ -98,76 +119,125 @@ func getModuleName(mHeader data.Maybe[header]) string {
 	return modDirective.name.Break().Break().String()
 }
 
-func validateModuleName(p parser, mHeader data.Maybe[header], expected string) error {
-	actual := getModuleName(mHeader)
-	if actual != expected {
-		e := data.MkErr(ModuleNameErrorMsg(expected), mHeader)
-		return parseError(p, e)
+func runParseYewSource(src api.Source, nm nameMap) (ys YewSource, reqs []string, es []error) {
+	p := parseYewSource(Init(lexer.Init(src)))
+	es = GetErrors(p)
+
+	if len(es) != 0 {
+		return YewSource{}, reqs, es
 	}
 
-	return nil
+	ast := p.(*ParserState).ast
+	name := getModuleName(ast.header)
+	nm.addSource(name, ast.header, p.SrcCode())
+	reqs = getImports(ast)
+
+	return ast, reqs, nil
+}
+
+type sourceState struct {
+	header data.Maybe[header]
+	api.SourceCode
+}
+
+type nameMap struct {
+	mu   *sync.Mutex
+	data *map[string][]sourceState
+}
+
+func newNameMap() nameMap {
+	// for correct modules, you'd need at MOST 1
+	// 	- so, optimize for the correct case?
+	m := make(map[string][]sourceState, 1)
+	return nameMap{&sync.Mutex{}, &m}
+}
+
+func (ss sourceState) SrcCode() api.SourceCode {
+	return ss.SourceCode
+}
+
+func (nm nameMap) addSource(modName string, mh data.Maybe[header], src api.SourceCode) {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+
+	if _, ok := (*nm.data)[modName]; !ok {
+		(*nm.data)[modName] = make([]sourceState, 0)
+	}
+
+	(*nm.data)[modName] = append((*nm.data)[modName], sourceState{mh, src})
+}
+
+// returns an empty list if no errors--so safe to append to
+func checkModuleNames(nm nameMap) []error {
+	dataLength := len(*nm.data)
+	if dataLength <= 1 {
+		return []error{}
+	}
+
+	es := []error{}
+
+	for name, sources := range *nm.data {
+		msg := UnexpectedModuleName
+		if name == "" {
+			msg = ExpectedModuleName
+		}
+
+		for _, src := range sources {
+			e := data.MkErr(msg, src.header)
+			es = append(es, parseError(src, e))
+		}
+	}
+
+	return es
 }
 
 // parses sources for a module
-func parseModuleSources(sources []api.Source) (YewModule, []error) {
+func parseModuleSources(dir string, sources []api.Source) (YewModule, []error) {
 	var wg sync.WaitGroup
 	var modMu sync.Mutex
 	var esMu sync.Mutex
+	nameMap := newNameMap()
 
 	es := []error{}
 	mod := YewModule{
-		name: "", // TODO
-		List: data.Nil[YewSource](),
+		name:     "", // TODO
+		path:     dir,
+		List:     data.Nil[YewSource](),
+		required: make(map[string]struct{}),
 	}
 
-	first := true
 	for _, src := range sources {
 		wg.Add(1)
 
 		go func(src api.Source) {
 			defer wg.Done()
 
-			p := parseYewSource(Init(lexer.Init(src)))
-
-			pes := GetErrors(p)
-			if len(pes) > 0 {
+			ys, reqs, ysEs := runParseYewSource(src, nameMap)
+			if len(ysEs) != 0 {
 				esMu.Lock()
-				es = append(es, pes...)
+				es = append(es, ysEs...)
 				esMu.Unlock()
-			} else {
-				modMu.Lock()
-
-				ast := p.(*ParserState).ast
-				ok := true
-				if first {
-					first = false
-					mod.name = getModuleName(ast.header)
-				} else if err := validateModuleName(p, ast.header, mod.name); err != nil {
-					ok = false
-					esMu.Lock()
-					es = append(es, err)
-					esMu.Unlock()
-				}
-
-				if ok {
-					mod.List = mod.List.Snoc(ast)
-				}
-
-				modMu.Unlock()
+				return
 			}
+
+			modMu.Lock()
+			mod.List = mod.List.Snoc(ys)
+			for _, r := range reqs {
+				mod.required[r] = struct{}{}
+			}
+			modMu.Unlock()
 		}(src)
 	}
 
 	wg.Wait()
 
-	if len(es) > 0 {
-		return mod, es
-	}
-	return mod, nil
+	// check module names, appending any errors to the list
+	es = append(checkModuleNames(nameMap), es...)
+	return mod, es
 }
 
 // simple top-down parser for the package file
-func parseYewPackageSource(p parser, modules map[string][]api.Source) (YewPackageSource, []error) {
+func parseYewPackageSource(path string, p parser, modules map[string][]api.Source) (YewPackageSource, []error) {
 	// parse the package name
 	esName, pkgName, isPkgName := parsePackageName(p).Break()
 	if !isPkgName {
@@ -196,12 +266,12 @@ func parseYewPackageSource(p parser, modules map[string][]api.Source) (YewPackag
 	var ers []error
 	mods := data.Nil[YewModule](len(modules))
 
-	for _, sources := range modules {
+	for dir, sources := range modules {
 		wg.Add(1)
-		go func(sources []api.Source) {
+		go func(dir string, sources []api.Source) {
 			defer wg.Done()
 
-			m, es := parseModuleSources(sources)
+			m, es := parseModuleSources(dir, sources)
 			if len(es) > 0 {
 				ersMu.Lock()
 				ers = append(ers, es...)
@@ -212,7 +282,7 @@ func parseYewPackageSource(p parser, modules map[string][]api.Source) (YewPackag
 			modsMu.Lock()
 			mods = mods.Snoc(m)
 			modsMu.Unlock()
-		}(sources)
+		}(dir, sources)
 	}
 
 	wg.Wait()
@@ -221,7 +291,7 @@ func parseYewPackageSource(p parser, modules map[string][]api.Source) (YewPackag
 		return YewPackageSource{}, ers
 	}
 
-	yps := makeYewPackageSource(pkgName, lang, pkgBody, mods)
+	yps := makeYewPackageSource("", pkgName, lang, pkgBody, mods)
 	return yps, nil
 }
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/petersalex27/yew/api"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
 )
 
 var _ api.Scanner = (*Lexer)(nil)
@@ -33,49 +33,49 @@ func TestCurrentSourceChar(t *testing.T) {
 	}{
 		{
 			name:  "`a` @ 0",
-			Lexer: initWithPos(util.StringSource("a"), 0),
+			Lexer: initWithPos(code.StringSource("a"), 0),
 			char:  'a',
 			ok:    true,
 		},
 		{
 			name:  "`a\\nb` @ 2",
-			Lexer: initWithPos(util.StringSource("a\nb"), 2),
+			Lexer: initWithPos(code.StringSource("a\nb"), 2),
 			char:  'b',
 			ok:    true,
 		},
 		{
 			name:  "empty source @ 0",
-			Lexer: initWithPos(util.StringSource(""), 0),
+			Lexer: initWithPos(code.StringSource(""), 0),
 			char:  0,
 			ok:    false,
 		},
 		{
 			name:  "empty source @ 1",
-			Lexer: initWithPos(util.StringSource(""), 1),
+			Lexer: initWithPos(code.StringSource(""), 1),
 			char:  0,
 			ok:    false,
 		},
 		{
 			name:  "`abc` @ 0",
-			Lexer: initWithPos(util.StringSource("abc"), 0),
+			Lexer: initWithPos(code.StringSource("abc"), 0),
 			char:  'a',
 			ok:    true,
 		},
 		{
 			name:  "`abc` @ 1",
-			Lexer: initWithPos(util.StringSource("abc"), 1),
+			Lexer: initWithPos(code.StringSource("abc"), 1),
 			char:  'b',
 			ok:    true,
 		},
 		{
 			name:  "`abc` @ 2",
-			Lexer: initWithPos(util.StringSource("abc"), 2),
+			Lexer: initWithPos(code.StringSource("abc"), 2),
 			char:  'c',
 			ok:    true,
 		},
 		{
 			name:  "`abc` @ 3",
-			Lexer: initWithPos(util.StringSource("abc"), 3),
+			Lexer: initWithPos(code.StringSource("abc"), 3),
 			char:  0,
 			ok:    false,
 		},
@@ -103,38 +103,38 @@ func TestCurrentSourceLine(t *testing.T) {
 	}{
 		{
 			name:  "empty source",
-			Lexer: initWithLine(util.EmptySource(), 0),
+			Lexer: initWithLine(code.EmptySource(), 0),
 			line:  "",
 			ok:    false,
 		},
 		{
 			// this would tokenize as just <EOF>
 			name:  "empty source @ line 1",
-			Lexer: initWithLine(util.EmptySource(), 1),
+			Lexer: initWithLine(code.EmptySource(), 1),
 			line:  "",
 			ok:    true,
 		},
 		{
 			name:  "source with single line",
-			Lexer: initWithLine(util.StringSource("a"), 1),
+			Lexer: initWithLine(code.StringSource("a"), 1),
 			line:  "a",
 			ok:    true,
 		},
 		{
 			name:  "source with two lines @ line 2",
-			Lexer: initWithLine(util.StringSource("a\nb"), 2),
+			Lexer: initWithLine(code.StringSource("a\nb"), 2),
 			line:  "b",
 			ok:    true,
 		},
 		{
 			name:  "source with one line multiple characters @ line 1",
-			Lexer: initWithLine(util.StringSource("abc"), 1),
+			Lexer: initWithLine(code.StringSource("abc"), 1),
 			line:  "abc",
 			ok:    true,
 		},
 		{
 			name:  "source with one line multiple characters @ line 2",
-			Lexer: initWithLine(util.StringSource("abc"), 2),
+			Lexer: initWithLine(code.StringSource("abc"), 2),
 			line:  "",
 			ok:    false,
 		},

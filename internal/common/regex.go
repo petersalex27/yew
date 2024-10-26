@@ -23,12 +23,12 @@ var (
 	methodIdRegex = regexp.MustCompile(`\([.][a-zA-Z][a-zA-Z0-9']*\)|\([.][!@#$%^&*\-=+;:\\|~,<.>/?]+\)`)
 	// any kind of id or symbol, including infixed ids and symbols
 	nameRegex = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9']*|\([.]?[a-zA-Z][a-zA-Z0-9']*\)|[!@#$%^&*\-=+;:\\|~,<.>/?]+|\([.]?[!@#$%^&*\-=+;:\\|~,<.>/?]+\)`)
-	// ids that that look like paths using camelCase ids between and after '/' and '.' respectively
-	importPathRegex = regexp.MustCompile(`[a-z][a-zA-Z0-9']*(/[a-z][a-zA-Z0-9']*)*`)
+	// import path regex
+	importPathRegex = regexp.MustCompile(`"[a-z][a-zA-Z0-9']*(/[a-z][a-zA-Z0-9']*)*"`)
 	// integer literal regex
 	intRegex = regexp.MustCompile(`[0-9]+(_[0-9]+)*`)
 	// float literal regex
-	floatRegex = regexp.MustCompile(`[0-9]+(_[0-9]+)*([.][0-9](_*[0-9]+)*)?([+-]?[eE][0-9]+(_[0-9]+)*)?`)
+	floatRegex = regexp.MustCompile(`[0-9]+(_[0-9]+)*([.][0-9](_*[0-9]+)*([eE][+-]?[0-9]+(_[0-9]+)*)?|[eE][+-]?[0-9]+(_[0-9]+)*)`)
 	// hex literal regex
 	hexRegex = regexp.MustCompile(`0[xX][0-9a-fA-F](_[0-9a-fA-F]+)*`)
 	// oct literal regex
@@ -40,6 +40,17 @@ var (
 	simpleStringRegex = regexp.MustCompile(`"[^\n\r]*"`)
 	// version regex // TODO: update to include pre-release suffixes, @latest tag, and @stable tag
 	versionRegex = regexp.MustCompile(`v([0-9]+([.][0-9]+){2}(@[a-z]+[.][0-9]+)?|@latest|@stable)`)
+
+	// string regex
+	stringRegex = regexp.MustCompile(`"(\\[abfnrtv\\"]|[^\n\r\\])*"`)
+	// unterminated string regex
+	unterminatedStringRegex = regexp.MustCompile(`"(\\[abfnrtv\\"]|[^\n\r\\])*[\r\n]`)
+	// bad escape string
+	badEscapeStringRegex = regexp.MustCompile(`"(\\[abfnrtv\\"]|[^\n\r\\])*\\[^abfnrtv\\]`)
+	// char regex
+	charRegex = regexp.MustCompile(`'(\\[abfnrtv\\']|[^\n\r])'`)
+	// hole regex
+	holeRegex = regexp.MustCompile(`\?[A-Za-z][A-Za-z0-9']*`)
 )
 
 type stringer interface {
@@ -84,7 +95,7 @@ func IsConstructorId(s string) bool {
 	}
 
 	ps = SymbolId.Match(s)
-	return ps != nil && len(*ps) == lnS 
+	return ps != nil && len(*ps) == lnS
 }
 
 func IsConstructorId2[r stringer](s r) bool {
@@ -143,45 +154,77 @@ func MatchRegex2[r stringer](re *regexp.Regexp, s r) *string {
 type regexIdentifier byte
 
 const (
+	// an alphanumeric id
 	AlphanumericId regexIdentifier = iota
+	// an alphanumeric id that starts with a lowercase letter
 	CamelCaseId
+	// an alphanumeric id that starts with an uppercase letter
 	PascalCaseId
+	// a non-alphanumeric id that is not an infix or method id
 	SymbolId
+	// a non-infix name
 	NonInfixName
+	// a symbol or alphanumeric id enclosed in parentheses, e.g., (>>=)
 	InfixId
+	// a symbol or alphanumeric id prefixed with a '.' and enclosed in parentheses, e.g., (.run)
 	MethodId
+	// an alphanumeric id prefixed with a '?', e.g., ?result
+	HoleId
+	// name regex: alphanumeric id, symbol id, infix id, or method id
 	Name
-	ImportPath
+	// one of the following: ( ) { } [ ] ,
 	StandaloneSymbol
+	// integer literal (base 10) with single '_' separators
 	IntLiteral
+	// float literal: optional scientific notation and single '_' separators
 	FloatLiteral
+	// hex integer literal with prefix `0x` or `0X` and single '_' separators
 	HexLiteral
+	// octal integer literal with prefix `0o` or `0O` and single '_' separators
 	OctLiteral
+	// binary integer literal with prefix `0b` or `0B` and single '_' separators
 	BinLiteral
-
+	// single quoted character literal w/ interpretation (i.e. escape sequences)
+	CharLiteral
+	// double quoted string literal w/ interpretation (i.e. escape sequences)
+	InterpretedStringLiteral
+	ILLEGAL_UnterminatedInterpretedStringLiteral
+	ILLEGAL_BadEscapeSequence
+	// double quoted string literal w/o interpretation (i.e. escape sequences)
 	SimpleString
+	// a version literal with optional milestone suffixes or relative version tags
+	//
+	// relative example:
+	//		@latest
+	// milestone example:
+	//		v1.2.3@alpha.1
+	// absolute example:
+	//		v1.2.3
 	Version
 )
 
 var regexMap = map[regexIdentifier]*regexp.Regexp{
-	AlphanumericId:   alphanumericIdRegex,
-	CamelCaseId:      camelCaseIdRegex,
-	PascalCaseId:     pascalCaseIdRegex,
-	SymbolId:         symbolIdRegex,
-	NonInfixName:     nonInfixNameRegex,
-	Name:             nameRegex,
-	InfixId:          infixIdRegex,
-	MethodId:         methodIdRegex,
-	ImportPath:       importPathRegex,
-	StandaloneSymbol: standaloneRegex,
-	IntLiteral:       intRegex,
-	FloatLiteral:     floatRegex,
-	HexLiteral:       hexRegex,
-	OctLiteral:       octRegex,
-	BinLiteral:       binRegex,
-
-	SimpleString: simpleStringRegex,
-	Version:      versionRegex,
+	AlphanumericId:           alphanumericIdRegex,
+	CamelCaseId:              camelCaseIdRegex,
+	PascalCaseId:             pascalCaseIdRegex,
+	SymbolId:                 symbolIdRegex,
+	NonInfixName:             nonInfixNameRegex,
+	Name:                     nameRegex,
+	InfixId:                  infixIdRegex,
+	MethodId:                 methodIdRegex,
+	HoleId:                   holeRegex,
+	StandaloneSymbol:         standaloneRegex,
+	IntLiteral:               intRegex,
+	FloatLiteral:             floatRegex,
+	HexLiteral:               hexRegex,
+	OctLiteral:               octRegex,
+	BinLiteral:               binRegex,
+	CharLiteral:              charRegex,
+	InterpretedStringLiteral: stringRegex,
+	ILLEGAL_UnterminatedInterpretedStringLiteral: unterminatedStringRegex,
+	ILLEGAL_BadEscapeSequence:                    badEscapeStringRegex,
+	SimpleString:                                 simpleStringRegex,
+	Version:                                      versionRegex,
 }
 
 func (id regexIdentifier) Match(s string) *string {

@@ -3,6 +3,7 @@ package symbol
 import (
 	"math"
 	"strings"
+
 	//"sync"
 
 	"github.com/petersalex27/yew/api"
@@ -33,9 +34,10 @@ type (
 		unifications *stack.MapStack[string, kind.Type]
 		freeRange    *stack.Stack[int]
 		table        *Table
+		terms        *stack.MapStack[string, kind.Term]
 		errors       []errorRecord
 		// occurs stack
-		terms *stack.Stack[kind.Type]
+		occursStack *stack.Stack[kind.Type]
 	}
 
 	Symbol = kind.Symbol

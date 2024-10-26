@@ -24,17 +24,20 @@ footer = [annotations_], eof ;
 body = [annotations_], body elem, {then, [annotations_], body elem} ;
   visibility = "public" | "open" ;
   modality = "once" | "erase" ;
-  main elem = 
-      def
+  main elem = [annotations_],
+      ( def
+      | of def
       | spec def 
       | spec inst 
       | type def 
       | type alias 
       | ["auto", {"\n"}], typing 
-      | syntax ; 
+      | syntax 
+      ) ; 
   body elem = def | visible body elem ;
   visible body elem = [visibility],
       ( spec def 
+      | of def
       | spec inst 
       | type def 
       | type alias 
@@ -99,6 +102,7 @@ body = [annotations_], body elem, {then, [annotations_], body elem} ;
     constrained type = constraint, {"\n"}, "=>", {"\n"}, type ;
     default expr = ":=", {"\n"}, expr ;
     forall binders = ident, {ident} | "(", {"\n"}, ident, {{"\n"}, ident}, {"\n"}, ")" ;
+  of def = name, {"\n"}, "of", {"\n"}, pattern, {"\n"}, def body ;
   def = pattern, {"\n"}, def body ;
   def body thick arrow = def body thick arrow main, def body tail ;
   def body = def body main, def body tail ;

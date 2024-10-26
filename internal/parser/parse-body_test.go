@@ -436,7 +436,7 @@ func TestParseTypeConstructor(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		fut := fun.Bind1stOf2(parseTypeConstructor, data.Nothing[annotations]())
+		fut := fun.Bind1stOf3(parseTypeConstructor, data.Nothing[visibility](), data.Nothing[annotations]())
 		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut, -1))
 	}
 }
@@ -445,7 +445,7 @@ func TestParseDef(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  def
+		want  Def
 		end   int
 	}{
 		{
@@ -493,6 +493,39 @@ func TestParseDef(t *testing.T) {
 	}
 }
 
+func TestParseOfDef(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []api.Token
+		want  OfDef
+	}{
+		{
+			"of def - 00",
+			[]api.Token{id_x_tok, of, id_x_tok, equal, id_x_tok},
+			defXofXNode, // x of x = x
+		},
+		{
+			"of def - 01",
+			[]api.Token{id_x_tok, of, newline, id_x_tok, equal, id_x_tok},
+			defXofXNode, // x of x = x
+		},
+		{
+			"of def - 10",
+			[]api.Token{id_x_tok, newline, of, id_x_tok, equal, id_x_tok},
+			defXofXNode, // x of x = x
+		},
+		{
+			"of def - 11",
+			[]api.Token{id_x_tok, newline, of, newline, id_x_tok, equal, id_x_tok},
+			defXofXNode, // x of x = x
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseOfDef, -1))
+	}
+}
+
 // rule:
 //
 //	```
@@ -524,7 +557,7 @@ func TestParseDefBody(t *testing.T) {
 		{
 			"with clause",
 			[]api.Token{with, id_x_tok, of, id_x_tok, thickArrow, id_x_tok},
-			data.EInr[defBody](data.EMakePair[defBodyPossible](data.Inl[expr](withClauseNode), data.Nothing[whereClause]())),
+			data.EInr[defBody](data.EMakePair[defBodyPossible](data.Inl[Expr](withClauseNode), data.Nothing[whereClause]())),
 			-1,
 		},
 		{
@@ -538,7 +571,7 @@ func TestParseDefBody(t *testing.T) {
 				rparen, where, id_x_tok, equal, id_x_tok,
 			},
 			// with x of (x => x where x = x) where x = x
-			data.EInr[defBody](data.EMakePair[defBodyPossible](data.Inl[expr](withClauseNodeWhere), data.Just(whereClauseNode))),
+			data.EInr[defBody](data.EMakePair[defBodyPossible](data.Inl[Expr](withClauseNodeWhere), data.Just(whereClauseNode))),
 			-1,
 		},
 		{
@@ -930,7 +963,9 @@ func TestParseTypeDef(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeDefOrTyping, test.end))
+		fut := fun.Bind1stOf2(parseTypeDefOrTyping, data.Nothing[visibility]())
+
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut, test.end))
 	}
 }
 
@@ -991,7 +1026,10 @@ func TestParseTypeDefBody(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, parseTypeDefBody, test.end))
+		fut := func(p parser) data.Either[data.Ers, typeDefBody] {
+			return parseTypeDefBody(p, data.Nothing[visibility]())
+		}
+		t.Run(test.name, resultOutputFUT_endCheck(test.input, test.want, fut, test.end))
 	}
 }
 

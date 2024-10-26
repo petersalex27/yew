@@ -8,9 +8,8 @@ import (
 	"sync"
 
 	"github.com/petersalex27/yew/api"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
 )
-
 
 type moduleSourceState struct {
 	wg              *sync.WaitGroup
@@ -31,7 +30,7 @@ func (msw moduleSourceState) getSource(path string) {
 	}
 	msw.modulesMu.Unlock()
 
-	src, err := util.FileSource(path)
+	src, err := code.FileSource(path)
 	if err != nil {
 		msw.esMu.Lock()
 		*msw.es = append(*msw.es, err)
@@ -113,7 +112,7 @@ func getModuleSources(root, dir string) (map[string][]api.Source, []error) {
 			if filepath.Ext(path) != ".yew" {
 				continue
 			}
-			
+
 			wg.Add(1)
 			go msw.getSource(path)
 		} else {
@@ -128,4 +127,137 @@ func getModuleSources(root, dir string) (map[string][]api.Source, []error) {
 		return nil, es
 	}
 	return modules, nil
+}
+
+func getImports(ys YewSource) []string {
+	header, isHeader := ys.header.Break()
+	if !isHeader {
+		return []string{}
+	}
+
+	imports := header.Snd()
+	if imports.IsEmpty() {
+		return []string{}
+	}
+
+	out := []string{}
+
+	for _, i := range imports.Elements() {
+		importing := i.Snd()
+		for _, pi := range importing.Elements() {
+			out = append(out, pi.Fst().Break().String())
+		}
+	}
+
+	return out
+}
+
+type moduleGraph struct {
+	dependencies map[string]*moduleGraph
+	module       YewModule // 0 value in a root, non-zero value in the leaves
+}
+
+func buildModuleGraph(mods map[string]YewModule) *moduleGraph {
+	graph := new(moduleGraph)
+	graph.dependencies = make(map[string]*moduleGraph, len(mods))
+
+	for _, mod := range mods {
+		graph.dependencies[mod.path] = func(mod YewModule) *moduleGraph {
+			graph := new(moduleGraph)
+			graph.module = mod
+			graph.dependencies = make(map[string]*moduleGraph, len(mod.required))
+			return graph
+		}(mod)
+	}
+
+	for _, node := range graph.dependencies {
+		for dep := range node.module.required {
+			node.dependencies[dep] = graph.dependencies[dep]
+		}
+	}
+
+	return graph
+}
+
+func detectCycle(buf map[string][]string, visited map[string]bool, visits map[string]map[string]struct{}, path string) (map[string][]string, bool) {
+	// if the path has already been visited, then a cycle has been detected
+	if visited[path] {
+		return buf, true
+	}
+
+	// mark the path as visited
+	visited[path] = true
+	// un-mark the path as visited when the function exits
+	defer func() { visited[path] = false }()
+
+	// get the paths that the current path depends on
+	dependsOn, ok := visits[path]
+	if !ok {
+		return buf, false
+	}
+
+	// check if the paths that the current path depends on have cycles
+	var cycleFound bool
+	for dependency := range dependsOn {
+		var found bool
+		buf, found = detectCycle(buf, visited, visits, dependency)
+		if !found {
+			continue
+		} else {
+			// keep processing even if a cycle is found
+			cycleFound = true
+		}
+
+		// if there's a cycle, record the cycle
+		if len(buf[dependency]) == 0 {
+			buf[dependency] = make([]string, 0, 1)
+		}
+		buf[dependency] = append(buf[dependency], path)
+	}
+
+	return buf, cycleFound
+}
+
+type cycleError struct {
+	path  string
+	cycle []string
+}
+
+func (ce cycleError) Error() string {
+	return "import cycle detected between " + ce.path + " and the following: " + strings.Join(ce.cycle, ", ")
+}
+
+func detectCycles(yms map[string]YewModule) []error {
+	// initialize data
+	visited := make(map[string]bool)
+	type visitMap map[string]map[string]struct{}
+	visits := make(visitMap)
+
+	for _, ym := range yms {
+		visited[ym.path] = false
+		visits[ym.path] = ym.required
+	}
+
+	// detect cycles
+	cycles := make(map[string][]string)
+	var found bool
+	for path := range visits {
+		var cyclic bool
+		cycles, cyclic = detectCycle(cycles, visited, visits, path)
+		if cyclic {
+			found = true
+		}
+	}
+
+	if !found {
+		return []error{} // no cycles found
+	}
+
+	// construct errors
+	var es []error
+	for path, cycle := range cycles {
+		es = append(es, &cycleError{path, cycle})
+	}
+
+	return es
 }

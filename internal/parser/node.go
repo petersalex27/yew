@@ -3,10 +3,14 @@ package parser
 import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/common/data"
-	"github.com/petersalex27/yew/internal/symbol"
+	"github.com/petersalex27/yew/common/stack"
 )
 
-type tableEntry map[string]symbol.Symbol
+type TableEntry map[string]symbolic[declaration]
+
+type Table struct {
+	stack.MapStack[string, symbolic[declaration]]
+}
 
 type (
 	// a dot followed by a name, e.g., `.run` or list of names separated by dots, e.g., `.run.run`
@@ -19,8 +23,8 @@ type (
 	annotations struct{ data.NonEmpty[annotation] }
 
 	// a type application, e.g., `a List n`
-	appType struct {
-		data.Pair[typ, data.NonEmpty[typ]]
+	TypeApp struct {
+		data.Pair[Typ, data.NonEmpty[Typ]]
 	}
 
 	// a binding pattern of some sort for a lambda abstraction or let-in expression
@@ -28,28 +32,28 @@ type (
 	//	```
 	// 	binder = lower ident | upper ident | "(", {"\n"}, enc pattern, {"\n"}, ")" ;
 	//	```
-	binder = data.Either[ident, pattern]
+	binder = data.Either[ident, Pattern]
 
 	// the body of a yew source file
 	body struct{ data.List[bodyElement] }
 
 	// a body element, e.g., a function definition, typing, or spec definition
 	bodyElement struct {
-		data.Either[def, visibleBodyElement]
+		data.Either[Def, VisibleBodyElement]
 	}
 
 	caseArm struct {
-		tableEntry
-		data.Pair[pattern, defBody]
+		TableEntry
+		data.Pair[Pattern, defBody]
 	}
 
 	caseArms struct{ data.NonEmpty[caseArm] }
 
-	caseExpr struct{ data.Pair[pattern, caseArms] }
+	caseExpr struct{ data.Pair[Pattern, caseArms] }
 
 	// a constrained type, e.g., `Eq a => a`
 	constrainedType struct {
-		data.Pair[constraint, typ]
+		data.Pair[constraint, Typ]
 	}
 
 	// a thing that constrains
@@ -57,7 +61,7 @@ type (
 		data.Pair[upperIdent, constrainerParams]
 	}
 
-	constrainerParam = data.Pair[ident, data.Maybe[typ]]
+	constrainerParam = data.Pair[ident, data.Maybe[Typ]]
 
 	constrainerParams struct {
 		data.NonEmpty[constrainerParam]
@@ -76,11 +80,13 @@ type (
 		data.NonEmpty[data.Pair[data.List[upperIdent], constrainer]]
 	}
 
+	declaration = data.Either[api.Token, typing]
+
 	// a function definition
-	def struct {
+	Def struct {
 		// definition cannot have visibilities--these are applied to their declarations
 		annotations data.Maybe[annotations]
-		pattern     pattern
+		pattern     Pattern
 		defBody     defBody
 		api.Position
 	}
@@ -93,11 +99,11 @@ type (
 	// def body that is possible to compute/prove; syntactically, this is a body not marked
 	// 'impossible'
 	defBodyPossible struct {
-		data.Pair[data.Either[withClause, expr], data.Maybe[whereClause]]
+		data.Pair[data.Either[withClause, Expr], data.Maybe[whereClause]]
 	}
 
 	// a default value for an implicit argument
-	defaultExpr struct{ data.Solo[expr] }
+	defaultExpr struct{ data.Solo[Expr] }
 
 	// a deriving clause of a data type definition
 	deriving struct{ data.NonEmpty[constrainer] }
@@ -110,22 +116,23 @@ type (
 	// a type that is enclosed in parentheses or braces
 	enclosedType struct {
 		implicit bool
-		typ
+		Typ
 	}
 
 	// express some kind of computation
-	expr interface {
+	Expr interface {
 		api.DescribableNode
-		updatePosExpr(p api.Positioned) expr
+		updatePosExpr(p api.Positioned) Expr
+		//processExpr(YewSource, *Table, byte) (e Expr, bp byte, err error)
 	}
 
 	// a function application
-	exprApp struct {
-		data.Pair[expr, data.NonEmpty[expr]]
+	ExprApp struct {
+		data.Pair[Expr, data.NonEmpty[Expr]]
 	}
 
 	// an expression that can appear in a type
-	exprAtom = data.Either[patternAtom, lambdaAbstraction]
+	exprAtom = data.Either[patternAtom, LambdaAbstraction]
 
 	// a line-annotation, e.g., `--@infixr 0 ($)`
 	flatAnnotation struct{ data.Solo[api.Token] }
@@ -137,10 +144,10 @@ type (
 	forallBinders struct{ data.NonEmpty[ident] }
 
 	// a forall type, e.g., `Forall a => a -> a`
-	forallType struct{ data.Pair[forallBinders, typ] }
+	forallType struct{ data.Pair[forallBinders, Typ] }
 
 	// a function type, e.g., `Int -> Int`
-	functionType struct{ data.Pair[typ, typ] }
+	functionType struct{ data.Pair[Typ, Typ] }
 
 	// a header of a yew source file
 	header struct {
@@ -166,17 +173,17 @@ type (
 
 	impossible struct{ data.Solo[api.Token] }
 
-	innerTypeSeq struct{ data.NonEmpty[typ] }
+	innerTypeSeq struct{ data.NonEmpty[Typ] }
 
 	innerTypingNames = data.Either[data.Pair[modality, name], data.NonEmpty[name]]
 
 	innerTyping struct {
-		data.Pair[innerTypingNames, typ]
+		data.Pair[innerTypingNames, Typ]
 	}
 
-	lambdaAbstraction struct {
-		tableEntry
-		data.Pair[lambdaBinders, expr]
+	LambdaAbstraction struct {
+		TableEntry
+		data.Pair[lambdaBinders, Expr]
 	}
 
 	// a binder specifically in the binding part of lambda abstractions
@@ -200,7 +207,7 @@ type (
 	//	```
 	//
 	// NOTE: this is just an alias, not an actual node
-	bindingGroupMember = data.Either[data.Pair[binder, expr], data.Pair[typing, data.Maybe[expr]]]
+	bindingGroupMember = data.Either[data.Pair[binder, Expr], data.Pair[typing, data.Maybe[Expr]]]
 
 	// a group of bindings in a let-in expression
 	//
@@ -218,9 +225,21 @@ type (
 	//	```
 	//	let expr = "let", {"\n"}, let binding, {"\n"}, "in", {"\n"}, expr ;
 	//	```
-	letExpr struct{ data.Pair[letBinding, expr] }
+	LetExpr struct{ data.Pair[letBinding, Expr] }
 
-	literal struct{ data.Solo[api.Token] }
+	literal interface {
+		api.DescribableNode
+		literal() literal
+		asTyp() Typ
+		asExpr() Expr
+		asPattern() Pattern
+	}
+
+	aLiteral[a any] struct {
+		LiteralType api.NodeType
+		Value       a
+		api.Position
+	}
 
 	lowerIdent struct{ data.Solo[api.Token] }
 
@@ -229,6 +248,7 @@ type (
 		asBodyElement() bodyElement
 		asMainElement() mainElement
 		setAnnotation(data.Maybe[annotations]) mainElement
+		//processMainElement(YewSource, *Table) (mainElement, error)
 	}
 
 	// meta struct{ annotations }
@@ -245,6 +265,11 @@ type (
 
 	importPathIdent struct{ data.Solo[api.Token] }
 
+	OfDef struct {
+		visibility	data.Maybe[visibility]
+		Def
+	}
+
 	// a package import statement, e.g.,
 	//
 	//		reflect/annot as ant
@@ -258,15 +283,16 @@ type (
 	selections = data.Either[lowerIdent, data.Maybe[data.NonEmpty[name]]]
 
 	// a representation of an expression that can be scrutinized
-	pattern interface {
+	Pattern interface {
 		api.DescribableNode
-		updatePosPattern(p api.Positioned) pattern
-		//secondPass(*symbol.Table) pattern
+		updatePosPattern(p api.Positioned) Pattern
+		//processPattern(YewSource, *Table, byte) (pat Pattern, bp byte, err error)
+		//secondPass(*Table) pattern
 	}
 
 	// a pattern representing an application
 	patternApp struct {
-		data.Pair[pattern, data.NonEmpty[pattern]]
+		data.Pair[Pattern, data.NonEmpty[Pattern]]
 	}
 
 	// most primitive, non-wildcard pattern
@@ -275,7 +301,7 @@ type (
 	// a pattern enclosed in braces or parentheses
 	patternEnclosed struct {
 		implicit bool
-		data.NonEmpty[pattern]
+		data.NonEmpty[Pattern]
 	}
 
 	patternName = data.Either[hole, name]
@@ -283,7 +309,7 @@ type (
 	// a raw string, e.g., `hello`
 	rawString struct{ data.Solo[api.Token] }
 
-	requiringClause = data.NonEmpty[def]
+	requiringClause = data.NonEmpty[Def]
 
 	// a spec definition body
 	specBody struct{ data.NonEmpty[specMember] }
@@ -327,9 +353,9 @@ type (
 		annotations data.Maybe[annotations]
 		visibility  data.Maybe[visibility]
 		specHead    specHead
-		dependency  data.Maybe[pattern]
+		dependency  data.Maybe[Pattern]
 		specBody    specBody
-		requiring   data.Maybe[data.NonEmpty[def]]
+		requiring   data.Maybe[data.NonEmpty[Def]]
 		api.Position
 	}
 
@@ -381,7 +407,7 @@ type (
 	specInstWhereClause = specBody
 
 	// a member of a spec
-	specMember = data.Either[def, typing]
+	specMember = data.Either[Def, typing]
 
 	// a syntax
 	//
@@ -392,7 +418,7 @@ type (
 	syntax struct {
 		annotations data.Maybe[annotations]
 		visibility  data.Maybe[visibility]
-		rule        data.Pair[syntaxRule, expr]
+		rule        data.Pair[syntaxRule, Expr]
 		api.Position
 	}
 
@@ -409,17 +435,18 @@ type (
 	syntaxSymbol = data.Either[syntaxRuleIdent, syntaxRawKeyword]
 
 	// a type
-	typ interface {
+	Typ interface {
 		api.DescribableNode
 		api.Positioned
 		//kind.Typeable
-		updatePosTyp(p api.Positioned) typ
+		updatePosTyp(p api.Positioned) Typ
+		//processTyp(YewSource, *Table, byte) (t Typ, bp byte, err error)
 	}
 	// type alias
 	typeAlias struct {
 		annotations data.Maybe[annotations]
 		visibility  data.Maybe[visibility]
-		alias       data.Pair[name, typ]
+		alias       data.Pair[name, Typ]
 		api.Position
 	}
 
@@ -437,7 +464,7 @@ type (
 
 	typeConstructor struct {
 		annotations data.Maybe[annotations]
-		constructor data.Pair[name, typ]
+		constructor data.Pair[name, Typ]
 		api.Position
 	}
 
@@ -446,7 +473,7 @@ type (
 		automatic   bool
 		annotations data.Maybe[annotations]
 		visibility  data.Maybe[visibility]
-		typing      data.Pair[name, typ]
+		typing      data.Pair[name, Typ]
 		api.Position
 	}
 
@@ -458,16 +485,17 @@ type (
 	// visibility modifier
 	visibility struct{ api.Token }
 
-	visibleBodyElement interface {
+	VisibleBodyElement interface {
 		api.DescribableNode
 		mainElement
 		//declare(p parser) data.Either[data.Ers, mainElement]
 		setVisibility(v data.Maybe[visibility]) mainElement
+		//processVbe(YewSource, *Table) (VisibleBodyElement, error)
 	}
 
 	// where clause
 	whereClause struct {
-		tableEntry
+		TableEntry
 		data.NonEmpty[mainElement]
 	}
 
@@ -476,14 +504,15 @@ type (
 
 	// with clause
 	withClause struct {
-		data.Pair[pattern, withClauseArms]
+		TableEntry
+		data.Pair[Pattern, withClauseArms]
 	}
 
-	withArmLhs = data.Either[pattern, data.Pair[pattern, pattern]]
+	withArmLhs = data.Either[Pattern, data.Pair[Pattern, Pattern]]
 
 	// arm of a with clause
 	withClauseArm struct {
-		tableEntry
+		TableEntry
 		data.Pair[withArmLhs, defBody]
 	}
 
@@ -491,16 +520,19 @@ type (
 	withClauseArms struct{ data.NonEmpty[withClauseArm] }
 
 	YewModule struct {
-		name string // name of the module
-		// sources in the module
-		data.List[YewSource]
+		name                 string // name of the module
+		path                 string // absolute path to the directory of the module
+		data.List[YewSource]        // sources in the module
+
+		// non-syntax related data
+
+		// all the modules required by this module
+		required map[string]struct{}
 	}
 
 	// yew source code file
 	YewSource struct {
-		// the meta section is primarily distinguished by semantics, but it does require a module
-		// declaration to indicate its *possible* presence--which is its syntactic component
-		//meta data.Maybe[meta]
+		path string // absolute path to the source file
 
 		// the header section contains the module declaration and any imports
 		//
@@ -520,5 +552,12 @@ type (
 		footer footer
 		// position range of the yew source file
 		pos api.Position
+
+		// non-syntax related data
+
+		// this includes type constructors, data constructors, typings, and spec types
+		symbols  TableEntry
+		imported importedSymbols
+		srcCode  api.SourceCode
 	}
 )

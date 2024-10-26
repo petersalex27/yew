@@ -5,25 +5,25 @@ import (
 	"fmt"
 
 	"github.com/petersalex27/yew/api"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
 )
 
 func windowError(s api.SourceCode, typ string, msg string, start, end int) error {
-	window := util.Window(s, start, end)
-	line, char := util.CalcLocation(s, start, false)
-	e := fmt.Sprintf("[%d:%d] Error (%s): %s\n%s", line, char, typ, msg, window)
+	window := code.Window(s, start, end)
+	line, char := code.CalcLocation(s, start, false)
+	e := fmt.Sprintf("[%d:%d] error (%s): %s\n%s", line, char, typ, msg, window)
 	return errors.New(e)
 }
 
 func windowWarning(s api.SourceCode, msg string, start, end int) error {
-	window := util.Window(s, start, end)
-	line, char := util.CalcLocation(s, start, false)
-	e := fmt.Sprintf("[%d:%d] Warning: %s\n%s", line, char, msg, window)
+	window := code.Window(s, start, end)
+	line, char := code.CalcLocation(s, start, false)
+	e := fmt.Sprintf("[%d:%d] warning: %s\n%s", line, char, msg, window)
 	return errors.New(e)
 }
 
 func Syntax(s api.SourceCode, msg string, start, end int) error {
-	return windowError(s, "Syntax", msg, start, end)
+	return windowError(s, "syntax", msg, start, end)
 }
 
 func Warning(s api.SourceCode, msg string, start, end int) error {
@@ -31,13 +31,17 @@ func Warning(s api.SourceCode, msg string, start, end int) error {
 }
 
 func Type(s api.SourceCode, msg string, start, end int) error {
-	return windowError(s, "Type", msg, start, end)
+	return windowError(s, "type", msg, start, end)
 }
 
 func Lexical(s api.SourceCode, msg string, start, end int) error {
-	return windowError(s, "Lexical", msg, start, end)
+	return windowError(s, "lexical", msg, start, end)
+}
+
+func Name(s api.SourceCode, msg string, start, end int) error {
+	return windowError(s, "name", msg, start, end)
 }
 
 func OS(msg string) error {
-	return errors.New(fmt.Sprintf("Error (OS): %s", msg))
+	return fmt.Errorf("error (os): %s", msg)
 }

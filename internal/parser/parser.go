@@ -11,7 +11,7 @@ type parser interface {
 	// must keep track of the current position in the source code
 	api.Positioned
 	// return the source code
-	srcCode() api.SourceCode
+	SrcCode() api.SourceCode
 	// add the error, and if fatal, then return a fail state
 	report(error, bool) parser
 	// return token at the current position
@@ -21,11 +21,19 @@ type parser interface {
 	// drop zero or more newlines
 	dropNewlines()
 	// declare a symbol
-	declare(names api.Token, fix_prec ...byte)
+	declare(d declaration, fix_prec ...byte) *data.Ers
 	// create a new, free variable
 	newVar() kind.Type
 	newScope()
-	exitScope() map[string]kind.Symbol
+	exitScope() map[string]symbolic[declaration]
+}
+
+func declareFromSig(p parser, typeSig typing, fix_prec ...byte) *data.Ers {
+	return p.declare(data.Inr[api.Token](typeSig), fix_prec...)
+}
+
+func declareFromName(p parser, name api.Token, fix_prec ...byte) *data.Ers {
+	return p.declare(data.Inl[typing](name), fix_prec...)
 }
 
 func GetErrors(p parser) []error {

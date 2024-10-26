@@ -45,8 +45,14 @@ func ETwo[pair EmbedsPair[a, b], a, b api.Node](x Solo[a], y b) pair {
 	return pair{Two(x, y)}
 }
 
-func PairMap[a, b, c, d api.Node](f func(a) c, g func(b) d) func(p Pair[a, b]) Pair[c, d] {
+func MapPair[a, b, c, d api.Node](f func(a) c, g func(b) d) func(p Pair[a, b]) Pair[c, d] {
 	return func(p Pair[a, b]) Pair[c, d] {
 		return MakePair(f(p.first), g(p.second))
+	}
+}
+
+func EmbMapPair[pair EmbedsPair[c, d], a, b, c, d api.Node](f func(a) c, g func(b) d) func(Pair[a, b]) pair {
+	return func(p Pair[a, b]) pair {
+		return pair{MapPair(f, g)(p)}
 	}
 }

@@ -11,9 +11,12 @@ import (
 
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
+	"github.com/petersalex27/yew/api/util/tree"
 	"github.com/petersalex27/yew/common/data"
+	"github.com/petersalex27/yew/common/stack"
 	"github.com/petersalex27/yew/internal/kind"
+	nodeType "github.com/petersalex27/yew/internal/parser/typ"
 	"github.com/petersalex27/yew/internal/source"
 	"github.com/petersalex27/yew/internal/symbol"
 )
@@ -24,35 +27,35 @@ import (
 
 var (
 	// tokens (as api.Token interface)
-	id_x_tok         api.Token = token.Id.MakeValued("x")                   // x
-	id_MyId_tok      api.Token = token.Id.MakeValued("MyId")                // MyId
-	underscoreTok    api.Token = token.Underscore.Make()                    // _
-	floatValTok      api.Token = token.FloatValue.MakeValued("1.0")         // 1.0
-	charValTok       api.Token = token.CharValue.MakeValued("a")            // 'a'
-	stringValTok     api.Token = token.StringValue.MakeValued("abc")        // "abc"
-	rawStringValTok  api.Token = token.RawStringValue.MakeValued("abc")     // `abc`
-	importPathTok    api.Token = token.ImportPath.MakeValued("a/b/c")       // "a/b/c"
-	integerValTok    api.Token = token.IntValue.MakeValued("1")             // 1
-	nilListTok       api.Token = token.EmptyBracketEnclosure.Make()         // []
-	unitTypeTok      api.Token = token.EmptyParenEnclosure.Make()           // ()
-	hole_x_tok       api.Token = token.Hole.MakeValued("?x")                // ?x
-	hole_MyId_tok    api.Token = token.Hole.MakeValued("?MyId")             // ?MyId
-	id_dollar_tok    api.Token = token.Id.MakeValued("$")                   // $
-	infix_dollar_tok api.Token = token.Infix.MakeValued("$")                // ($)
-	infix_MyId_tok   api.Token = token.Infix.MakeValued("MyId")             // (MyId)
-	infix_x_tok      api.Token = token.Infix.MakeValued("x")                // (x)
-	method_run_tok   api.Token = token.MethodSymbol.MakeValued("run")       // (.run)
-	raw_my_tok       api.Token = token.RawStringValue.MakeValued("my")      // `my`
-	__               api.Token = token.Underscore.Make()                    // just a placeholder
-	equalTok         api.Token = token.Equal.Make()                         // =
-	eraseTok         api.Token = token.Erase.Make()                         // erase
-	onceTok          api.Token = token.Once.Make()                          // once
-	annotOpenTok     api.Token = token.LeftBracketAt.Make()                 // [@
-	id_test_tok      api.Token = token.Id.MakeValued("test")                // test
-	lbracket         api.Token = token.LeftBracket.Make()                   // [
-	rbracket         api.Token = token.RightBracket.Make()                  // ]
-	annot            api.Token = token.FlatAnnotation.MakeValued("--@test") // doesn't matter, but I think the value should technically just be "test"
-	impossibleTok    api.Token = token.Impossible.Make()                    // impossible
+	id_x_tok         api.Token = token.Id.MakeValued("x")                // x
+	id_MyId_tok      api.Token = token.Id.MakeValued("MyId")             // MyId
+	underscoreTok    api.Token = token.Underscore.Make()                 // _
+	floatValTok      api.Token = token.FloatValue.MakeValued("1.0")      // 1.0
+	charValTok       api.Token = token.CharValue.MakeValued("a")         // 'a'
+	stringValTok     api.Token = token.StringValue.MakeValued("abc")     // "abc"
+	rawStringValTok  api.Token = token.RawStringValue.MakeValued("abc")  // `abc`
+	importPathTok    api.Token = token.StringValue.MakeValued("a/b/c")   // "a/b/c"
+	integerValTok    api.Token = token.IntValue.MakeValued("1")          // 1
+	nilListTok       api.Token = token.EmptyBracketEnclosure.Make()      // []
+	unitTypeTok      api.Token = token.EmptyParenEnclosure.Make()        // ()
+	hole_x_tok       api.Token = token.Hole.MakeValued("?x")             // ?x
+	hole_MyId_tok    api.Token = token.Hole.MakeValued("?MyId")          // ?MyId
+	id_dollar_tok    api.Token = token.Id.MakeValued("$")                // $
+	infix_dollar_tok api.Token = token.Infix.MakeValued("$")             // ($)
+	infix_MyId_tok   api.Token = token.Infix.MakeValued("MyId")          // (MyId)
+	infix_x_tok      api.Token = token.Infix.MakeValued("x")             // (x)
+	method_run_tok   api.Token = token.MethodSymbol.MakeValued("run")    // (.run)
+	raw_my_tok       api.Token = token.RawStringValue.MakeValued("my")   // `my`
+	__               api.Token = token.Underscore.Make()                 // just a placeholder
+	equalTok         api.Token = token.Equal.Make()                      // =
+	eraseTok         api.Token = token.Erase.Make()                      // erase
+	onceTok          api.Token = token.Once.Make()                       // once
+	annotOpenTok     api.Token = token.LeftBracketAt.Make()              // [@
+	id_test_tok      api.Token = token.Id.MakeValued("test")             // test
+	lbracket         api.Token = token.LeftBracket.Make()                // [
+	rbracket         api.Token = token.RightBracket.Make()               // ]
+	annot            api.Token = token.FlatAnnotation.MakeValued("test") // --@test
+	impossibleTok    api.Token = token.Impossible.Make()                 // impossible
 
 	// tokens
 	backslash   = token.Backslash.Make()  // \
@@ -102,7 +105,7 @@ var (
 	holeNode               = data.EOne[hole](hole_x_tok)                                                                  // ?x
 	holePatName            = data.Inl[name](holeNode)                                                                     // ?x
 	nilList                = data.Inr[hole](data.EOne[name](nilListTok))                                                  // []
-	literalNode            = data.EOne[literal](integerValTok)                                                            // 1
+	literalNode            = literal(makeLiteral[int64](nodeType.LiteralInt, 1))                                          // 1
 	x_as_lower             = data.EOne[lowerIdent](id_x_tok)                                                              // x
 	MyId_as_upper          = data.EOne[upperIdent](id_MyId_tok)                                                           // MyId
 	lowerId                = data.Inl[upperIdent](x_as_lower)                                                             // x
@@ -110,34 +113,34 @@ var (
 	patternName_x          = data.Inr[hole](name_x)                                                                       // x
 	patternName_eq         = data.Inr[hole](name_eq)                                                                      // =
 	patternAtomNode        = data.Inr[literal](patternName_x)                                                             // x
-	enc                    = data.Singleton[pattern](name_x)                                                              // x
-	pattern_x_x            = data.Construct[pattern](name_x, name_x)                                                      // x, x OR x x
-	exprAtomNode           = data.Inl[lambdaAbstraction](patternAtomNode)                                                 // x
-	exprNode               = expr(name_x)                                                                                 // x
+	enc                    = data.Singleton[Pattern](name_x)                                                              // x
+	pattern_x_x            = data.Construct[Pattern](name_x, name_x)                                                      // x, x OR x x
+	exprAtomNode           = data.Inl[LambdaAbstraction](patternAtomNode)                                                 // x
+	exprNode               = Expr(name_x)                                                                                 // x
 	_exprGroup             = data.Construct(exprNode, exprNode)                                                           // x x
-	_patternGroup          = data.Construct[pattern](name_x, name_x)                                                      // x x
-	exprAppNode            = expr(data.EMakePair[exprApp](exprNode, data.Singleton(exprNode)))                            // x x
-	exprAppNode2           = expr(data.EMakePair[exprApp](exprNode, _exprGroup))                                          // x x x
-	exprAppAccess          = expr(data.EMakePair[exprApp](exprNode, data.Singleton[expr](_singleAcc)))                    // x.x
-	exprAppAccessDouble    = expr(data.EMakePair[exprApp](exprNode, data.Construct[expr](_accGroup)))                     // x.x.x
-	patternNode            = pattern(name_x)                                                                              // x
-	patternAppNode         = pattern(data.EMakePair[patternApp](patternNode, data.Singleton(patternNode)))                // x x
-	patternAppNode2        = pattern(data.EMakePair[patternApp](patternNode, _patternGroup))                              // x x x
-	patternAppAccess       = pattern(data.EMakePair[patternApp](patternNode, data.Singleton[pattern](_singleAcc)))        // x.x
-	patternAppAccessDouble = pattern(data.EMakePair[patternApp](patternNode, data.Construct[pattern](_accGroup)))         // x.x.x
-	encPattern             = pattern(patternEnclosed{NonEmpty: enc})                                                      // ( x )
-	encPattern2            = pattern(patternEnclosed{NonEmpty: pattern_x_x})                                              // (x, x)
-	encPatternImplicit     = pattern(patternEnclosed{NonEmpty: enc, implicit: true})                                      // {x}
-	encPattern2Implicit    = pattern(patternEnclosed{NonEmpty: pattern_x_x, implicit: true})                              // {x, x}
+	_patternGroup          = data.Construct[Pattern](name_x, name_x)                                                      // x x
+	exprAppNode            = Expr(data.EMakePair[ExprApp](exprNode, data.Singleton(exprNode)))                            // x x
+	exprAppNode2           = Expr(data.EMakePair[ExprApp](exprNode, _exprGroup))                                          // x x x
+	exprAppAccess          = Expr(data.EMakePair[ExprApp](exprNode, data.Singleton[Expr](_singleAcc)))                    // x.x
+	exprAppAccessDouble    = Expr(data.EMakePair[ExprApp](exprNode, data.Construct[Expr](_accGroup)))                     // x.x.x
+	patternNode            = Pattern(name_x)                                                                              // x
+	patternAppNode         = Pattern(data.EMakePair[patternApp](patternNode, data.Singleton(patternNode)))                // x x
+	patternAppNode2        = Pattern(data.EMakePair[patternApp](patternNode, _patternGroup))                              // x x x
+	patternAppAccess       = Pattern(data.EMakePair[patternApp](patternNode, data.Singleton[Pattern](_singleAcc)))        // x.x
+	patternAppAccessDouble = Pattern(data.EMakePair[patternApp](patternNode, data.Construct[Pattern](_accGroup)))         // x.x.x
+	encPattern             = Pattern(patternEnclosed{NonEmpty: enc})                                                      // ( x )
+	encPattern2            = Pattern(patternEnclosed{NonEmpty: pattern_x_x})                                              // (x, x)
+	encPatternImplicit     = Pattern(patternEnclosed{NonEmpty: enc, implicit: true})                                      // {x}
+	encPattern2Implicit    = Pattern(patternEnclosed{NonEmpty: pattern_x_x, implicit: true})                              // {x, x}
 	wildcardNode           = wildcard{data.One(underscoreTok)}                                                            // _
-	lowerBinder            = data.Inl[pattern](lowerId)                                                                   // x
+	lowerBinder            = data.Inl[Pattern](lowerId)                                                                   // x
 	lambdaBinderNode       = data.EInl[lambdaBinder](lowerBinder)                                                         // x
 	lambdaBinders1         = data.EConstruct[lambdaBinders](lambdaBinderNode)                                             // x
 	lambdaBinders2         = data.EConstruct[lambdaBinders](lambdaBinderNode, lambdaBinderNode)                           // x, x
 	lambdaAbs1             = makeAbstraction(xMap, lambdaBinders1, exprNode)                                              // \x => x
 	lambdaAbs2             = makeAbstraction(xMap, lambdaBinders2, exprNode)                                              // \x, x => x
-	typ_x                  = typ(name_x)                                                                                  // x
-	enclosedExpr           = expr(name_x)                                                                                 // x
+	typ_x                  = Typ(name_x)                                                                                  // x
+	enclosedExpr           = Expr(name_x)                                                                                 // x
 	_noAnnots              = data.Nothing[annotations]()                                                                  //
 	_noVis                 = data.Nothing[visibility]()                                                                   //
 	typingPair             = data.MakePair(name_x, typ_x)                                                                 // x : x
@@ -145,17 +148,17 @@ var (
 	annotTypingNode        = typing{annotations: data.Just(annotationBlock1), visibility: _noVis, typing: typingPair}     // --@test\nx : x
 	upperTypingNode        = typing{annotations: _noAnnots, visibility: _noVis, typing: data.MakePair(name_MyId, typ_x)}  // MyId : x
 	bindingGroupMem_def    = bindingGroupMember(data.Inl[typingMember](data.MakePair(lowerBinder, exprNode)))             // x := x
-	bindingGroupMem_typ    = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Nothing[expr]())))  // x : x
+	bindingGroupMem_typ    = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Nothing[Expr]())))  // x : x
 	bindingGroupMem_typ_2  = bindingGroupMember(data.Inr[binderMember](data.MakePair(typingNode, data.Just(exprNode))))   // x : x := x
 	letBinding_b           = data.EConstruct[letBinding](bindingGroupMem_def)                                             // x := x
 	letBinding_t           = data.EConstruct[letBinding](bindingGroupMem_typ)                                             // x : x
 	letBinding_a           = data.EConstruct[letBinding](bindingGroupMem_typ_2)                                           // x : x := x
 	letBinding_bt          = data.EConstruct[letBinding](bindingGroupMem_def, bindingGroupMem_typ)                        // x := x; x : x
-	letExprNode            = data.EMakePair[letExpr](letBinding_b, exprNode)                                              // let x := x in x
+	letExprNode            = data.EMakePair[LetExpr](letBinding_b, exprNode)                                              // let x := x in x
 	defBodyPossible_x      = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Nothing[whereClause]()) // x
 	defBody_x              = data.EInr[defBody](defBodyPossible_x)                                                        // x
-	caseArmNode            = makeCaseArm(xMap, pattern(name_x), defBody_x)                                                // x => x
-	caseExprNode           = data.EMakePair[caseExpr](pattern(name_x), data.EConstruct[caseArms](caseArmNode))            // case x of x => x
+	caseArmNode            = makeCaseArm(xMap, Pattern(name_x), defBody_x)                                                // x => x
+	caseExprNode           = data.EMakePair[caseExpr](Pattern(name_x), data.EConstruct[caseArms](caseArmNode))            // case x of x => x
 
 	// annotation nodes
 
@@ -173,9 +176,9 @@ var (
 
 	_accGroup                         = data.EConstruct[accessList](name_x, name_x)                                // .x.x
 	_singleAcc                        = data.EConstruct[accessList](name_x)                                        // .x
-	appTypeNode                       = typ(data.EMakePair[appType](typ_x, data.Singleton(typ_x)))                 // x x
-	appTypeAccessNode                 = typ(data.EMakePair[appType](typ_x, data.Singleton[typ](_singleAcc)))       // x.x
-	appTypeAccessDoubleNode           = typ(data.EMakePair[appType](typ_x, data.Singleton[typ](_accGroup)))        // x.x.x
+	appTypeNode                       = Typ(data.EMakePair[TypeApp](typ_x, data.Singleton(typ_x)))                 // x x
+	appTypeAccessNode                 = Typ(data.EMakePair[TypeApp](typ_x, data.Singleton[Typ](_singleAcc)))       // x.x
+	appTypeAccessDoubleNode           = Typ(data.EMakePair[TypeApp](typ_x, data.Singleton[Typ](_accGroup)))        // x.x.x
 	eraseMultiplicity                 = data.EOne[modality](eraseTok)                                              // erase
 	onceMultiplicity                  = data.EOne[modality](onceTok)                                               // once
 	innerTypeTermsSeq                 = data.EConstruct[innerTypeSeq](typ_x, typ_x)                                // x, x
@@ -229,14 +232,14 @@ var (
 
 	// spec inst/def nodes
 
-	constrainerParam_x = data.MakePair[ident, data.Maybe[typ]](lowerId, data.Nothing[typ]())                                // x
+	constrainerParam_x = data.MakePair[ident, data.Maybe[Typ]](lowerId, data.Nothing[Typ]())                                // x
 	constrainerNode    = data.EMakePair[constrainer](MyId_as_upper, data.EConstruct[constrainerParams](constrainerParam_x)) // MyId x
 	vConstraintNode    = data.EConstruct[constraint](data.MakePair(data.Nil[upperIdent](), constrainerNode))                // MyId x
 	vConstraint2Node   = data.EConstruct[constraint](data.MakePair(data.Makes(MyId_as_upper), constrainerNode))             // MyId, MyId x
-	specDefBodyNode    = data.EConstruct[specBody](data.Inr[def](typingNode))                                               // where x : x
+	specDefBodyNode    = data.EConstruct[specBody](data.Inr[Def](typingNode))                                               // where x : x
 	specInstBodyNode   = data.EConstruct[specBody](data.Inl[typing](defNode))                                               // where x = x
 	requiringNode      = data.Construct(defNode)                                                                            // requiring x = x
-	dependencyNode     = pattern(name_x)                                                                                    // from x
+	dependencyNode     = Pattern(name_x)                                                                                    // from x
 	specInstTargeted   = makeSpecInst(specHeadNode, data.Just(constrainerNode), specInstBodyNode)                           // spec MyId x = MyId x where x = x
 
 	// body nodes
@@ -244,14 +247,15 @@ var (
 	emptyVisibility         = data.Nothing[visibility]()                                                                         // <no token representation>
 	defBodyNode             = data.EInr[defBody](defBodyPossible_x)                                                              // x
 	defBodyImpossible       = data.EInl[defBody](data.EOne[impossible](impossibleTok))                                           // impossible
-	defNode                 = def{emptyAnnots, name_x, defBodyNode, api.ZeroPosition()}                                          // x = x
+	defNode                 = Def{emptyAnnots, name_x, defBodyNode, api.ZeroPosition()}                                          // x = x
+	defXofXNode             = OfDef{emptyVisibility, Def{emptyAnnots, patternAppNode, defBodyNode, api.ZeroPosition()}}          // x of x = x
 	whereClauseNode         = makeWhereClause(xMap, data.Construct(defNode.asMainElement()))                                     // where x = x
 	defBodyPossible_where   = data.EMakePair[defBodyPossible](data.Inr[withClause](exprNode), data.Just(whereClauseNode))        // x where x = x
 	defBodyWhereNode        = data.EInr[defBody](defBodyPossible_where)                                                          // x where x = x
-	defImpossibleNode       = def{emptyAnnots, name_x, defBodyImpossible, api.ZeroPosition()}                                    // x impossible
+	defImpossibleNode       = Def{emptyAnnots, name_x, defBodyImpossible, api.ZeroPosition()}                                    // x impossible
 	specHeadNode            = data.EMakePair[specHead](data.Nothing[constraint](), constrainerNode)                              // MyId x
 	specHeadConstrNode      = data.EMakePair[specHead](data.Just(vConstraintNode), constrainerNode)                              // MyId x => MyId x
-	specDefNode             = makeSpecDef(specHeadNode, data.Nothing[pattern](), specDefBodyNode, data.Nothing[specRequiring]()) // spec MyId x where x : x
+	specDefNode             = makeSpecDef(specHeadNode, data.Nothing[Pattern](), specDefBodyNode, data.Nothing[specRequiring]()) // spec MyId x where x : x
 	specInstNode            = makeSpecInst(specHeadNode, data.Nothing[constrainer](), specInstBodyNode)                          // spec MyId x where x = x
 	rawStringNode           = data.EOne[rawString](raw_my_tok)                                                                   // `my`
 	rawKeyNode              = data.EOne[syntaxRawKeyword](rawStringNode)                                                         // `my`
@@ -259,7 +263,7 @@ var (
 	bindingIdSymNode        = data.Inl[syntaxRawKeyword](makeBindingSyntaxRuleIdent(lowerId))                                    // {x}
 	idSymNode               = data.Inl[syntaxRawKeyword](makeStdSyntaxRuleIdent(lowerId))                                        // x
 	syntaxRuleNode          = data.EConstruct[syntaxRule](rawSym, idSymNode)                                                     // `my` x
-	syntaxNode              = makeSyntax(syntaxRuleNode, expr(name_x))                                                           // syntax `my` x = x
+	syntaxNode              = makeSyntax(syntaxRuleNode, Expr(name_x))                                                           // syntax `my` x = x
 	aliasNode               = makeAlias(name_MyId, name_MyId)                                                                    // alias MyId = MyId
 	typeConsNode            = makeCons(name_MyId, typ_x)                                                                         // MyId : x
 	_consGroup              = data.Construct(typeConsNode)                                                                       // MyId : x
@@ -279,16 +283,18 @@ var (
 	derivingNode            = data.EConstruct[deriving](constrainerNode)                                                         // deriving MyId x
 	derivingNode2           = data.EConstruct[deriving](constrainerNode, constrainerNode)                                        // deriving (MyId x, MyId x)
 	typeDefNodeWithDeriving = makeTypeDef(upperTypingNode, data.Inl[impossible](singleConsNode), data.Just(derivingNode))        // MyId : x where MyId : x deriving MyId x
-	withArmLhsNode          = data.Inl[data.Pair[pattern, pattern]](pattern(name_x))                                             // x
-	withArmLhsVRNode        = makeWithArmLhsRefined(pattern(name_x), pattern(name_x))                                            // x | x
+	withArmLhsNode          = data.Inl[data.Pair[Pattern, Pattern]](Pattern(name_x))                                             // x
+	withArmLhsVRNode        = makeWithArmLhsRefined(Pattern(name_x), Pattern(name_x))                                            // x | x
 	withClauseArmNode       = makeWithClauseArm(xMap, withArmLhsNode, defBodyNode)                                               // x => x
 	withClauseVRNode        = makeWithClauseArm(xMap, withArmLhsVRNode, defBodyNode)                                             // x | x => x
 	withClauseArmsNode      = data.EConstruct[withClauseArms](withClauseArmNode)                                                 // x => x
-	withClauseNode          = makeWithClause(pattern(name_x), withClauseArmsNode)                                                // with x of x => x
-	xMap                    = map[string]kind.Symbol{"x": kind.Sym2("x", symbol.Var2("~a", api.ZeroPosition()))}                 // "x" |-> (x : ~a)
-	withClauseArmNodeWhere  = makeWithClauseArm(xMap, withArmLhsNode, defBodyWhereNode)                                          // x => x where x = x
-	withClauseArmsNodeWhere = data.EConstruct[withClauseArms](withClauseArmNodeWhere)                                            // x => x where x = x
-	withClauseNodeWhere     = makeWithClause(pattern(name_x), withClauseArmsNodeWhere)                                           // with x of x => x where x = x
+	withClauseNode          = makeWithClause(xMap, Pattern(name_x), withClauseArmsNode)                                          // with x of x => x
+	xMap                    = map[string]symbolic[declaration]{
+		"x": {data.Inl[typing](id_x_tok), kind.Sym2("x", symbol.Var2("~a", api.ZeroPosition()))},
+	} // "x" |-> (x : ~a)
+	withClauseArmNodeWhere  = makeWithClauseArm(xMap, withArmLhsNode, defBodyWhereNode)      // x => x where x = x
+	withClauseArmsNodeWhere = data.EConstruct[withClauseArms](withClauseArmNodeWhere)        // x => x where x = x
+	withClauseNodeWhere     = makeWithClause(xMap, Pattern(name_x), withClauseArmsNodeWhere) // with x of x => x where x = x
 )
 
 // a very simple function that creates a test source from a list of tokens
@@ -305,7 +311,7 @@ func createTestSourceCodeFromTokens(tokens []api.Token) *source.SourceCode {
 		}
 	}
 
-	src := util.StringSource(b.String())
+	src := code.StringSource(b.String())
 	out := source.SourceCode{}.Set(src).(source.SourceCode)
 	return &out
 }
@@ -317,7 +323,16 @@ func initTestParser(input []api.Token) *ParserState {
 		SourceCode: createTestSourceCodeFromTokens(input),
 	}
 
-	return &ParserState{state: state{scanner: scanner, tokens: input, solver: symbol.Solver(symbol.New())}}
+	return &ParserState{
+		state: state{
+			scanner: scanner,
+			tokens:  input,
+			solver:  symbol.Solver(symbol.New()),
+			symbols: symbols{
+				stack.NewMap[string, symbolic[declaration]](),
+			},
+		},
+	}
 }
 
 func runResultTest[a api.DescribableNode](p parser, t *testing.T, want a, fut func(p parser) data.Either[data.Ers, a]) {
@@ -397,14 +412,14 @@ func maybeOutputFUT_endCheck[a api.DescribableNode](input []api.Token, want data
 
 func sprintTree(n api.DescribableNode) string {
 	b := &strings.Builder{}
-	util.PrintTree(b, n)
+	tree.PrintTree(b, n)
 	return b.String()
 }
 
 func equals[n1, n2 api.DescribableNode](x n1, y n2) bool {
 	type entry interface {
-		equals(te2 tableEntry) bool
-		symbols() tableEntry
+		equals(te2 TableEntry) bool
+		symbols() TableEntry
 	}
 
 	if !x.Type().Match(y) {
@@ -419,8 +434,8 @@ func equals[n1, n2 api.DescribableNode](x n1, y n2) bool {
 
 		ok = te.equals(te2.symbols())
 		if !ok {
-			t1 := map[string]symbol.Symbol(te.symbols())
-			t2 := map[string]symbol.Symbol(te2.symbols())
+			t1 := TableEntry(te.symbols())
+			t2 := TableEntry(te2.symbols())
 			fmt.Fprintf(os.Stderr, "expected table\n%v\n, got \n%v\n", t1, t2)
 			return false
 		}
@@ -456,7 +471,7 @@ func equals[n1, n2 api.DescribableNode](x n1, y n2) bool {
 	return true
 }
 
-func (te tableEntry) equals(te2 tableEntry) bool {
+func (te TableEntry) equals(te2 TableEntry) bool {
 	if len(te) != len(te2) {
 		return false
 	}
@@ -464,7 +479,9 @@ func (te tableEntry) equals(te2 tableEntry) bool {
 	for k, v := range te {
 		if v2, ok := te2[k]; !ok {
 			return false
-		} else if v.String() != v2.String() { // TODO: this is definitely not the best way to compare symbols
+		} else if !equals(v.node, v2.node) {
+			return false
+		} else if v.symbol.String() != v2.symbol.String() { // TODO: this is definitely not the best way to compare symbols
 			return false
 		}
 	}
@@ -472,7 +489,7 @@ func (te tableEntry) equals(te2 tableEntry) bool {
 	return true
 }
 
-func (te tableEntry) symbols() tableEntry {
+func (te TableEntry) symbols() TableEntry {
 	return te
 }
 

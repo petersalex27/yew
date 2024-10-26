@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/petersalex27/yew/api"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
 )
 
 type SourceCode struct {
@@ -60,7 +60,7 @@ func (src SourceCode) Path() string {
 func (src SourceCode) PrepareForWindowing() api.SourceCode {
 	// add final newline--this is necessary for (SourceCode).window to work correctly.
 	// We want empty files to contain a single--but, importantly--empty line
-	freeSource := util.FreeSource(src.path, string(src.Source)+"\n")
+	freeSource := code.FreeSource(src.path, string(src.Source)+"\n")
 	return (SourceCode{}).Set(freeSource)
 }
 

@@ -242,7 +242,7 @@ func maybeParseImportSpecification(p parser) (*data.Ers, data.Maybe[selections])
 //	package import = import path, [{"\n"}, import specification] ;
 //	```
 func maybeParsePackageImport(p parser) (*data.Ers, data.Maybe[packageImport]) {
-	pathLiteral, found := getKeywordAtCurrent(p, token.ImportPath, dropNone)
+	pathLiteral, found := getKeywordAtCurrent(p, token.StringValue, dropNone)
 	if !found {
 		return nil, data.Nothing[packageImport](p)
 	}

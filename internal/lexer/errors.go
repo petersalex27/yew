@@ -16,25 +16,27 @@ const (
 	IllegalCharLiteral    string = "illegal character literal"
 	IllegalEscapeSequence string = "illegal escape sequence"
 	IllegalStringLiteral  string = "illegal string literal"
+	UnterminatedString    string = "unterminated string literal"
 	UnexpectedUnderscore  string = "unexpected underscore"
 	UnexpectedSymbol      string = "unexpected symbol"
 	ExpectedAnnotationId  string = "annotation must have an identifier"
 	UnexpectedEndOfLine   string = "unexpected end of line"
+	IllegalBinLiteral     string = "illegal binary literal"
+	IllegalOctLiteral     string = "illegal octal literal"
+	IllegalHexLiteral     string = "illegal hexadecimal literal"
+	IllegalIntLiteral     string = "illegal integer literal"
+	CannotProcessSymbol   string = "cannot process symbol"
 )
 
-// adds an error constructed using lexer's data and the message string passed as an argument
 func (lex *Lexer) error(msg string) token.Token {
-	start, _ := lex.SavedChar.Pop()
-	// endPositions := lex.EndPositions()
-	// line1 := 1 + common.SearchRange(endPositions, start, false)  // 1 + result = 0 or greater
-	// line2 := 1 + common.SearchRange(endPositions, lex.Pos, true) // 1 + result = 0 or greater
-	// char1, char2 := 0, 0
-	// if line1 > 0 {
-	// 	char1 = (endPositions[line1-1] + 1) - start
-	// }
-	// if line2 > 0 {
-	// 	char2 = (endPositions[line2-1] + 1) - lex.Pos
-	// }
-	value := errors.Lexical(lex.SourceCode, msg, start, lex.Pos).Error()
-	return token.Token{Value: value, Typ: token.Error, Start: start, End: lex.Pos}
+	var value string
+	var start, end int
+	if lex.Pos <= 0 {
+		start, end = 0, max(0, lex.Pos)
+		value = errors.Lexical(lex.SourceCode, msg, start, end).Error()
+	} else {
+		start, end = lex.Pos-1, lex.Pos
+		value = errors.Lexical(lex.SourceCode, msg, start, end).Error()
+	}
+	return token.Token{Value: value, Typ: token.Error, Start: start, End: end}
 }

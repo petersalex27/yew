@@ -100,19 +100,24 @@ const (
 	InvalidVersion                  = "invalid version"                                                              // invalid-version
 	UnknownRelativeVersionTag       = "unknown relative version tag"                                                 // unknown-relative-version-tag
 	UnexpectedModuleName            = "unexpected module name"                                                       // unexpected-module-name
+	ExpectedModuleName              = "expected module name"                                                         // expected-module-name
+	RedeclaredSymbol                = "symbol re-declared in this scope"                                             // redeclared-symbol
+	IllegalLocalInfix               = "cannot declare local infix operators"                                         // illegal-local-infix
 )
 
-func ModuleNameErrorMsg(expected string) string {
-	if expected == "" {
-		return UnexpectedModuleName
-	}
-
-	return "expected module name '" + expected + "'"
+func undefinedNameError(srcCode api.SourceCode, name string, psd api.Positioned) error {
+	start, end := psd.Pos()
+	return errors.Name(srcCode, "undefined "+name, start, end)
 }
 
-func parseError(p parser, e data.Err) error {
+func unknownModuleError(srcCode api.SourceCode, path string, psd api.Positioned) error {
+	start, end := psd.Pos()
+	return errors.Name(srcCode, "no required package has module "+path, start, end)
+}
+
+func parseError(p interface{ SrcCode() api.SourceCode }, e data.Err) error {
 	start, end := e.Pos()
-	return errors.Syntax(p.srcCode(), e.Msg(), start, end)
+	return errors.Syntax(p.SrcCode(), e.Msg(), start, end)
 }
 
 // given a token, report some error relating to a type constructor name

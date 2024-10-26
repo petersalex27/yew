@@ -20,7 +20,7 @@ func TestParseExpr(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  expr
+		want  Expr
 	}{
 		{
 			"1 expr term",
@@ -70,7 +70,7 @@ func TestParseMaybeColonEqualAssignment(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  data.Maybe[expr]
+		want  data.Maybe[Expr]
 	}{
 		{
 			"assignment - 0",
@@ -85,7 +85,7 @@ func TestParseMaybeColonEqualAssignment(t *testing.T) {
 		{
 			"assignment - nothing",
 			[]api.Token{},
-			data.Nothing[expr](),
+			data.Nothing[Expr](),
 		},
 	}
 
@@ -310,7 +310,7 @@ func TestParseLetExpr(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  letExpr
+		want  LetExpr
 	}{
 		{
 			"let expr - 000",
@@ -368,12 +368,12 @@ func TestParseMaybeExprTerm(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  data.Maybe[expr]
+		want  data.Maybe[Expr]
 	}{
 		{
 			"expr atom",
 			[]api.Token{id_x_tok},
-			data.Just[expr](name_x),
+			data.Just[Expr](name_x),
 		},
 		{
 			"enclosed expr",
@@ -383,17 +383,17 @@ func TestParseMaybeExprTerm(t *testing.T) {
 		{
 			"let expr",
 			[]api.Token{let, id_x_tok, colonEqual, id_x_tok, in, id_x_tok},
-			data.Just[expr](letExprNode),
+			data.Just[Expr](letExprNode),
 		},
 		{
 			"case expr",
 			[]api.Token{caseTok, id_x_tok, of, id_x_tok, thickArrow, id_x_tok},
-			data.Just[expr](caseExprNode),
+			data.Just[Expr](caseExprNode),
 		},
 		{
 			"nothing",
 			[]api.Token{},
-			data.Nothing[expr](token.EndOfTokens.Make()),
+			data.Nothing[Expr](token.EndOfTokens.Make()),
 		},
 	}
 
@@ -406,27 +406,27 @@ func TestMaybeEnclosedExpr(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  data.Maybe[expr]
+		want  data.Maybe[Expr]
 	}{
 		{
 			"expr - 00",
 			[]api.Token{lparen, id_x_tok, rparen},
-			data.Just[expr](enclosedExpr),
+			data.Just[Expr](enclosedExpr),
 		},
 		{
 			"expr - 01",
 			[]api.Token{lparen, id_x_tok, newline, rparen},
-			data.Just[expr](enclosedExpr),
+			data.Just[Expr](enclosedExpr),
 		},
 		{
 			"expr - 10",
 			[]api.Token{lparen, newline, id_x_tok, rparen},
-			data.Just[expr](enclosedExpr),
+			data.Just[Expr](enclosedExpr),
 		},
 		{
 			"expr - 11",
 			[]api.Token{lparen, newline, id_x_tok, newline, rparen},
-			data.Just[expr](enclosedExpr),
+			data.Just[Expr](enclosedExpr),
 		},
 	}
 
@@ -467,7 +467,7 @@ func TestParseLambdaAbstraction(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  lambdaAbstraction
+		want  LambdaAbstraction
 	}{
 		{
 			name: "no newlines, single binder - 000",
@@ -566,7 +566,7 @@ func TestMaybeParseBinder_TestMaybeParseLambdaBinder(t *testing.T) {
 		{
 			name:  "upper ident",
 			input: []api.Token{id_MyId_tok},
-			want:  data.Inl[pattern](upperId),
+			want:  data.Inl[Pattern](upperId),
 		},
 		{
 			name:  "enclosed pattern newline left-right-flanked",

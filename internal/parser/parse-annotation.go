@@ -7,7 +7,7 @@ import (
 )
 
 // annotatable things
-func (def *def) annotate(as data.Maybe[annotations])              { def.annotations = as }
+func (def *Def) annotate(as data.Maybe[annotations])              { def.annotations = as }
 func (specDef *specDef) annotate(as data.Maybe[annotations])      { specDef.annotations = as }
 func (specInst *specInst) annotate(as data.Maybe[annotations])    { specInst.annotations = as }
 func (typeDef *typeDef) annotate(as data.Maybe[annotations])      { typeDef.annotations = as }

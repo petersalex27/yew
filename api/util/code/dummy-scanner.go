@@ -1,9 +1,11 @@
-package util
+package code
 
 import "github.com/petersalex27/yew/api"
 
 
 type dummyScanner struct{}
+
+func DummyScanner() api.Scanner { return dummyScanner{} }
 
 func (dummyScanner) Scan() api.Token { panic("scanner not initialized") }
 

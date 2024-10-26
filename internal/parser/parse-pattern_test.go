@@ -20,7 +20,7 @@ func TestParsePattern(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  pattern
+		want  Pattern
 	}{
 		{
 			"one",
@@ -74,25 +74,25 @@ func TestPatternTerm(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    []api.Token
-		want     data.Maybe[pattern]
+		want     data.Maybe[Pattern]
 		enclosed bool
 	}{
 		{
 			"pattern atom",
 			[]api.Token{id_x_tok},
-			data.Just[pattern](name_x), // x
+			data.Just[Pattern](name_x), // x
 			false,
 		},
 		{
 			"underscore",
 			[]api.Token{underscoreTok},
-			data.Just[pattern](wildcardNode), // _
+			data.Just[Pattern](wildcardNode), // _
 			false,
 		},
 		{
 			"equal",
 			[]api.Token{equal},
-			data.Just[pattern](name_eq), // =
+			data.Just[Pattern](name_eq), // =
 			true,
 		},
 		{

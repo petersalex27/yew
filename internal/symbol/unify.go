@@ -39,7 +39,7 @@ func occursHelper(v string, A kind.Type, terms *stack.Stack[kind.Type]) bool {
 
 // checks if a variable 'v' occurs (is contained w/in) a type 'A'
 func (s *solver) Occurs(v string, A kind.Type) bool {
-	return occursHelper(v, A, s.terms)
+	return occursHelper(v, A, s.occursStack)
 }
 
 func breakAndReport(a kind.Type) (da string, as []kind.Type, variable bool) {

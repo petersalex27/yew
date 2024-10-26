@@ -1,9 +1,10 @@
-package util
+package tree
 
 import (
 	"io"
 
 	"github.com/petersalex27/yew/api"
+	"github.com/petersalex27/yew/api/util/node"
 )
 
 const (
@@ -23,7 +24,7 @@ func Reclassify[T api.Node](nodes []T) []api.Node {
 
 // recursively print the tree
 func printTree_r(w io.Writer, n api.Node, lhs string) {
-	name, children := Describe(n)
+	name, children := node.Describe(n)
 
 	w.Write([]byte(name))
 

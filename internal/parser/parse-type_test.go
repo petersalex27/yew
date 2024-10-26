@@ -22,7 +22,7 @@ func TestParseType(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  typ
+		want  Typ
 	}{
 		{
 			"single",
@@ -105,7 +105,7 @@ func TestParseTypeTail(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    []api.Token
-		want     typ
+		want     Typ
 		enclosed bool
 	}{
 		// application cases
@@ -124,19 +124,19 @@ func TestParseTypeTail(t *testing.T) {
 		{
 			"type application",
 			[]api.Token{id_x_tok, id_x_tok},
-			data.MakeApp[appType](typ_x, typ_x),
+			data.MakeApp[TypeApp](typ_x, typ_x),
 			false,
 		},
 		{
 			"type application - 0",
 			[]api.Token{id_x_tok, id_x_tok},
-			data.MakeApp[appType](typ_x, typ_x),
+			data.MakeApp[TypeApp](typ_x, typ_x),
 			true,
 		},
 		{
 			"type application - 1",
 			[]api.Token{id_x_tok, newline, id_x_tok},
-			data.MakeApp[appType](typ_x, typ_x),
+			data.MakeApp[TypeApp](typ_x, typ_x),
 			true,
 		},
 		{
@@ -191,7 +191,7 @@ func TestParseTypeTail(t *testing.T) {
 			"function w/ lhs application",
 			[]api.Token{id_x_tok, id_x_tok, arrow, id_x_tok},
 			// x x -> x
-			makeFunc(data.MakeApp[appType](typ_x, typ_x), typ_x),
+			makeFunc(data.MakeApp[TypeApp](typ_x, typ_x), typ_x),
 			false,
 		},
 		{
@@ -256,7 +256,7 @@ func TestParseTypeTermException(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  typ
+		want  Typ
 	}{
 		{
 			"wildcard",
@@ -293,7 +293,7 @@ func TestMaybeParseTypeTerm(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []api.Token
-		want  data.Maybe[typ]
+		want  data.Maybe[Typ]
 	}{
 		{
 			"expr atom",
@@ -303,87 +303,87 @@ func TestMaybeParseTypeTerm(t *testing.T) {
 		{
 			"underscore",
 			[]api.Token{underscoreTok},
-			data.Just[typ](wildcardNode), // _
+			data.Just[Typ](wildcardNode), // _
 		},
 		{
 			"unit",
 			[]api.Token{unitTypeTok},
-			data.Just[typ](data.EOne[unitType](unitTypeTok)), // ()
+			data.Just[Typ](data.EOne[unitType](unitTypeTok)), // ()
 		},
 		{
 			"equal",
 			[]api.Token{equal},
-			data.Just[typ](name_eq), // =
+			data.Just[Typ](name_eq), // =
 		},
 		{
 			"enclosed",
 			[]api.Token{lparen, id_x_tok, rparen},
-			data.Just[typ](enclosedTypeNode), // ( x )
+			data.Just[Typ](enclosedTypeNode), // ( x )
 		},
 		{
 			"enclosed with typing",
 			[]api.Token{lparen, id_x_tok, colon, id_x_tok, rparen},
-			data.Just[typ](enclosedTypingNode), // (x : x)
+			data.Just[Typ](enclosedTypingNode), // (x : x)
 		},
 		{
 			"enclosed with once modality",
 			[]api.Token{lparen, onceTok, id_x_tok, colon, id_x_tok, rparen},
-			data.Just[typ](enclosedOnceTypingNode), // (once x : x)
+			data.Just[Typ](enclosedOnceTypingNode), // (once x : x)
 		},
 		{
 			"enclosed with erase modality",
 			[]api.Token{lparen, eraseTok, id_x_tok, colon, id_x_tok, rparen},
-			data.Just[typ](enclosedEraseTypingNode), // (erase x : x)
+			data.Just[Typ](enclosedEraseTypingNode), // (erase x : x)
 		},
 		{
 			"enclosed with type sequence",
 			[]api.Token{lparen, id_x_tok, comma, id_x_tok, rparen},
-			data.Just[typ](enclosedTypeSeqNode), // (x, x)
+			data.Just[Typ](enclosedTypeSeqNode), // (x, x)
 		},
 		{
 			"enclosed with typing sequence",
 			[]api.Token{lparen, id_x_tok, comma, id_x_tok, colon, id_x_tok, rparen},
-			data.Just[typ](enclosedTypingSeqNode), // (x, x : x)
+			data.Just[Typ](enclosedTypingSeqNode), // (x, x : x)
 		},
 		{
 			"enclosed implicit",
 			[]api.Token{lbrace, id_x_tok, rbrace},
-			data.Just[typ](implicitEnclosedTypeNode), // { x }
+			data.Just[Typ](implicitEnclosedTypeNode), // { x }
 		},
 		{
 			"enclosed implicit sequence",
 			[]api.Token{lbrace, id_x_tok, comma, id_x_tok, rbrace},
-			data.Just[typ](implicitEnclosedTypeSeqNode), // { x, x }
+			data.Just[Typ](implicitEnclosedTypeSeqNode), // { x, x }
 		},
 		{
 			"enclosed implicit with typing",
 			[]api.Token{lbrace, id_x_tok, colon, id_x_tok, rbrace},
-			data.Just[typ](implicitEnclosedTypingNode), // { x : x }
+			data.Just[Typ](implicitEnclosedTypingNode), // { x : x }
 		},
 		{
 			"enclosed implicit with default",
 			[]api.Token{lbrace, id_x_tok, colon, id_x_tok, colonEqual, id_x_tok, rbrace},
-			data.Just[typ](implicitEnclosedTypingNode_def), // { x : x := x }
+			data.Just[Typ](implicitEnclosedTypingNode_def), // { x : x := x }
 		},
 		{
 			"enclosed implicit with once modality",
 			[]api.Token{lbrace, onceTok, id_x_tok, colon, id_x_tok, rbrace},
-			data.Just[typ](implicitEnclosedOnceTypingNode), // { once x : x }
+			data.Just[Typ](implicitEnclosedOnceTypingNode), // { once x : x }
 		},
 		{
 			"enclosed implicit with erase modality",
 			[]api.Token{lbrace, eraseTok, id_x_tok, colon, id_x_tok, rbrace},
-			data.Just[typ](implicitEnclosedEraseTypingNode), // { erase x : x }
+			data.Just[Typ](implicitEnclosedEraseTypingNode), // { erase x : x }
 		},
 		{
 			"enclosed implicit with default sequence",
 			[]api.Token{lbrace, id_x_tok, comma, id_x_tok, colon, id_x_tok, colonEqual, id_x_tok, rbrace},
-			data.Just[typ](implicitEnclosedTypingSeqNode_def), // { x, x : x := x }
+			data.Just[Typ](implicitEnclosedTypingSeqNode_def), // { x, x : x := x }
 		},
 		{
 			"enclosed implicit with typing sequence",
 			[]api.Token{lbrace, id_x_tok, comma, id_x_tok, colon, id_x_tok, rbrace},
-			data.Just[typ](implicitEnclosedTypingSeqNode), // { x, x : x }
+			data.Just[Typ](implicitEnclosedTypingSeqNode), // { x, x : x }
 		},
 	}
 

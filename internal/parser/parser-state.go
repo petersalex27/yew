@@ -3,18 +3,53 @@ package parser
 import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
+	"github.com/petersalex27/yew/api/util/fun"
+	"github.com/petersalex27/yew/common/data"
+	"github.com/petersalex27/yew/common/stack"
 	"github.com/petersalex27/yew/internal/kind"
 	"github.com/petersalex27/yew/internal/symbol"
 )
 
+// node w/ a symbol
+type symbolic[a api.Node] struct {
+	node   a
+	symbol symbol.Symbol
+}
+
+func (s symbolic[a]) GetPos() api.Position {
+	return s.node.GetPos()
+}
+
+func (s symbolic[a]) Pos() (int, int) {
+	return s.node.Pos()
+}
+
+func (s symbolic[a]) Type() api.NodeType {
+	return s.node.Type()
+}
+
+func (s symbolic[a]) Describe() (string, []api.Node) {
+	if dn, ok := api.Node(s.node).(api.DescribableNode); ok {
+		return dn.Describe()
+	}
+	return "symbolic node, " + s.symbol.String(), []api.Node{s.node}
+}
+
+type symbols struct {
+	typings *stack.MapStack[string, symbolic[declaration]]
+}
+
 type state struct {
-	scanner      api.ScannerPlus
+	scanner api.ScannerPlus
+	solver  kind.Solver
+	symbols symbols
+
 	tokens       []api.Token
 	tokenCounter int
-	errors       []error
-	warnings     []error
-	solver       kind.Solver
+
+	errors   []error
+	warnings []error
 }
 
 // State for parsing
@@ -30,6 +65,9 @@ func createState(scanner api.ScannerPlus) state {
 		errors:   make([]error, 0),
 		warnings: make([]error, 0),
 		solver:   symbol.Solver(symbol.New()),
+		symbols: symbols{
+			stack.NewMap[string, symbolic[declaration]](),
+		},
 	}
 }
 
@@ -39,7 +77,7 @@ func (p *ParserState) dropNewlines() {
 	}
 }
 
-func (p *ParserState) srcCode() api.SourceCode {
+func (p *ParserState) SrcCode() api.SourceCode {
 	return p.scanner.SrcCode()
 }
 
@@ -51,20 +89,47 @@ func (p *ParserState) GetPos() api.Position {
 	return p.current().GetPos()
 }
 
-func (p *ParserState) declare(name api.Token, fix_prec ...byte) {
-	if len(fix_prec) >= 2 {
-		p.solver.Declare(name, fix_prec[0], fix_prec[1])
+func (s *symbols) declare(dec declaration, ty kind.Type, fix byte, prec byte) *data.Ers {
+	name := data.Cases(dec, fun.Id, func(typing typing) api.Token { return typing.typing.Fst().Break() })
+	var sym kind.Symbol
+	if token.Infix.Match(name) {
+		if fix == kind.None {
+			fix = kind.Infix
+		}
+		sym = kind.InfixSym(name, ty, fix, prec)
 	} else {
-		p.solver.Declare(name, kind.None, 0)
+		sym = kind.Sym(name, ty)
 	}
+
+	success := s.typings.MapNew(name.String(), symbolic[declaration]{dec, sym})
+	if !success {
+		// e := data.MkErr(RedeclaredSymbol, name)
+		// es := data.Makes(e)
+		// return &es // already declared
+	}
+	return nil
+}
+
+func (p *ParserState) declare(dec declaration, fix_prec ...byte) *data.Ers {
+	fix, prec := kind.None, byte(0)
+	if len(fix_prec) >= 2 {
+		fix, prec = fix_prec[0], fix_prec[1]
+	}
+	return p.symbols.declare(dec, p.newVar(), fix, prec)
 }
 
 func (p *ParserState) newScope() {
 	p.solver.RecordNames()
+	p.symbols.typings.Push(map[string]symbolic[declaration]{})
 }
 
-func (p *ParserState) exitScope() map[string]symbol.Symbol {
-	return p.solver.EndRecording()
+func (p *ParserState) exitScope() map[string]symbolic[declaration] {
+	p.solver.EndRecording()
+	typings, ok := p.symbols.typings.Pop()
+	if !ok {
+		panic("unbalanced scopes")
+	}
+	return typings
 }
 
 func (p *ParserState) newVar() kind.Type {
@@ -93,7 +158,7 @@ func (parser *ParserState) Ast() api.Node {
 }
 
 func (parser *ParserState) load() bool {
-	tokens, errorToken := util.Tokenize(parser.scanner, nil)
+	tokens, errorToken := code.Tokenize(parser.scanner, nil)
 	if errorToken != nil {
 		parser.AddError((*errorToken).Error())
 		return false

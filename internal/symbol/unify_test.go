@@ -2,9 +2,10 @@ package symbol
 
 import (
 	"testing"
-	"github.com/petersalex27/yew/internal/kind"
+
 	"github.com/petersalex27/yew/api/token"
 	"github.com/petersalex27/yew/common/stack"
+	"github.com/petersalex27/yew/internal/kind"
 )
 
 var (
@@ -219,7 +220,7 @@ func TestUnify(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &solver{
 				unifications: stack.NewMap[string, kind.Type](),
-				terms:        stack.New[kind.Type](),
+				occursStack:  stack.New[kind.Type](),
 			}
 			s.unifications.Push(tt.initialState)
 

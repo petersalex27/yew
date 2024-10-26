@@ -14,27 +14,27 @@ var (
 	patternNameAsExpr    = fun.Bind1stOf3(data.Cases, (hole).asExpr, (name).asExpr)
 	patternAtomAsTyp     = fun.Bind1stOf3(data.Cases, (literal).asTyp, patternNameAsTyp)
 	patternAtomAsExpr    = fun.Bind1stOf3(data.Cases, (literal).asExpr, patternNameAsExpr)
-	exprAtomAsTyp        = fun.Bind1stOf3(data.Cases, patternAtomAsTyp, (lambdaAbstraction).asTyp)
-	exprAtomAsExpr       = fun.Bind1stOf3(data.Cases, patternAtomAsExpr, (lambdaAbstraction).asExpr)
+	exprAtomAsTyp        = fun.Bind1stOf3(data.Cases, patternAtomAsTyp, (LambdaAbstraction).asTyp)
+	exprAtomAsExpr       = fun.Bind1stOf3(data.Cases, patternAtomAsExpr, (LambdaAbstraction).asExpr)
 	exprAtomAsExprRes    = fun.Compose(data.Inr[data.Ers], exprAtomAsTyp)
 )
 
 // = access ========================================================================================
 
 // access implements expr
-func (expr accessList) updatePosExpr(p api.Positioned) expr {
+func (expr accessList) updatePosExpr(p api.Positioned) Expr {
 	expr.Position = expr.Update(p)
 	return expr
 }
 
 // access implements pattern
-func (pat accessList) updatePosPattern(p api.Positioned) pattern {
+func (pat accessList) updatePosPattern(p api.Positioned) Pattern {
 	pat.Position = pat.Update(p)
 	return pat
 }
 
 // access implements typ
-func (ty accessList) updatePosTyp(p api.Positioned) typ {
+func (ty accessList) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
@@ -56,17 +56,17 @@ func (ty accessList) updatePosTyp(p api.Positioned) typ {
 // = appType =======================================================================================
 
 // appType implements typ
-func (ty appType) updatePosTyp(p api.Positioned) typ {
+func (ty TypeApp) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
 
 // = caseExpr ======================================================================================
 
-func (e caseExpr) asExpr() expr { return expr(e) }
+func (e caseExpr) asExpr() Expr { return Expr(e) }
 
 // caseExpr implements expr
-func (expr caseExpr) updatePosExpr(p api.Positioned) expr {
+func (expr caseExpr) updatePosExpr(p api.Positioned) Expr {
 	expr.Position = expr.Update(p)
 	return expr
 }
@@ -74,7 +74,7 @@ func (expr caseExpr) updatePosExpr(p api.Positioned) expr {
 // = constrainedType ===============================================================================
 
 // constrainedType implements typ
-func (ty constrainedType) updatePosTyp(p api.Positioned) typ {
+func (ty constrainedType) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
@@ -87,28 +87,46 @@ func (ty constrainedType) updatePosTyp(p api.Positioned) typ {
 // = def ===========================================================================================
 
 // def implements bodyElement
-func (def def) setAnnotation(as data.Maybe[annotations]) mainElement {
+func (def Def) setAnnotation(as data.Maybe[annotations]) mainElement {
 	def.annotate(as)
 	return def
 }
 
-func (def def) asBodyElement() bodyElement { return data.EInl[bodyElement](def) }
+func (def Def) asBodyElement() bodyElement { return data.EInl[bodyElement](def) }
 
 // def implements mainElement
-func (def def) asMainElement() mainElement { return def }
+func (def Def) asMainElement() mainElement { return def }
+
+// = of def ========================================================================================
+
+// of def implements bodyElement
+func (def OfDef) setAnnotation(as data.Maybe[annotations]) mainElement {
+	def.Def.annotate(as)
+	return def
+}
+
+func (def OfDef) asBodyElement() bodyElement { return data.EInr[bodyElement](VisibleBodyElement(def)) }
+
+// of def implements mainElement
+func (def OfDef) asMainElement() mainElement { return def }
+
+func (def OfDef) setVisibility(mv data.Maybe[visibility]) mainElement {
+	def.visibility = mv
+	return def
+}
 
 // = enclosedType ==================================================================================
 
 // enclosedType implements typ
-func (ty enclosedType) updatePosTyp(p api.Positioned) typ {
-	ty.typ = ty.typ.updatePosTyp(p)
+func (ty enclosedType) updatePosTyp(p api.Positioned) Typ {
+	ty.Typ = ty.Typ.updatePosTyp(p)
 	return ty
 }
 
 // = exprApp =======================================================================================
 
 // exprApp implements expr
-func (expr exprApp) updatePosExpr(p api.Positioned) expr {
+func (expr ExprApp) updatePosExpr(p api.Positioned) Expr {
 	expr.Position = expr.Update(p)
 	return expr
 }
@@ -116,7 +134,7 @@ func (expr exprApp) updatePosExpr(p api.Positioned) expr {
 // = forallType ====================================================================================
 
 // forallType implements typ
-func (ty forallType) updatePosTyp(p api.Positioned) typ {
+func (ty forallType) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
@@ -139,7 +157,7 @@ func (ty forallType) updatePosTyp(p api.Positioned) typ {
 // = functionType ==================================================================================
 
 // functionType implements typ
-func (ty functionType) updatePosTyp(p api.Positioned) typ {
+func (ty functionType) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
@@ -150,26 +168,26 @@ func (ty functionType) updatePosTyp(p api.Positioned) typ {
 
 // = hole ==========================================================================================
 
-func (h hole) asPattern() pattern { return h }
+func (h hole) asPattern() Pattern { return h }
 
-func (h hole) asExpr() expr { return h }
+func (h hole) asExpr() Expr { return h }
 
-func (h hole) asTyp() typ { return h }
+func (h hole) asTyp() Typ { return h }
 
 // hole implements pattern
-func (h hole) updatePosPattern(p api.Positioned) pattern {
+func (h hole) updatePosPattern(p api.Positioned) Pattern {
 	h.Position = h.Update(p)
 	return h
 }
 
 // hole implements expr
-func (h hole) updatePosExpr(p api.Positioned) expr {
+func (h hole) updatePosExpr(p api.Positioned) Expr {
 	h.Position = h.Update(p)
 	return h
 }
 
 // hole implements typ
-func (h hole) updatePosTyp(p api.Positioned) typ {
+func (h hole) updatePosTyp(p api.Positioned) Typ {
 	h.Position = h.Update(p)
 	return h
 }
@@ -177,7 +195,7 @@ func (h hole) updatePosTyp(p api.Positioned) typ {
 // = innerTypeTerms ================================================================================
 
 // innerTypeTerms implements typ
-func (ty innerTypeSeq) updatePosTyp(p api.Positioned) typ {
+func (ty innerTypeSeq) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
@@ -195,10 +213,10 @@ func (ty innerTypeSeq) updatePosTyp(p api.Positioned) typ {
 
 // = innerTyping ===================================================================================
 
-func (ty innerTyping) asTyp() typ { return ty }
+func (ty innerTyping) asTyp() Typ { return ty }
 
 // innerTyping implements typ
-func (ty innerTyping) updatePosTyp(p api.Positioned) typ {
+func (ty innerTyping) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
@@ -228,25 +246,25 @@ func (ty innerTyping) updatePosTyp(p api.Positioned) typ {
 // = implicitTyping ================================================================================
 
 // implicitTyping implements typ
-func (ty implicitTyping) updatePosTyp(p api.Positioned) typ {
+func (ty implicitTyping) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
 
 // = lambdaAbstraction =============================================================================
 
-func (e lambdaAbstraction) asExpr() expr { return expr(e) }
+func (e LambdaAbstraction) asExpr() Expr { return Expr(e) }
 
-func (ty lambdaAbstraction) asTyp() typ { return typ(ty) }
+func (ty LambdaAbstraction) asTyp() Typ { return Typ(ty) }
 
 // lambdaAbstraction implements expr
-func (expr lambdaAbstraction) updatePosExpr(p api.Positioned) expr {
+func (expr LambdaAbstraction) updatePosExpr(p api.Positioned) Expr {
 	expr.Position = expr.Update(p)
 	return expr
 }
 
 // lambdaAbstraction implements typ
-func (ty lambdaAbstraction) updatePosTyp(p api.Positioned) typ {
+func (ty LambdaAbstraction) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
@@ -267,24 +285,26 @@ func (ty lambdaAbstraction) updatePosTyp(p api.Positioned) typ {
 
 // = letExpr =======================================================================================
 
-func (e letExpr) asExpr() expr { return expr(e) }
+func (e LetExpr) asExpr() Expr { return Expr(e) }
 
 // letExpr implements expr
-func (expr letExpr) updatePosExpr(p api.Positioned) expr {
+func (expr LetExpr) updatePosExpr(p api.Positioned) Expr {
 	expr.Position = expr.Update(p)
 	return expr
 }
 
 // = literal =======================================================================================
 
-func (lit literal) asPattern() pattern { return lit }
+func (lit aLiteral[a]) asPattern() Pattern { return lit }
 
-func (lit literal) asExpr() expr { return lit }
+func (lit aLiteral[a]) asExpr() Expr { return lit }
 
-func (lit literal) asTyp() typ { return lit }
+func (lit aLiteral[a]) asTyp() Typ { return lit }
+
+func (lit aLiteral[a]) literal() literal { return lit }
 
 // literal implements pattern
-func (lit literal) updatePosPattern(p api.Positioned) pattern {
+func (lit aLiteral[a]) updatePosPattern(p api.Positioned) Pattern {
 	lit.Position = lit.Update(p)
 	return lit
 }
@@ -294,27 +314,27 @@ func (lit literal) updatePosPattern(p api.Positioned) pattern {
 // }
 
 // literal implements expr
-func (lit literal) updatePosExpr(p api.Positioned) expr {
+func (lit aLiteral[a]) updatePosExpr(p api.Positioned) Expr {
 	lit.Position = lit.Update(p)
 	return lit
 }
 
 // literal implements typ (as a term, type checker will catch illegal uses)
-func (lit literal) updatePosTyp(p api.Positioned) typ {
+func (lit aLiteral[a]) updatePosTyp(p api.Positioned) Typ {
 	lit.Position = lit.Update(p)
 	return lit
 }
 
 // = name ==========================================================================================
 
-func (n name) asPattern() pattern { return n }
+func (n name) asPattern() Pattern { return n }
 
-func (n name) asExpr() expr { return n }
+func (n name) asExpr() Expr { return n }
 
-func (n name) asTyp() typ { return n }
+func (n name) asTyp() Typ { return n }
 
 // name implements pattern
-func (n name) updatePosPattern(p api.Positioned) pattern {
+func (n name) updatePosPattern(p api.Positioned) Pattern {
 	n.Position = n.Update(p)
 	return n
 }
@@ -322,13 +342,13 @@ func (n name) updatePosPattern(p api.Positioned) pattern {
 func (n name) AsType(s kind.Solver) kind.Type { return symbol.Var(n.Break()) }
 
 // name implements expr
-func (n name) updatePosExpr(p api.Positioned) expr {
+func (n name) updatePosExpr(p api.Positioned) Expr {
 	n.Position = n.Update(p)
 	return n
 }
 
 // name implements typ
-func (n name) updatePosTyp(p api.Positioned) typ {
+func (n name) updatePosTyp(p api.Positioned) Typ {
 	n.Position = n.Update(p)
 	return n
 }
@@ -336,7 +356,7 @@ func (n name) updatePosTyp(p api.Positioned) typ {
 // = patternApp ====================================================================================
 
 // patternApp implements pattern
-func (app patternApp) updatePosPattern(p api.Positioned) pattern {
+func (app patternApp) updatePosPattern(p api.Positioned) Pattern {
 	app.Position = app.Update(p)
 	return app
 }
@@ -344,7 +364,7 @@ func (app patternApp) updatePosPattern(p api.Positioned) pattern {
 // = patternEnclosed ===============================================================================
 
 // patternEnclosed implements pattern
-func (enclosed patternEnclosed) updatePosPattern(p api.Positioned) pattern {
+func (enclosed patternEnclosed) updatePosPattern(p api.Positioned) Pattern {
 	enclosed.Position = enclosed.Update(p)
 	return enclosed
 }
@@ -358,7 +378,7 @@ func (spec specDef) setAnnotation(as data.Maybe[annotations]) mainElement {
 }
 
 func (spec specDef) asBodyElement() bodyElement {
-	return data.EInr[bodyElement](visibleBodyElement(spec))
+	return data.EInr[bodyElement](VisibleBodyElement(spec))
 }
 
 // specDef implements mainElement
@@ -397,7 +417,7 @@ func (inst specInst) setAnnotation(as data.Maybe[annotations]) mainElement {
 }
 
 func (inst specInst) asBodyElement() bodyElement {
-	return data.EInr[bodyElement](visibleBodyElement(inst))
+	return data.EInr[bodyElement](VisibleBodyElement(inst))
 }
 
 // specInst implements mainElement
@@ -419,7 +439,7 @@ func (syntax syntax) setAnnotation(as data.Maybe[annotations]) mainElement {
 }
 
 func (syntax syntax) asBodyElement() bodyElement {
-	return data.EInr[bodyElement](visibleBodyElement(syntax))
+	return data.EInr[bodyElement](VisibleBodyElement(syntax))
 }
 
 // syntax implements mainElement
@@ -441,7 +461,7 @@ func (alias typeAlias) setAnnotation(as data.Maybe[annotations]) mainElement {
 }
 
 func (alias typeAlias) asBodyElement() bodyElement {
-	return data.EInr[bodyElement](visibleBodyElement(alias))
+	return data.EInr[bodyElement](VisibleBodyElement(alias))
 }
 
 // typeAlias implements mainElement
@@ -463,7 +483,7 @@ func (typeDef typeDef) setAnnotation(as data.Maybe[annotations]) mainElement {
 }
 
 func (typeDef typeDef) asBodyElement() bodyElement {
-	return data.EInr[bodyElement](visibleBodyElement(typeDef))
+	return data.EInr[bodyElement](VisibleBodyElement(typeDef))
 }
 
 // typeDef implements mainElement
@@ -491,7 +511,7 @@ func (typing typing) setAnnotation(as data.Maybe[annotations]) mainElement {
 }
 
 func (typing typing) asBodyElement() bodyElement {
-	return data.EInr[bodyElement](visibleBodyElement(typing))
+	return data.EInr[bodyElement](VisibleBodyElement(typing))
 }
 
 // typing implements mainElement
@@ -507,7 +527,7 @@ func (typing typing) setVisibility(mv data.Maybe[visibility]) mainElement {
 // = unitType ======================================================================================
 
 // unitType implements typ
-func (ty unitType) updatePosTyp(p api.Positioned) typ {
+func (ty unitType) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
@@ -515,13 +535,13 @@ func (ty unitType) updatePosTyp(p api.Positioned) typ {
 // = wildcard ======================================================================================
 
 // wildcard represents a wildcard type
-func (ty wildcard) updatePosTyp(p api.Positioned) typ {
+func (ty wildcard) updatePosTyp(p api.Positioned) Typ {
 	ty.Position = ty.Update(p)
 	return ty
 }
 
 // wildcard implements pattern
-func (w wildcard) updatePosPattern(p api.Positioned) pattern {
+func (w wildcard) updatePosPattern(p api.Positioned) Pattern {
 	w.Position = w.Update(p)
 	return w
 }

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
 )
 
 func TestAnalyzeNumber(t *testing.T) {
@@ -31,7 +31,7 @@ func TestAnalyzeNumber(t *testing.T) {
 		},
 		{
 			source: "0Xa",
-			expect: token.Token{Value: "0Xa", Typ: token.IntValue, End: 3},
+			expect: token.Token{Value: "0xa", Typ: token.IntValue, End: 3},
 		},
 		{
 			source: "0o1",
@@ -39,7 +39,7 @@ func TestAnalyzeNumber(t *testing.T) {
 		},
 		{
 			source: "0O1",
-			expect: token.Token{Value: "0O1", Typ: token.IntValue, End: 3},
+			expect: token.Token{Value: "0o1", Typ: token.IntValue, End: 3},
 		},
 		{
 			source: "0b1",
@@ -47,7 +47,7 @@ func TestAnalyzeNumber(t *testing.T) {
 		},
 		{
 			source: "0B1",
-			expect: token.Token{Value: "0B1", Typ: token.IntValue, End: 3},
+			expect: token.Token{Value: "0b1", Typ: token.IntValue, End: 3},
 		},
 		{
 			source: "1.0",
@@ -59,7 +59,7 @@ func TestAnalyzeNumber(t *testing.T) {
 		},
 		{
 			source: "1E1",
-			expect: token.Token{Value: "1E1", Typ: token.FloatValue, End: 3},
+			expect: token.Token{Value: "1e1", Typ: token.FloatValue, End: 3},
 		},
 		{
 			source: "1e+1",
@@ -72,6 +72,22 @@ func TestAnalyzeNumber(t *testing.T) {
 		{
 			source: "1.0e1",
 			expect: token.Token{Value: "1.0e1", Typ: token.FloatValue, End: 5},
+		},
+		{
+			source: "0.123",
+			expect: token.Token{Value: "0.123", Typ: token.FloatValue, End: 5},
+		},
+		{
+			source: "0000",
+			expect: token.Token{Value: "0", Typ: token.IntValue, End: 4},
+		},
+		{
+			source: "00x0", // 00 followed by x0, so 0 is the token
+			expect: token.Token{Value: "0", Typ: token.IntValue, End: 2},
+		},
+		{
+			source: "0_0_0",
+			expect: token.Token{Value: "0", Typ: token.IntValue, End: 5},
 		},
 		{
 			source: "0_1",
@@ -100,12 +116,14 @@ func TestAnalyzeNumber(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := Init(code.StringSource(test.source))
 
-		actual := lex.number()
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
-		}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Errorf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }
 
@@ -165,12 +183,14 @@ func TestAnalyzeChar(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := Init(code.StringSource(test.source))
 
-		actual := lex.char()
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
-		}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }
 
@@ -199,18 +219,6 @@ func TestAnalyzeString(t *testing.T) {
 			source: `"\n\t\a\b\v\f\r\"\\"`,
 			expect: token.Token{Value: "\n\t\a\b\v\f\r\"\\", Typ: token.StringValue, End: 20},
 		},
-
-		// TODO: prompted strings
-
-		// import paths
-		{
-			source: `"a/b"`,
-			expect: token.Token{Value: "a/b", Typ: token.ImportPath, End: 5},
-		},
-		{
-			source: `"a/b/c"`,
-			expect: token.Token{Value: "a/b/c", Typ: token.ImportPath, End: 7},
-		},
 		// almost, but not quite, import paths
 		{
 			source: `"a/"`,
@@ -235,12 +243,14 @@ func TestAnalyzeString(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := Init(code.StringSource(test.source))
 
-		actual := lex.stringLiteral()
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%v): got %v", test.expect.Debug(), actual.Debug())
-		}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }
 
@@ -284,12 +294,14 @@ func TestAnalyzeAnnotation(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := Init(code.StringSource(test.source))
 
-		actual := lex.analyzeComment()
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
-		}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }
 
@@ -341,15 +353,14 @@ func TestAnalyzeStandalone(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := Init(code.StringSource(test.source))
 
-		actual := lex.standalone(func(*Lexer) token.Token {
-			t.Fatalf("standalone called fallback, but expected actual standalone")
-			return token.Token{}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
 		})
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%v): got %v", test.expect, actual)
-		}
 	}
 }
 
@@ -531,16 +542,18 @@ func TestMatchKeyword(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual := matchKeyword(test.source, token.Id)
-		if actual != test.expect {
-			t.Fatalf("token type (%v): got %v", test.expect, actual)
-		}
+		t.Run(test.source, func(t *testing.T) {
+			actual := matchKeyword(test.source, token.Id)
+			if actual != test.expect {
+				t.Fatalf("token type (%s): got %s", test.expect, actual)
+			}
+		})
 	}
 }
 
 func TestCharNum(t *testing.T) {
 	const src string = "test.source"
-	lex := Init(util.StringSource(src))
+	lex := Init(code.StringSource(src))
 
 	for i := 0; i < len(src); i++ {
 		actual, eof := lex.charNumber()
@@ -623,12 +636,14 @@ func TestAnalyzeIdentifier(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := Init(code.StringSource(test.source))
 
-		actual := lex.symbol()
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%v): got %v", test.expect.Debug(), actual.Debug())
-		}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }
 
@@ -674,22 +689,24 @@ func TestAnalyzeInfix(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := Init(code.StringSource(test.source))
 
-		actual := lex.infix()
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%v): got %v", test.expect.Debug(), actual.Debug())
-		}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }
 
 func TestAnalyzeUnderscore(t *testing.T) {
 	expect := token.Token{Value: "_", Typ: token.Underscore, End: 1}
-	lex := Init(util.StringSource("_"))
+	lex := Init(code.StringSource("_"))
 
-	actual := lex.underscore()
+	actual := lex.scan()
 	if !actual.Equals(expect) {
-		t.Fatalf("unexpected token (%v): got %v", expect.Debug(), actual.Debug())
+		t.Fatalf("unexpected token (%s): got %s", expect.Debug(), actual.Debug())
 	}
 }
 
@@ -700,46 +717,47 @@ func TestAnalyzeSingleLineComment(t *testing.T) {
 	}{
 		{
 			source: []byte(`--`),
-			expect: token.Token{Value: "", Typ: token.Comment, End: 2},
+			expect: token.Token{Typ: token.EndOfTokens, Start: 1, End: 2},
 		},
 		{
 			source: []byte(`-- `),
-			expect: token.Token{Value: " ", Typ: token.Comment, End: 3},
+			expect: token.Token{Typ: token.EndOfTokens, Start: 2, End: 3},
 		},
 		{
 			source: []byte(`--comment`),
-			expect: token.Token{Value: "comment", Typ: token.Comment, End: 9},
+			expect: token.Token{Typ: token.EndOfTokens, Start: 8, End: 9},
 		},
 		{
 			source: []byte(`-- comment`),
-			expect: token.Token{Value: " comment", Typ: token.Comment, End: 10},
+			expect: token.Token{Typ: token.EndOfTokens, Start: 9, End: 10},
 		},
 		{
 			source: []byte("--\tcomment"),
-			expect: token.Token{Value: "\tcomment", Typ: token.Comment, End: 10},
+			expect: token.Token{Typ: token.EndOfTokens, Start: 9, End: 10},
 		},
 		{
 			source: []byte("--comment "),
-			expect: token.Token{Value: "comment ", Typ: token.Comment, End: 10},
+			expect: token.Token{Typ: token.EndOfTokens, Start: 9, End: 10},
 		},
 		{
 			source: []byte("-- a comment"),
-			expect: token.Token{Value: " a comment", Typ: token.Comment, End: 12},
+			expect: token.Token{Typ: token.EndOfTokens, Start: 11, End: 12},
 		},
 		{
 			source: []byte("-------"),
-			expect: token.Token{Value: "-----", Typ: token.Comment, End: 7},
+			expect: token.Token{Typ: token.EndOfTokens, Start: 6, End: 7},
 		},
 	}
 
 	for _, test := range tests {
-		lex := Init(util.BytesSource(test.source))
-		lex.SetKeepComments(true)
+		t.Run(string(test.source), func(t *testing.T) {
+			lex := Init(code.BytesSource(test.source))
 
-		actual := lex.analyzeComment()
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%v): got %v", test.expect.Debug(), actual.Debug())
-		}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }
 func TestAnalyzeRawString(t *testing.T) {
@@ -770,12 +788,14 @@ func TestAnalyzeRawString(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lex := Init(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := Init(code.StringSource(test.source))
 
-		actual := lex.rawStringLiteral()
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (`%v`): got `%v`", test.expect, actual)
-		}
+			actual := lex.scan()
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (`%s`): got `%s`", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }
 
@@ -826,16 +846,18 @@ func TestPackageLexerScan(t *testing.T) {
 		},
 		{
 			source: "-- comment",
-			expect: token.Token{Value: "", Typ: token.EndOfTokens, Start:10, End: 10}, // Comment should be skipped
+			expect: token.Token{Value: "", Typ: token.EndOfTokens, Start: 10, End: 10}, // Comment should be skipped
 		},
 	}
 
 	for _, test := range tests {
-		lex := InitPackageLexer(util.StringSource(test.source))
+		t.Run(test.source, func(t *testing.T) {
+			lex := InitPackageLexer(code.StringSource(test.source))
 
-		actual := lex.Scan().(token.Token)
-		if !actual.Equals(test.expect) {
-			t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
-		}
+			actual := lex.Scan().(token.Token)
+			if !actual.Equals(test.expect) {
+				t.Fatalf("unexpected token (%s): got %s", test.expect.Debug(), actual.Debug())
+			}
+		})
 	}
 }

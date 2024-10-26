@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"fmt"
+
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/internal/common"
 	t "github.com/petersalex27/yew/internal/parser/typ"
@@ -8,7 +10,7 @@ import (
 
 func (n accessList) Type() api.NodeType         { return t.Access }
 func (n annotations) Type() api.NodeType        { return t.Annotations }
-func (n appType) Type() api.NodeType            { return t.AppType }
+func (n TypeApp) Type() api.NodeType            { return t.AppType }
 func (n body) Type() api.NodeType               { return t.Body }
 func (n enclosedAnnotation) Type() api.NodeType { return t.EnclosedAnnotation }
 func (n caseArm) Type() api.NodeType            { return t.CaseArm }
@@ -17,18 +19,16 @@ func (n caseExpr) Type() api.NodeType           { return t.CaseExpr }
 func (n constrainedType) Type() api.NodeType    { return t.ConstrainedType }
 func (n constrainer) Type() api.NodeType        { return t.Constrainer }
 func (n constrainerParams) Type() api.NodeType  { return t.ConstrainerParams }
-
-// func (n constraintUnverified) Type() api.NodeType { return t.Constraint }
-func (n constraint) Type() api.NodeType      { return t.Constraint }
-func (n def) Type() api.NodeType             { return t.Def }
-func (n defBody) Type() api.NodeType         { return n.Either.Type() }
-func (n defBodyPossible) Type() api.NodeType { return t.DefBody }
-func (n defaultExpr) Type() api.NodeType     { return t.DefaultExpr }
-func (n deriving) Type() api.NodeType        { return t.Deriving }
+func (n constraint) Type() api.NodeType         { return t.Constraint }
+func (n Def) Type() api.NodeType                { return t.Def }
+func (n defBody) Type() api.NodeType            { return n.Either.Type() }
+func (n defBodyPossible) Type() api.NodeType    { return t.DefBody }
+func (n defaultExpr) Type() api.NodeType        { return t.DefaultExpr }
+func (n deriving) Type() api.NodeType           { return t.Deriving }
 func (n enclosedType) Type() api.NodeType {
 	return ifThenElse(n.implicit, t.ImplicitType, t.EnclosedType)
 }
-func (n exprApp) Type() api.NodeType           { return t.ExprApp }
+func (n ExprApp) Type() api.NodeType           { return t.ExprApp }
 func (n flatAnnotation) Type() api.NodeType    { return t.FlatAnnotation }
 func (n footer) Type() api.NodeType            { return t.Footer }
 func (n forallBinders) Type() api.NodeType     { return t.ForallBinders }
@@ -43,17 +43,14 @@ func (n importPathIdent) Type() api.NodeType   { return t.ImportPathIdent }
 func (n impossible) Type() api.NodeType        { return t.Impossible }
 func (n innerTypeSeq) Type() api.NodeType      { return t.InnerTypeSeq }
 func (n innerTyping) Type() api.NodeType       { return t.InnerTyping }
-func (n lambdaAbstraction) Type() api.NodeType { return t.LambdaAbstraction }
+func (n LambdaAbstraction) Type() api.NodeType { return t.LambdaAbstraction }
 func (n lambdaBinders) Type() api.NodeType     { return t.LambdaBinders }
 func (n letBinding) Type() api.NodeType        { return t.LetBinding }
-func (n letExpr) Type() api.NodeType           { return t.LetExpr }
-func (n literal) Type() api.NodeType           { return t.Literal }
+func (n LetExpr) Type() api.NodeType           { return t.LetExpr }
+func (n aLiteral[a]) Type() api.NodeType       { return n.LiteralType }
 func (n lowerIdent) Type() api.NodeType        { return t.LowerIdent }
-
-//func (n meta) Type() api.NodeType              { return t.Meta }
-
-func (n modality) Type() api.NodeType { return t.Modality }
-func (n module) Type() api.NodeType   { return t.Module }
+func (n modality) Type() api.NodeType          { return t.Modality }
+func (n module) Type() api.NodeType            { return t.Module }
 func (n name) Type() api.NodeType {
 	// try to get most specific type for name
 	chs := n.Solo.Children()
@@ -68,6 +65,7 @@ func (n name) Type() api.NodeType {
 	}
 	return t.Name
 }
+func (n OfDef) Type() api.NodeType         { return t.OfDef }
 func (n packageImport) Type() api.NodeType { return t.PackageImport }
 func (n patternApp) Type() api.NodeType    { return t.PatternApp }
 func (n patternEnclosed) Type() api.NodeType {
@@ -102,7 +100,7 @@ func (n accessList) Describe() (string, []api.Node) {
 func (n annotations) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n appType) Describe() (string, []api.Node) {
+func (n TypeApp) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n body) Describe() (string, []api.Node) {
@@ -136,7 +134,7 @@ func (n constrainerParams) Describe() (string, []api.Node) {
 func (n constraint) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n def) Describe() (string, []api.Node) {
+func (n Def) Describe() (string, []api.Node) {
 	return n.Type().String(), []api.Node{n.annotations, n.pattern, n.defBody}
 }
 func (n defBody) Describe() (string, []api.Node) {
@@ -152,9 +150,9 @@ func (n deriving) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n enclosedType) Describe() (string, []api.Node) {
-	return n.Type().String(), []api.Node{n.typ}
+	return n.Type().String(), []api.Node{n.Typ}
 }
-func (n exprApp) Describe() (string, []api.Node) {
+func (n ExprApp) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n flatAnnotation) Describe() (string, []api.Node) {
@@ -199,7 +197,7 @@ func (n innerTypeSeq) Describe() (string, []api.Node) {
 func (n innerTyping) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n lambdaAbstraction) Describe() (string, []api.Node) {
+func (n LambdaAbstraction) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n lambdaBinders) Describe() (string, []api.Node) {
@@ -208,20 +206,15 @@ func (n lambdaBinders) Describe() (string, []api.Node) {
 func (n letBinding) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n letExpr) Describe() (string, []api.Node) {
+func (n LetExpr) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-func (n literal) Describe() (string, []api.Node) {
-	return n.Type().String(), n.Children()
+func (n aLiteral[a]) Describe() (string, []api.Node) {
+	return fmt.Sprintf("%s: %v", n.LiteralType.String(), n.Value), []api.Node{}
 }
 func (n lowerIdent) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
-
-// func (n meta) Describe() (string, []api.Node) {
-// 	return n.Type().String(), n.Children()
-// }
-
 func (n modality) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
@@ -230,6 +223,10 @@ func (n module) Describe() (string, []api.Node) {
 }
 func (n name) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
+}
+func (n OfDef) Describe() (string, []api.Node) {
+	_, children := n.Def.Describe()
+	return n.Type().String(), append([]api.Node{n.visibility}, children...)
 }
 func (n packageImport) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
@@ -309,5 +306,5 @@ func (n withClauseArms) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n YewSource) Describe() (string, []api.Node) {
-	return n.Type().String(), []api.Node{ /*n.meta,*/ n.header, n.body, n.footer}
+	return n.Type().String(), []api.Node{n.header, n.body, n.footer}
 }

@@ -6,14 +6,14 @@ import (
 
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/code"
 	"github.com/petersalex27/yew/common/data"
 	"github.com/petersalex27/yew/internal/kind"
 	"github.com/petersalex27/yew/internal/lexer"
 )
 
 func breakFlatAnnotation(annot flatAnnotation) (id api.Token, out []api.Node, warning *data.Err) {
-	lex := lexer.Init(util.StringSource(annot.Break().String()))
+	lex := lexer.Init(code.StringSource(annot.Break().String()))
 	id = lex.Scan()
 	if !token.Id.Match(id) {
 		warning = new(data.Err)
@@ -127,7 +127,7 @@ func parseInfixAnnotation(p parser, id api.Token, body []api.Node) *data.Err {
 			return warning
 		}
 		tok, _ := node.(api.Token)
-		p.declare(tok, assoc, prec)
+		declareFromName(p, tok, assoc, prec)
 	}
 
 	return nil

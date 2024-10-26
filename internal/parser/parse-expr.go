@@ -12,7 +12,7 @@ import (
 //	```
 //	expr = expr term, {expr term} ;
 //	```
-func ParseExpr(p parser) data.Either[data.Ers, expr] {
+func ParseExpr(p parser) data.Either[data.Ers, Expr] {
 	return parseExpr(p, false)
 }
 
@@ -23,14 +23,14 @@ func ParseExpr(p parser) data.Either[data.Ers, expr] {
 //	```
 //
 // This function should only be called from within this file "expr-parse.go"--nowhere else!
-func parseExpr(p parser, enclosed bool) data.Either[data.Ers, expr] {
+func parseExpr(p parser, enclosed bool) data.Either[data.Ers, Expr] {
 	es, mExpr := parseMaybeExpr(p, enclosed)
 	if es != nil {
-		return data.PassErs[expr](*es)
+		return data.PassErs[Expr](*es)
 	} else if unit, just := mExpr.Break(); just {
 		return data.Ok(unit)
 	} else {
-		return data.Fail[expr](ExpectedExpr, p)
+		return data.Fail[Expr](ExpectedExpr, p)
 	}
 }
 
@@ -41,25 +41,25 @@ func parseExpr(p parser, enclosed bool) data.Either[data.Ers, expr] {
 //	```
 //
 // This function should only be called from within this file "expr-parse.go"--nowhere else!
-func parseMaybeExpr(p parser, enclosed bool) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeExpr(p parser, enclosed bool) (*data.Ers, data.Maybe[Expr]) {
 	es, mFirst := parseMaybeExprTerm(p)
 	if es != nil {
-		return es, data.Nothing[expr](p)
+		return es, data.Nothing[Expr](p)
 	} else if mFirst.IsNothing() {
-		return nil, data.Nothing[expr](p)
+		return nil, data.Nothing[Expr](p)
 	}
 
 	unit, _ := mFirst.Break()
 
 	pEs, exp := parseJustAppExprOrJustExpr(p, unit, enclosed)
 	if pEs != nil {
-		return pEs, data.Nothing[expr](p)
+		return pEs, data.Nothing[Expr](p)
 	}
 
 	return nil, data.Just(exp)
 }
 
-func parseJustAppExprOrJustExpr(p parser, lhs expr, enclosed bool) (*data.Ers, expr) {
+func parseJustAppExprOrJustExpr(p parser, lhs Expr, enclosed bool) (*data.Ers, Expr) {
 	es, exps, has2ndTerm := parseOneOrMore(p, lhs, enclosedDependentIt(enclosed), parseMaybeExprTermRhs)
 	if es != nil {
 		return es, nil
@@ -69,7 +69,7 @@ func parseJustAppExprOrJustExpr(p parser, lhs expr, enclosed bool) (*data.Ers, e
 		return nil, exps.Head() // only one term
 	}
 	// has2ndTerm guarantees that this will be not 'data.Nothing'
-	app, _ := data.NonEmptyToAppLikePair[exprApp](exps).Break()
+	app, _ := data.NonEmptyToAppLikePair[ExprApp](exps).Break()
 	return nil, app
 }
 
@@ -78,32 +78,32 @@ func parseJustAppExprOrJustExpr(p parser, lhs expr, enclosed bool) (*data.Ers, e
 //	```
 //	expr term = expr atom | "(", {"\n"}, enc expr, {"\n"}, ")" | let expr | case expr ;
 //	```
-func parseMaybeExprTerm(p parser) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeExprTerm(p parser) (*data.Ers, data.Maybe[Expr]) {
 	return parseMaybeExprTermHelper(p, false)
 }
 
-func parseMaybeExprTermRhs(p parser) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeExprTermRhs(p parser) (*data.Ers, data.Maybe[Expr]) {
 	return parseMaybeExprTermHelper(p, true)
 }
 
-func parseMaybeExprTermHelper(p parser, rhs bool) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeExprTermHelper(p parser, rhs bool) (*data.Ers, data.Maybe[Expr]) {
 	if rhs && lookahead1(p, token.Dot) {
 		es, acc := parseAccess(p)
 		if es != nil {
-			return es, data.Nothing[expr](p)
+			return es, data.Nothing[Expr](p)
 		}
-		return nil, data.Just[expr](acc)
+		return nil, data.Just[Expr](acc)
 	} else if lookahead1(p, token.Let) { // "let"
 		es, e := parseMaybeLetExpr(p)
-		return es, data.MaybeMap((letExpr).asExpr)(e)
+		return es, data.MapMaybe((LetExpr).asExpr)(e)
 	} else if lookahead1(p, token.Case) { // "case"
 		es, e := parseMaybeCaseExpr(p)
-		return es, data.MaybeMap((caseExpr).asExpr)(e)
+		return es, data.MapMaybe((caseExpr).asExpr)(e)
 	} else if lookahead1(p, token.LeftParen) { // "("
 		return parseMaybeEnclosedExpr(p)
 	}
 	es, e := parseMaybeExprAtom(p) // expr atom
-	return es, data.MaybeMap(exprAtomAsExpr)(e)
+	return es, data.MapMaybe(exprAtomAsExpr)(e)
 }
 
 // rule:
@@ -111,27 +111,27 @@ func parseMaybeExprTermHelper(p parser, rhs bool) (*data.Ers, data.Maybe[expr]) 
 //	```
 //	let expr = "let", {"\n"}, (binding group | binding assignment), {"\n"}, "in", {"\n"}, expr ;
 //	```
-func parseMaybeLetExpr(p parser) (*data.Ers, data.Maybe[letExpr]) {
+func parseMaybeLetExpr(p parser) (*data.Ers, data.Maybe[LetExpr]) {
 	let, found := getKeywordAtCurrent(p, token.Let, dropAfter)
 	if !found {
-		return nil, data.Nothing[letExpr](p)
+		return nil, data.Nothing[LetExpr](p)
 	}
 
 	es, binders, isRight := parseLetBinding(p).Break()
 	if !isRight {
-		return &es, data.Nothing[letExpr](p) // error, binders are required
+		return &es, data.Nothing[LetExpr](p) // error, binders are required
 	}
 
 	in, found := getKeywordAtCurrent(p, token.In, dropBeforeAndAfter)
 	if !found {
 		// error, 'in' keyword is required
 		es := data.Ers(data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedIn, p)))
-		return &es, data.Nothing[letExpr](p)
+		return &es, data.Nothing[LetExpr](p)
 	}
 
 	es2, expression, isExpression := ParseExpr(p).Break()
 	if !isExpression {
-		return &es2, data.Nothing[letExpr](p) // error, expr is required
+		return &es2, data.Nothing[LetExpr](p) // error, expr is required
 	}
 	return nil, data.Just(assembleLetExpr(let, binders, in, expression))
 }
@@ -154,15 +154,15 @@ func parseLetBinding(p parser) data.Either[data.Ers, letBinding] {
 //	```
 //	colon equal assignment = [":=", {"\n"}, expr] ;
 //	```
-func parseMaybeColonEqualAssignment(p parser) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeColonEqualAssignment(p parser) (*data.Ers, data.Maybe[Expr]) {
 	colonEqual, found := getKeywordAtCurrent(p, token.ColonEqual, dropBeforeAndAfter)
 	if !found { // this is okay, assignment is optional--at least syntactically
-		return nil, data.Nothing[expr](p)
+		return nil, data.Nothing[Expr](p)
 	}
 
 	es, expression, isExpression := ParseExpr(p).Break()
 	if !isExpression {
-		return &es, data.Nothing[expr](p) // error, expression is required b/c of ':='
+		return &es, data.Nothing[Expr](p) // error, expression is required b/c of ':='
 	}
 
 	// update here (instead of the data.Maybe-version) in case the non-empty value is used directly
@@ -172,8 +172,8 @@ func parseMaybeColonEqualAssignment(p parser) (*data.Ers, data.Maybe[expr]) {
 	return nil, mExpression
 }
 
-type binderMember = data.Pair[binder, expr]
-type typingMember = data.Pair[typing, data.Maybe[expr]]
+type binderMember = data.Pair[binder, Expr]
+type typingMember = data.Pair[typing, data.Maybe[Expr]]
 
 // rule:
 //
@@ -299,21 +299,21 @@ func maybeParseCaseArm(p parser) (*data.Ers, data.Maybe[caseArm]) {
 //	```
 //	enc expr' = ["(", {"\n"}, enc expr, {"\n"}, ")"] ;
 //	```
-func parseMaybeEnclosedExpr(p parser) (*data.Ers, data.Maybe[expr]) {
+func parseMaybeEnclosedExpr(p parser) (*data.Ers, data.Maybe[Expr]) {
 	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
-		return nil, data.Nothing[expr](p) // fine, not enclosed, return 'data.Nothing'
+		return nil, data.Nothing[Expr](p) // fine, not enclosed, return 'data.Nothing'
 	}
 
 	es, e, isRight := parseExpr(p, true).Break()
 	if !isRight {
-		return &es, data.Nothing[expr](p) // error, expr is required
+		return &es, data.Nothing[Expr](p) // error, expr is required
 	}
 
 	var rparen api.Token
 	if rparen, found = getKeywordAtCurrent(p, token.RightParen, dropBefore); !found {
 		es := data.Ers(data.Nil[data.Err](1).Snoc(data.MkErr(ExpectedRightParen, p)))
-		return &es, data.Nothing[expr](p) // error, right paren is required
+		return &es, data.Nothing[Expr](p) // error, right paren is required
 	}
 
 	e = e.updatePosExpr(lparen).updatePosExpr(rparen)
@@ -344,10 +344,9 @@ func parseMaybeExprAtom(p parser) (*data.Ers, data.Maybe[exprAtom]) {
 //	```
 func parseExprAtom(p parser) data.Either[data.Ers, exprAtom] {
 	if matchCurrentBackslash(p) {
-		return data.Cases(parseLambdaAbstraction(p), data.Inl[exprAtom, data.Ers], fun.Compose(data.Ok, data.Inr[patternAtom, lambdaAbstraction]))
+		return data.Cases(parseLambdaAbstraction(p), data.Inl[exprAtom, data.Ers], fun.Compose(data.Ok, data.Inr[patternAtom, LambdaAbstraction]))
 	}
-	// names declared w/in
-	return data.Cases(parsePatternAtom(p), data.Inl[exprAtom, data.Ers], fun.Compose(data.Ok, data.Inl[lambdaAbstraction, patternAtom]))
+	return data.Cases(parsePatternAtom(p), data.Inl[exprAtom, data.Ers], fun.Compose(data.Ok, data.Inl[LambdaAbstraction, patternAtom]))
 }
 
 // rule:
@@ -357,10 +356,10 @@ func parseExprAtom(p parser) data.Either[data.Ers, exprAtom] {
 //		lambda binders = lambda binder, {{"\n"}, ",", {"\n"}, lambda binder}, [{"\n"}, ","] ;
 //		lambda binder = binder | "_" ;
 //	```
-func parseLambdaAbstraction(p parser) data.Either[data.Ers, lambdaAbstraction] {
+func parseLambdaAbstraction(p parser) data.Either[data.Ers, LambdaAbstraction] {
 	backslash, found := getKeywordAtCurrent(p, token.Backslash, dropAfter)
 	if !found {
-		return data.Fail[lambdaAbstraction](ExpectedLambdaAbstraction, p)
+		return data.Fail[LambdaAbstraction](ExpectedLambdaAbstraction, p)
 	}
 
 	p.newScope() // create a scope for the binders to live in
@@ -374,15 +373,15 @@ func parseLambdaAbstraction(p parser) data.Either[data.Ers, lambdaAbstraction] {
 	table := p.exitScope() // retrieve the table of binders
 
 	if !isRight {
-		return data.PassErs[lambdaAbstraction](es)
+		return data.PassErs[LambdaAbstraction](es)
 	}
 
 	arrow, found := getKeywordAtCurrent(p, token.ThickArrow, dropBeforeAndAfter)
 	if !found {
-		return data.Fail[lambdaAbstraction](ExpectedLambdaThickArrow, p)
+		return data.Fail[LambdaAbstraction](ExpectedLambdaThickArrow, p)
 	}
 	return data.Cases(ParseExpr(p),
-		data.Inl[lambdaAbstraction, data.Ers],
+		data.Inl[LambdaAbstraction, data.Ers],
 		constructLambdaAbstraction(backslash, table, binders, arrow),
 	)
 }
@@ -423,7 +422,7 @@ func parseMaybeBinder(p parser) (*data.Ers, data.Maybe[binder]) {
 			return es, data.Nothing[binder](p)
 		}
 		// lift 'pattern' into a 'binder', then lift that into a 'data.Maybe'
-		f := fun.Compose(data.Just, data.Inr[ident, pattern])
+		f := fun.Compose(data.Just, data.Inr[ident, Pattern])
 		return nil, bind(mPat, f)
 	}
 
@@ -433,6 +432,5 @@ func parseMaybeBinder(p parser) (*data.Ers, data.Maybe[binder]) {
 	}
 	// declare ident
 	tok := data.Cases(id, (lowerIdent).Break, (upperIdent).Break)
-	p.declare(tok)
-	return nil, data.Just(data.Inl[pattern](id))
+	return declareFromName(p, tok), data.Just(data.Inl[Pattern](id))
 }

@@ -1,11 +1,12 @@
-package util
+package parser
 
 import (
 	"fmt"
 
 	"github.com/petersalex27/yew/api"
+	"github.com/petersalex27/yew/api/util/code"
+	"github.com/petersalex27/yew/api/util/node"
 )
-
 
 // returns a string representation of exposed api
 func exposeError(err error) string {
@@ -19,7 +20,7 @@ func exposeError(err error) string {
 func InitParser[T api.Parser](s api.Scanner) (out T) {
 	out = out.Clear().(T)
 	if s == nil {
-		s = dummyScanner{}
+		s = code.DummyScanner()
 	}
 	*out.ReferenceScanner() = s
 	return
@@ -31,9 +32,9 @@ func ExposeParser(p api.Parser) string {
 	if scannerRef == nil {
 		exposedScanner = "nil"
 	} else {
-		exposedScanner = ExposeScanner(*scannerRef)
+		exposedScanner = code.ExposeScanner(*scannerRef)
 	}
 
-	es := ExposeList(exposeError, p.Errors(), ", ")
-	return fmt.Sprintf("Parser{Scanner: %s, Ast: %s, Errors: %s}", exposedScanner, ExposeNode(p.Ast()), es)
+	es := node.ExposeList(exposeError, p.Errors(), ", ")
+	return fmt.Sprintf("Parser{Scanner: %s, Ast: %s, Errors: %s}", exposedScanner, node.ExposeNode(p.Ast()), es)
 }

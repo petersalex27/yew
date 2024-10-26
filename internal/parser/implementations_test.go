@@ -11,21 +11,29 @@ import (
 
 func Test_assert_expr(*testing.T) {
 	var (
-		_ expr = caseExpr{}
-		_ expr = literal{}
-		_ expr = hole{}
-		_ expr = name{}
-		_ expr = accessList{}
-		_ expr = lambdaAbstraction{}
-		_ expr = letExpr{}
+		_ Expr = caseExpr{}
+		_ Expr = aLiteral[any]{}
+		_ Expr = hole{}
+		_ Expr = name{}
+		_ Expr = accessList{}
+		_ Expr = LambdaAbstraction{}
+		_ Expr = LetExpr{}
+		_ Expr = ExprApp{}
 		// it's not a mistake that lambdaAbstraction is missing, it's included w/in exprRoot
+	)
+	// yippee!
+}
+
+func Test_assert_literal(*testing.T) {
+	var (
+		_ literal = aLiteral[any]{}
 	)
 	// yippee!
 }
 
 func Test_assert_mainElement(*testing.T) {
 	var (
-		_ mainElement = def{}
+		_ mainElement = Def{}
 		_ mainElement = specInst{}
 		_ mainElement = specDef{}
 		_ mainElement = syntax{}
@@ -38,33 +46,47 @@ func Test_assert_mainElement(*testing.T) {
 
 func Test_assert_typ(*testing.T) {
 	var (
-		_ typ = appType{}
-		_ typ = constrainedType{}
-		_ typ = enclosedType{}
-		_ typ = literal{}
-		_ typ = hole{}
-		_ typ = name{}
-		_ typ = accessList{}
-		_ typ = lambdaAbstraction{}
-		_ typ = forallType{}
-		_ typ = functionType{}
-		_ typ = innerTypeSeq{}
-		_ typ = innerTyping{}
-		_ typ = implicitTyping{}
-		_ typ = unitType{}
-		_ typ = wildcard{}
+		_ Typ = TypeApp{}
+		_ Typ = constrainedType{}
+		_ Typ = enclosedType{}
+		_ Typ = aLiteral[any]{}
+		_ Typ = hole{}
+		_ Typ = name{}
+		_ Typ = accessList{}
+		_ Typ = LambdaAbstraction{}
+		_ Typ = forallType{}
+		_ Typ = functionType{}
+		_ Typ = innerTypeSeq{}
+		_ Typ = innerTyping{}
+		_ Typ = implicitTyping{}
+		_ Typ = unitType{}
+		_ Typ = wildcard{}
+	)
+	// yippee!
+}
+
+func Test_assert_pattern(*testing.T) {
+	var (
+		_ Pattern = patternApp{}
+		_ Pattern = patternEnclosed{}
+		_ Pattern = aLiteral[any]{}
+		_ Pattern = hole{}
+		_ Pattern = name{}
+		_ Pattern = wildcard{}
+		_ Pattern = accessList{}
 	)
 	// yippee!
 }
 
 func Test_assert_visibleBodyElement(*testing.T) {
 	var (
-		_ visibleBodyElement = specInst{}
-		_ visibleBodyElement = specDef{}
-		_ visibleBodyElement = typing{}
-		_ visibleBodyElement = typeDef{}
-		_ visibleBodyElement = typeAlias{}
-		_ visibleBodyElement = syntax{}
+		_ VisibleBodyElement = OfDef{}
+		_ VisibleBodyElement = specInst{}
+		_ VisibleBodyElement = specDef{}
+		_ VisibleBodyElement = typing{}
+		_ VisibleBodyElement = typeDef{}
+		_ VisibleBodyElement = typeAlias{}
+		_ VisibleBodyElement = syntax{}
 	)
 	// yippee!
 }
@@ -73,23 +95,22 @@ func Test_assert_DescribableNode(t *testing.T) {
 	var (
 		_ api.DescribableNode = accessList{}
 		_ api.DescribableNode = annotations{}
-		_ api.DescribableNode = appType{}
+		_ api.DescribableNode = TypeApp{}
 		_ api.DescribableNode = body{}
 		_ api.DescribableNode = caseArm{}
 		_ api.DescribableNode = caseArms{}
 		_ api.DescribableNode = caseExpr{}
 		_ api.DescribableNode = constrainedType{}
 		_ api.DescribableNode = constrainer{}
-		//_ api.DescribableNode = constraintUnverified{}
 		_ api.DescribableNode = constraint{}
-		_ api.DescribableNode = def{}
+		_ api.DescribableNode = Def{}
 		_ api.DescribableNode = defBody{}
 		_ api.DescribableNode = defBodyPossible{}
 		_ api.DescribableNode = defaultExpr{}
 		_ api.DescribableNode = deriving{}
 		_ api.DescribableNode = enclosedAnnotation{}
 		_ api.DescribableNode = enclosedType{}
-		_ api.DescribableNode = exprApp{}
+		_ api.DescribableNode = ExprApp{}
 		_ api.DescribableNode = flatAnnotation{}
 		_ api.DescribableNode = footer{}
 		_ api.DescribableNode = forallBinders{}
@@ -102,13 +123,12 @@ func Test_assert_DescribableNode(t *testing.T) {
 		_ api.DescribableNode = impossible{}
 		_ api.DescribableNode = innerTypeSeq{}
 		_ api.DescribableNode = innerTyping{}
-		_ api.DescribableNode = lambdaAbstraction{}
+		_ api.DescribableNode = LambdaAbstraction{}
 		_ api.DescribableNode = lambdaBinders{}
 		_ api.DescribableNode = letBinding{}
-		_ api.DescribableNode = letExpr{}
-		_ api.DescribableNode = literal{}
+		_ api.DescribableNode = LetExpr{}
+		_ api.DescribableNode = aLiteral[any]{}
 		_ api.DescribableNode = lowerIdent{}
-		//_ api.DescribableNode = meta{}
 		_ api.DescribableNode = module{}
 		_ api.DescribableNode = modality{}
 		_ api.DescribableNode = name{}

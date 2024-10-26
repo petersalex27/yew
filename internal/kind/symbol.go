@@ -1,6 +1,8 @@
 package kind
 
-import "github.com/petersalex27/yew/api"
+import (
+	"github.com/petersalex27/yew/api"
+)
 
 // represents a symbol with a kind and multiplicity
 //
@@ -86,14 +88,6 @@ func (s Symbol) Name() string { return s.name }
 func (s Symbol) Typing() Type { return s.typ }
 
 func (s Symbol) AsType(Solver) Type { return s.typ }
-
-func (s Symbol) Pipe(into Type) Type {
-	return into.Apply(s)
-}
-
-func (s Symbol) Apply(a Type) App {
-	return Apply(s, a)
-}
 
 // if the symbol's kind is a constant, return the name of the constant
 func (s Symbol) Constant() string {

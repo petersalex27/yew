@@ -86,10 +86,10 @@ func parseMaybeConstrainerParam(p parser) (*data.Ers, data.Maybe[constrainerPara
 	}
 
 	if !found {
-		return nil, data.Just(data.MakePair[ident, data.Maybe[typ]](id, data.Nothing[typ]()))
+		return nil, data.Just(data.MakePair[ident, data.Maybe[Typ]](id, data.Nothing[Typ]()))
 	}
 
-	mty := data.Nothing[typ]()
+	mty := data.Nothing[Typ]()
 
 	colon, found := getKeywordAtCurrent(p, token.Colon, dropBeforeAndAfter)
 	if found { // parse typing
@@ -326,15 +326,15 @@ func parseSpecDef(p parser) data.Either[data.Ers, specDef] {
 //	```
 //	spec dependency = {"\n"}, "from", {"\n"}, pattern ;
 //	```
-func parseOptionalSpecDependency(p parser) data.Either[data.Ers, data.Maybe[pattern]] {
+func parseOptionalSpecDependency(p parser) data.Either[data.Ers, data.Maybe[Pattern]] {
 	fromToken, found := getKeywordAtCurrent(p, token.From, dropBeforeAndAfter)
 	if !found {
-		return data.Ok(data.Nothing[pattern](p))
+		return data.Ok(data.Nothing[Pattern](p))
 	}
 
 	es, pat, isPat := ParsePattern(p).Break()
 	if !isPat {
-		return data.PassErs[data.Maybe[pattern]](es)
+		return data.PassErs[data.Maybe[Pattern]](es)
 	}
 
 	return data.Ok(data.Just(pat.updatePosPattern(fromToken)))
@@ -374,7 +374,7 @@ func parseMaybeSpecMember(p parser) (*data.Ers, data.Maybe[specMember]) {
 			return &es, data.Nothing[specMember](p)
 		}
 		t = t.setAnnotation(mAnnots).(typing)
-		return nil, data.Just(data.Inr[def](t))
+		return nil, data.Just(data.Inr[Def](t))
 	}
 
 	// try to parse a def: see notes in `maybeParseDef` for a description of the strategy
@@ -384,7 +384,7 @@ func parseMaybeSpecMember(p parser) (*data.Ers, data.Maybe[specMember]) {
 	} else if unit, just := mDef.Break(); !just {
 		return nil, data.Nothing[specMember](p)
 	} else {
-		d := unit.setAnnotation(mAnnots).(def)
+		d := unit.setAnnotation(mAnnots).(Def)
 		return nil, data.Just(data.Inl[typing](d))
 	}
 }
@@ -394,10 +394,10 @@ func parseMaybeSpecMember(p parser) (*data.Ers, data.Maybe[specMember]) {
 // other nodes.
 //
 // In short, only use this function when `def` is the only valid annotation target
-func parseMaybeAnnotatedDef(p parser) (*data.Ers, data.Maybe[def]) {
+func parseMaybeAnnotatedDef(p parser) (*data.Ers, data.Maybe[Def]) {
 	es, mAnnots, isMAnnots := parseAnnotations_(p).Break()
 	if !isMAnnots {
-		return &es, data.Nothing[def](p)
+		return &es, data.Nothing[Def](p)
 	}
 
 	// if an annotation block is found, it must be followed by a def (annotations must have targets
@@ -408,9 +408,9 @@ func parseMaybeAnnotatedDef(p parser) (*data.Ers, data.Maybe[def]) {
 
 	es2, d, isDef := parseDef(p).Break()
 	if !isDef {
-		return &es2, data.Nothing[def](p)
+		return &es2, data.Nothing[Def](p)
 	}
-	d = d.setAnnotation(mAnnots).(def)
+	d = d.setAnnotation(mAnnots).(Def)
 	return nil, data.Just(d)
 }
 
@@ -428,7 +428,7 @@ func parseOptionalRequiringClause(p parser) data.Either[data.Ers, data.Maybe[req
 		return data.Ok(data.Nothing[requiringClause](p)) // no requiring clause, return data.Nothing
 	}
 
-	type group struct{ data.NonEmpty[def] }
+	type group struct{ data.NonEmpty[Def] }
 	es, reqBody, isReqBody := parseGroup[group](p, ExpectedDef, parseMaybeAnnotatedDef).Break()
 	if !isReqBody {
 		return data.PassErs[data.Maybe[requiringClause]](es)

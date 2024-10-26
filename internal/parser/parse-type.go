@@ -15,17 +15,17 @@ import (
 //		["forall", {"\n"}, forall binders, {"\n"}, "in", {"\n"}], type tail
 //		| "(", {"\n"}, enc type, {"\n"}, ")" ;
 //	```
-func ParseType(p parser) data.Either[data.Ers, typ] {
+func ParseType(p parser) data.Either[data.Ers, Typ] {
 	return parseType(p, false)
 }
 
 // decides b/w parsing a forall type or a type tail
-func parseTypeHelper(p parser, enclosed bool) data.Either[data.Ers, typ] {
+func parseTypeHelper(p parser, enclosed bool) data.Either[data.Ers, Typ] {
 	// only allowed at the beginning of a type
 	if matchCurrentForall(p) {
 		binding := parseForallBinding(p)
 		if es, binders, ok := binding.Break(); !ok {
-			return data.PassErs[typ](es)
+			return data.PassErs[Typ](es)
 		} else {
 			return forallBindParsedType(p, binders)
 		}
@@ -47,7 +47,7 @@ func parseTypeHelper(p parser, enclosed bool) data.Either[data.Ers, typ] {
 //	```
 //
 // typeHelper handles deciding b/w a forall type and a type tail
-func parseType(p parser, enclosed bool) data.Either[data.Ers, typ] {
+func parseType(p parser, enclosed bool) data.Either[data.Ers, Typ] {
 	lparen, found := getKeywordAtCurrent(p, token.LeftParen, dropAfter)
 	if !found {
 		// not enclosed in this call, parse with inherited `enclosed` value
@@ -60,14 +60,14 @@ func parseType(p parser, enclosed bool) data.Either[data.Ers, typ] {
 	// parse enclosed type, recursively calling this function
 	es, ty, isTy := parseType(p, true).Break()
 	if !isTy {
-		return data.PassErs[typ](es)
+		return data.PassErs[Typ](es)
 	}
 
 	ty = ty.updatePosTyp(lparen) // update position to include left paren
 
 	rparen, found := getKeywordAtCurrent(p, token.RightParen, dropBefore)
 	if !found {
-		return data.Fail[typ](ExpectedRightParen, p)
+		return data.Fail[Typ](ExpectedRightParen, p)
 	}
 
 	ty = ty.updatePosTyp(rparen) // update position to include right paren
@@ -83,12 +83,12 @@ func parseType(p parser, enclosed bool) data.Either[data.Ers, typ] {
 //	```
 //	type tail = type term, {type term rhs}, [{"\n"}, function rhs] ;
 //	```
-func parseMaybeTypeTail(p parser, enclosed bool) (*data.Ers, data.Maybe[typ]) {
+func parseMaybeTypeTail(p parser, enclosed bool) (*data.Ers, data.Maybe[Typ]) {
 	origin := getOrigin(p)
 
 	es, mTerm := maybeParseTypeTerm(p)
 	if es != nil {
-		return es, data.Nothing[typ](p)
+		return es, data.Nothing[Typ](p)
 	}
 
 	term, isSomething := mTerm.Break()
@@ -98,7 +98,7 @@ func parseMaybeTypeTail(p parser, enclosed bool) (*data.Ers, data.Maybe[typ]) {
 
 	es, head := parseJustAppTypeOrJustType(p, term, enclosed)
 	if es != nil {
-		return es, data.Nothing[typ](p)
+		return es, data.Nothing[Typ](p)
 	}
 
 	// parse function rhs
@@ -123,7 +123,7 @@ func getArrow(p parser) (arrow api.Token, found bool) {
 //	```
 //	function rhs = ("->" | "=>"), {"\n"}, type tail ;
 //	```
-func parseMaybeFunctionRhs(p parser, lhs typ, origin int, enclosed bool) (*data.Ers, data.Maybe[typ]) {
+func parseMaybeFunctionRhs(p parser, lhs Typ, origin int, enclosed bool) (*data.Ers, data.Maybe[Typ]) {
 	arrowOrigin := getOrigin(p) // location before parsing arrow
 
 	arrow, found := getArrow(p)
@@ -132,7 +132,7 @@ func parseMaybeFunctionRhs(p parser, lhs typ, origin int, enclosed bool) (*data.
 	}
 
 	// builds function type from rhs
-	var fromRhs func(typ) typ
+	var fromRhs func(Typ) Typ
 
 	if token.ThickArrow.Match(arrow) { // this means lhs is a constraint
 		arrowEndOrigin := getOrigin(p)
@@ -143,7 +143,7 @@ func parseMaybeFunctionRhs(p parser, lhs typ, origin int, enclosed bool) (*data.
 		result := parseConstraint(p)
 		es, constraint, isConstraint := result.Break()
 		if !isConstraint {
-			return &es, data.Nothing[typ](p)
+			return &es, data.Nothing[Typ](p)
 		}
 
 		// no need to parse arrow again, check that position ends at the same place as the arrow start
@@ -151,7 +151,7 @@ func parseMaybeFunctionRhs(p parser, lhs typ, origin int, enclosed bool) (*data.
 			// failed to parse constraint
 			e := data.MkErr(UnexpectedToken, p)
 			es := data.Makes(e)
-			return &es, data.Nothing[typ](p)
+			return &es, data.Nothing[Typ](p)
 		}
 
 		setOrigin(p, arrowEndOrigin) // set to after the arrow (and possible newlines)
@@ -165,9 +165,9 @@ func parseMaybeFunctionRhs(p parser, lhs typ, origin int, enclosed bool) (*data.
 
 	res := parseTypeTail(p, enclosed)
 
-	es, function, isFunction := data.Cases(res, data.PassErs[typ], construct).Break()
+	es, function, isFunction := data.Cases(res, data.PassErs[Typ], construct).Break()
 	if !isFunction {
-		return &es, data.Nothing[typ](p)
+		return &es, data.Nothing[Typ](p)
 	}
 
 	function = function.updatePosTyp(arrow)
@@ -182,20 +182,20 @@ func parseMaybeFunctionRhs(p parser, lhs typ, origin int, enclosed bool) (*data.
 //	```
 //	type tail = type term, {type term}, [{"\n"}, ("->" | "=>"), {"\n"}, type tail] ;
 //	```
-func parseTypeTail(p parser, enclosed bool) data.Either[data.Ers, typ] {
+func parseTypeTail(p parser, enclosed bool) data.Either[data.Ers, Typ] {
 	es, mTail := parseMaybeTypeTail(p, enclosed)
 	if es != nil {
-		return data.PassErs[typ](*es)
+		return data.PassErs[Typ](*es)
 	}
 	unit, just := mTail.Break()
 	if just {
 		return data.Ok(unit)
 	}
-	return data.Fail[typ](ExpectedType, p)
+	return data.Fail[Typ](ExpectedType, p)
 }
 
-func makeConstrainedType(constraint constraint) func(typ) typ {
-	return func(rhs typ) typ {
+func makeConstrainedType(constraint constraint) func(Typ) Typ {
+	return func(rhs Typ) Typ {
 		return data.EMakePair[constrainedType](constraint, rhs)
 	}
 }
@@ -215,18 +215,18 @@ func parseForallBinders(p parser, forallKey api.Token) data.Either[data.Ers, for
 	}
 }
 
-func forallBindParsedType(p parser, fb forallBinders) data.Either[data.Ers, typ] {
+func forallBindParsedType(p parser, fb forallBinders) data.Either[data.Ers, Typ] {
 	if in, found := getKeywordAtCurrent(p, token.In, dropBeforeAndAfter); found {
-		res := data.Cases(parseTypeTail(p, false), data.PassErs[typ], assembleForallType(fb))
+		res := data.Cases(parseTypeTail(p, false), data.PassErs[Typ], assembleForallType(fb))
 		res = res.Update(in)
 		return res
 	}
-	return data.Fail[typ](ExpectedForallIn, p)
+	return data.Fail[Typ](ExpectedForallIn, p)
 }
 
-func assembleForallType(fb forallBinders) func(typ) data.Either[data.Ers, typ] {
-	return func(t typ) data.Either[data.Ers, typ] {
-		return data.Ok(typ(forallType{data.MakePair(fb, t)}))
+func assembleForallType(fb forallBinders) func(Typ) data.Either[data.Ers, Typ] {
+	return func(t Typ) data.Either[data.Ers, Typ] {
+		return data.Ok(Typ(forallType{data.MakePair(fb, t)}))
 	}
 }
 
@@ -241,59 +241,64 @@ func assembleForallType(fb forallBinders) func(typ) data.Either[data.Ers, typ] {
 //		| "(", {"\n"}, enc type inner, [{"\n"}, enc typing end], {"\n"}, ")"
 //		| "{", {"\n"}, enc type inner, [{"\n"}, enc typing end, [{"\n"}, default expr]], {"\n"}, "}" ;
 //	```
-func maybeParseTypeTerm(p parser) (*data.Ers, data.Maybe[typ]) {
+func maybeParseTypeTerm(p parser) (*data.Ers, data.Maybe[Typ]) {
 	return maybeParseTypeTermHelper(p, false)
 }
 
-func maybeParseTypeTermRhs(p parser) (*data.Ers, data.Maybe[typ]) {
+func maybeParseTypeTermRhs(p parser) (*data.Ers, data.Maybe[Typ]) {
 	return maybeParseTypeTermHelper(p, true)
 }
 
-func maybeParseTypeTermHelper(p parser, rhs bool) (*data.Ers, data.Maybe[typ]) {
-	var termRes data.Either[data.Ers, typ]
+func maybeParseTypeTermHelper(p parser, rhs bool) (*data.Ers, data.Maybe[Typ]) {
+	var termRes data.Either[data.Ers, Typ]
 	if rhs && lookahead1(p, token.Dot) {
 		es, acc := parseAccess(p)
 		if es != nil {
-			return es, data.Nothing[typ](p)
+			return es, data.Nothing[Typ](p)
 		}
-		termRes = data.Ok[typ](acc)
+		termRes = data.Ok[Typ](acc)
 	} else if lookahead1(p, exprAtomLAs...) {
-		termRes = data.Cases(parseExprAtom(p), data.PassErs[typ], exprAtomAsExprRes)
+		termRes = data.Cases(parseExprAtom(p), data.PassErs[Typ], exprAtomAsExprRes)
 	} else if lookahead1(p, typeTermExceptionLAs...) {
-		termRes = parseTypeTermException(p) // "_", "()", or "="
+		termRes = parseTypeTermException(p) // "_", "()", "[]", or "="
 	} else if lookahead1(p, token.LeftParen, token.LeftBrace) {
 		termRes = parseEnclosedType(p)
 	} else {
-		return nil, data.Nothing[typ](p)
+		return nil, data.Nothing[Typ](p)
 	}
 
 	es, term, isRight := termRes.Break()
 	if !isRight {
-		return &es, data.Nothing[typ](p)
+		return &es, data.Nothing[Typ](p)
 	}
 	return nil, data.Just(term)
 }
 
-// ASSUMPTION: the current token is Either "_", "()", "="
-func parseTypeTermException(p parser) data.Either[data.Ers, typ] {
+// ASSUMPTION: the current token is Either "_", "()", "[]", "="
+func parseTypeTermException(p parser) data.Either[data.Ers, Typ] {
 	tok, found := getKeywordAtCurrent(p, token.Underscore, dropNone)
 	if found {
-		return data.Ok(typ(data.EOne[wildcard](tok)))
+		return data.Ok(Typ(data.EOne[wildcard](tok)))
 	}
 
 	tok, found = getKeywordAtCurrent(p, token.Equal, dropNone)
 	if found {
-		return data.Ok[typ](data.EOne[name](tok))
+		return data.Ok[Typ](data.EOne[name](tok))
+	}
+
+	tok, found = getKeywordAtCurrent(p, token.EmptyBracketEnclosure, dropNone)
+	if found {
+		return data.Ok[Typ](data.EOne[name](tok))
 	}
 
 	tok, found = getKeywordAtCurrent(p, token.EmptyParenEnclosure, dropNone)
 	if !found {
-		panic("expected '_', '()', '='") // input was not validated before calling
+		panic("expected '_', '()', '[]', '='") // input was not validated before calling
 	}
-	return data.Ok[typ](data.EOne[unitType](tok))
+	return data.Ok[Typ](data.EOne[unitType](tok))
 }
 
-func parseJustAppTypeOrJustType(p parser, lhs typ, enclosed bool) (*data.Ers, typ) {
+func parseJustAppTypeOrJustType(p parser, lhs Typ, enclosed bool) (*data.Ers, Typ) {
 	if lhs == nil {
 		panic("lhs cannot be nil")
 	}
@@ -308,7 +313,7 @@ func parseJustAppTypeOrJustType(p parser, lhs typ, enclosed bool) (*data.Ers, ty
 	}
 
 	// otherwise, construct app type
-	app, _ := data.NonEmptyToAppLikePair[appType](types).Break()
+	app, _ := data.NonEmptyToAppLikePair[TypeApp](types).Break()
 	return nil, app
 }
 
@@ -350,7 +355,7 @@ func parseOptionalModality(p parser) data.Maybe[modality] {
 //	enc typing end = ":", {"\n"}, enc type ;
 //	inner type terms = enc type tail, [{{"\n"}, ",", {"\n"}, enc type tail}, [{"\n"}, ","]] ;
 //	```
-func parseEnclosedType(p parser) (out data.Either[data.Ers, typ]) {
+func parseEnclosedType(p parser) (out data.Either[data.Ers, Typ]) {
 	opener, closerType, found := parseEnclosedOpener(p)
 	if !found {
 		panic("expected left paren or left brace") // input was not validated before calling
@@ -364,19 +369,19 @@ func parseEnclosedType(p parser) (out data.Either[data.Ers, typ]) {
 	// parse enclosed type inner head
 	es, lhs, ok := parseInnerTypeTerms(p).Break()
 	if !ok {
-		return data.PassErs[typ](es)
+		return data.PassErs[Typ](es)
 	} else if !mModality.IsNothing() {
 		// validate that the it's a single term and that single term is an identifier
 		term := lhs.Head()
 		valid := lhs.Len() == 1 && (nodeType.LowerIdent.Match(term) || nodeType.UpperIdent.Match(term))
 		if !valid {
-			return data.Fail[typ](ExpectedModalId, lhs)
+			return data.Fail[Typ](ExpectedModalId, lhs)
 		}
 	}
 
 	colon, foundColon := getKeywordAtCurrent(p, token.Colon, dropBeforeAndAfter)
 	if !foundColon && !mModality.IsNothing() {
-		return data.Fail[typ](ExpectedTypeSig, p)
+		return data.Fail[Typ](ExpectedTypeSig, p)
 		// multiplicity requires term to be typed
 	} else if foundColon {
 		return parseEnclosedRhs(p, lhs, opener, closerType, implicit, mModality, colon)
@@ -387,13 +392,13 @@ func parseEnclosedType(p parser) (out data.Either[data.Ers, typ]) {
 	}
 }
 
-func parseEnclosedRhs(p parser, lhs innerTypeSeq, opener api.Token, closerType token.Type, implicit bool, mModality data.Maybe[modality], colon api.Token) data.Either[data.Ers, typ] {
+func parseEnclosedRhs(p parser, lhs innerTypeSeq, opener api.Token, closerType token.Type, implicit bool, mModality data.Maybe[modality], colon api.Token) data.Either[data.Ers, Typ] {
 	// parse typing and assemble inner type signature
 	ty := parseType(p, true)
 	typing := data.Cases(ty, data.PassErs[innerTyping], assembleInnerTyping(mModality, lhs, colon))
 	attached := optionalAttachDefaultExpr(p, implicit, typing)
 	construct := closeEnclosedTyp(p, opener, closerType)
-	return data.Cases(attached, data.PassErs[typ], construct)
+	return data.Cases(attached, data.PassErs[Typ], construct)
 }
 
 // panics if colonEqual is nil
@@ -405,39 +410,39 @@ func getColonEqualAtCurrent(p parser, colonEqual *api.Token) (found bool) {
 	return found
 }
 
-func optionalAttachDefaultExpr(p parser, implicit bool, typing data.Either[data.Ers, innerTyping]) data.Either[data.Ers, typ] {
+func optionalAttachDefaultExpr(p parser, implicit bool, typing data.Either[data.Ers, innerTyping]) data.Either[data.Ers, Typ] {
 	var colonEqual api.Token
 	noDefault := !(data.IsRight(typing) && implicit && getColonEqualAtCurrent(p, &colonEqual))
 	if noDefault {
-		return data.Cases(typing, data.PassErs[typ], fun.Compose(data.Ok, (innerTyping).asTyp))
+		return data.Cases(typing, data.PassErs[Typ], fun.Compose(data.Ok, (innerTyping).asTyp))
 	}
 
 	es, de, isDE := ParseExpr(p).Break()
 	if !isDE {
-		return data.PassErs[typ](es)
+		return data.PassErs[Typ](es)
 	}
-	return data.Cases(typing, data.PassErs[typ], appendDefaultExpr(de))
+	return data.Cases(typing, data.PassErs[Typ], appendDefaultExpr(de))
 }
 
-func appendDefaultExpr(de expr) func(innerTyping) data.Either[data.Ers, typ] {
-	return func(t innerTyping) data.Either[data.Ers, typ] {
-		return data.Ok[typ](data.EMakePair[implicitTyping](t, data.EOne[defaultExpr](de)))
+func appendDefaultExpr(de Expr) func(innerTyping) data.Either[data.Ers, Typ] {
+	return func(t innerTyping) data.Either[data.Ers, Typ] {
+		return data.Ok[Typ](data.EMakePair[implicitTyping](t, data.EOne[defaultExpr](de)))
 	}
 }
 
-func closeEnclosedTyp(p parser, opener api.Token, closerType token.Type) func(typ) data.Either[data.Ers, typ] {
-	return func(t typ) data.Either[data.Ers, typ] {
+func closeEnclosedTyp(p parser, opener api.Token, closerType token.Type) func(Typ) data.Either[data.Ers, Typ] {
+	return func(t Typ) data.Either[data.Ers, Typ] {
 		t = t.updatePosTyp(opener)
 		closer, found := getKeywordAtCurrent(p, closerType, dropBefore)
 		if !found {
 			isRp := closerType.Match(token.RightParen.Make())
-			return data.Fail[typ](ifThenElse(isRp, ExpectedRightParen, ExpectedRightBrace), p)
+			return data.Fail[Typ](ifThenElse(isRp, ExpectedRightParen, ExpectedRightBrace), p)
 		}
-		et := enclosedType{implicit: token.LeftBrace.Match(opener), typ: t}
+		et := enclosedType{implicit: token.LeftBrace.Match(opener), Typ: t}
 		// NOTE: it's very important to call update on the `typ` field--if it's called on `et`, then the
 		// enclosed type gets enclosed a second time ... lol
-		et.typ = et.typ.updatePosTyp(closer)
-		return data.Ok[typ](et)
+		et.Typ = et.Typ.updatePosTyp(closer)
+		return data.Ok[Typ](et)
 	}
 }
 
@@ -475,8 +480,8 @@ func getNames(mModality data.Maybe[modality], lhs innerTypeSeq) data.Either[data
 	return data.Ok(names)
 }
 
-func assembleInnerTyping(mModality data.Maybe[modality], lhs innerTypeSeq, colon api.Token) func(typ) data.Either[data.Ers, innerTyping] {
-	return func(t typ) data.Either[data.Ers, innerTyping] {
+func assembleInnerTyping(mModality data.Maybe[modality], lhs innerTypeSeq, colon api.Token) func(Typ) data.Either[data.Ers, innerTyping] {
+	return func(t Typ) data.Either[data.Ers, innerTyping] {
 		es, names, isNames := getNames(mModality, lhs).Break()
 		if !isNames {
 			return data.PassErs[innerTyping](es)

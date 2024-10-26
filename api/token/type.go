@@ -34,8 +34,6 @@ const (
 	StringValue
 	RawStringValue
 
-	ImportPath
-
 	Id
 	Infix
 	Hole
@@ -161,8 +159,6 @@ func ProperTypeString(ty Type) string {
 		return "StringValue"
 	case RawStringValue:
 		return "RawStringValue"
-	case ImportPath:
-		return "ImportPath"
 	case Id:
 		return "Id"
 	case Infix:
@@ -340,7 +336,6 @@ var tokenStringMap = map[Type]string{
 	FloatValue:  ``, //`<float-literal>`,
 	StringValue: ``, //`<string-literal>`,
 	RawStringValue: ``, //`<raw-string-literal>`,
-	ImportPath: ``, //`<import-path>`,
 
 	Id:    ``, //`<identifier>`,
 	Infix: ``, //`<(infix)>`,

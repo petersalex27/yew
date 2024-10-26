@@ -29,9 +29,9 @@ var (
 	matchCurrentRawString  = matchCurrent(token.RawStringValue)
 	matchCurrentMethodId   = matchCurrent(token.MethodSymbol)
 
-	literalLAs = []token.Type{token.IntValue, token.FloatValue, token.StringValue, token.RawStringValue, token.ImportPath, token.CharValue}
+	literalLAs = []token.Type{token.IntValue, token.FloatValue, token.StringValue, token.RawStringValue, token.CharValue}
 
-	exprAtomLAs = append(([]token.Type{token.Backslash, token.Id, token.Infix}), literalLAs...)
+	exprAtomLAs = append(([]token.Type{token.Backslash, token.Id, token.Infix, token.MethodSymbol}), literalLAs...)
 
 	boundSyntaxIdentLAs = [][2]token.Type{{token.LeftBrace, token.Id}}
 
@@ -41,7 +41,22 @@ var (
 
 	unverifiedConstraintLAs = [][2]token.Type{{token.Id, token.Comma}}
 
+	// name, ":"
 	typingLAs = [][2]token.Type{{token.Id, token.Colon}, {token.Infix, token.Colon}, {token.MethodSymbol, token.Colon}}
+
+	// name, "of"
+	ofDefLAs = [][2]token.Type{{token.Id, token.Of}, {token.Infix, token.Of}, {token.MethodSymbol, token.Of}}
+
+	// name, "="
+	directDefLAs = [][2]token.Type{
+		{token.Id, token.Equal}, 
+		{token.Infix, token.Equal}, 
+		{token.MethodSymbol, token.Equal},
+		// yes, these will all fail since this would imply that Void is inhabited, but, grammatically, it is correct
+		{token.Id, token.Impossible},
+		{token.Infix, token.Impossible},
+		{token.MethodSymbol, token.Impossible},
+	}
 
 	typeTermExceptionLAs = []token.Type{token.Underscore, token.EmptyParenEnclosure, token.Equal}
 )

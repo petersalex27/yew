@@ -5,6 +5,8 @@ import (
 	"math"
 
 	"github.com/petersalex27/yew/api"
+	"github.com/petersalex27/yew/api/util/config"
+	"github.com/petersalex27/yew/api/util/node"
 )
 
 func makeClosures[From, To any](translator api.Translator[From, To]) (done func() bool, update func()) {
@@ -51,13 +53,13 @@ func TranslateRemaining[From, To any](dest []To, translator api.Translator[From,
 }
 
 func ExposeTranslator[From, To any](translator api.Translator[From, To]) string {
-	untranslated := ExposeList(func(item From) string {
+	untranslated := node.ExposeList(func(item From) string {
 		return fmt.Sprintf("%v", item)
 	}, translator.Untranslated(), ", ")
-	translated := ExposeList(func(item To) string {
+	translated := node.ExposeList(func(item To) string {
 		return fmt.Sprintf("%v", item)
 	}, translator.Translated(), ", ")
-	config := ExposeConfig(translator.Config())
+	config := config.ExposeConfig(translator.Config())
 	return fmt.Sprintf(
 		"Translator{Untranslated: %s, Translated: %s, Done: %t, Config: %s}",
 		untranslated, translated, translator.Done(), config)

@@ -113,7 +113,11 @@ func Cases[a, b api.Node, c any](eab Either[a, b], f func(a) c, g func(b) c) c {
 	return f(lhs)
 }
 
-func EitherMap[a, b, d, c api.Node](f func(a) c, g func(b) d) func(Either[a, b]) Either[c, d] {
+func EmbMapEither[ee EmbedsEither[c, d], a, b, c, d api.Node](f func(a) c, g func(b) d) func(Either[a, b]) ee {
+	return func(eab Either[a, b]) ee { return ee{MapEither(f, g)(eab)} }
+}
+
+func MapEither[a, b, d, c api.Node](f func(a) c, g func(b) d) func(Either[a, b]) Either[c, d] {
 	return func(eab Either[a, b]) Either[c, d] {
 		if lhs, rhs, isRhs := eab.Break(); isRhs {
 			return Inr[c](g(rhs))

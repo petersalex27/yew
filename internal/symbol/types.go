@@ -29,14 +29,6 @@ type (
 
 func (v variable) AsType(kind.Solver) kind.Type { return v }
 
-func (v variable) Pipe(into kind.Type) kind.Type {
-	return into.Apply(v)
-}
-
-func (r variable) Apply(a kind.Type) kind.App {
-	return kind.Apply(r, a)
-}
-
 // always returns ""--free variables are not constants
 func (v variable) Constant() string {
 	return "" // free variables are not constants
@@ -52,14 +44,6 @@ func (v variable) String() string {
 }
 
 func (p pi) AsType(kind.Solver) kind.Type { return p }
-
-func (p pi) Pipe(into kind.Type) kind.Type {
-	return into.Apply(p)
-}
-
-func (p pi) Apply(a kind.Type) kind.App {
-	return kind.Apply(p, a)
-}
 
 // always returns ""--pi types are not constants
 func (p pi) Constant() string {
@@ -82,14 +66,6 @@ func (p pi) String() string {
 }
 
 func (c constant) AsType(kind.Solver) kind.Type { return c }
-
-func (c constant) Pipe(into kind.Type) kind.Type {
-	return into.Apply(c)
-}
-
-func (c constant) Apply(a kind.Type) kind.App {
-	return kind.Apply(c, a)
-}
 
 // returns the name of the constant (with the namespace prepended)
 func (c constant) Constant() string {

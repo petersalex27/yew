@@ -6,8 +6,8 @@ import (
 	"github.com/petersalex27/yew/common/data"
 )
 
-func makeYewSource(h data.Maybe[header], b data.Maybe[body], f data.Maybe[annotations]) YewSource {
-	return YewSource{h, b, footer{f}, api.WeakenRangeOver[api.Node](h, b, f)}
+func makeYewSource(path string, h data.Maybe[header], b data.Maybe[body], f data.Maybe[annotations]) YewSource {
+	return YewSource{path, h, b, footer{f}, api.WeakenRangeOver[api.Node](h, b, f), TableEntry{}, importedSymbols{}, nil}
 }
 
 func resolveHeaderAnnotations(p parser, mHeader data.Maybe[header]) data.Maybe[header] {
@@ -39,6 +39,8 @@ func resolveHeaderAnnotations(p parser, mHeader data.Maybe[header]) data.Maybe[h
 //	yew source = {"\n"}, [header | body | header, then, body], {"\n"}, footer ;
 //	```
 func parseYewSource(p parser) parser {
+	p.newScope()
+
 	mb := data.Nothing[body]()
 
 	// {"\n"}, [header | header, then, body | ..
@@ -73,14 +75,21 @@ func parseYewSource(p parser) parser {
 		return writeErrors(p, *es)
 	}
 
-	ys := makeYewSource(header, mb, mFooterAnnots)
+	ys := makeYewSource(p.SrcCode().Path(), header, mb, mFooterAnnots)
 	// record the AST in the parser state on success
 	if ps, ok := p.(*ParserState); ok {
-		ps.ast = ys
+		ps.ast = registerNames(ys, ps)
+		ps.ast.srcCode = p.SrcCode()
 		p = ps
 	}
 
 	return p
+}
+
+func registerNames(ys YewSource, ps *ParserState) YewSource {
+	names := ps.exitScope()
+	ys.symbols = names
+	return ys
 }
 
 func assertEof(p parser) *data.Ers {

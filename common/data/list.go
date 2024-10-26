@@ -16,6 +16,11 @@ type (
 	}
 )
 
+// does not perform any bounds checking
+func (xs List[a]) At(i int) a {
+	return xs.elements[i]
+}
+
 func (xs List[a]) Elements() []a {
 	return xs.elements
 }
@@ -42,7 +47,7 @@ func (xs List[a]) Strengthen() Maybe[NonEmpty[a]] {
 func Nil[a api.Node](cap ...int) List[a] {
 	var effectiveCap int = 0
 	if len(cap) > 0 {
-		effectiveCap = cap[0]
+		effectiveCap = max(0, cap[0])
 	}
 	return List[a]{elements: make([]a, 0, effectiveCap)}
 }

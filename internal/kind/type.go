@@ -9,16 +9,6 @@ import (
 
 type (
 	Type interface {
-		// opposite of `Apply` method
-		//
-		// simply call `Apply` when allowed in most cases
-		//
-		// return nil if the type cannot be applied, otherwise return the type after the application
-		Pipe(into Type) Type
-
-		// usually called from the arg calling `a.Pipe(r)` to let the receiver `r` know it's allowed to apply `a` to itself
-		Apply(a Type) App
-
 		// return the type as a non-empty string IFF it is a constant--do not return variable names!
 		Constant() string
 
@@ -43,9 +33,11 @@ type (
 	}
 
 	Term interface {
-		Abstract(x Variable) (Lambda, Type)
-		Kind(s Solver) Type
-		Apply(a Term) Term
+		Kind(Solver) Type
+	}
+
+	Applicable interface {
+		Apply(s Solver, a Term) Term
 	}
 
 	Solver interface {
@@ -53,11 +45,13 @@ type (
 		Occurs(string, Type) bool
 		Union(string, Type) bool
 		NewVar() Type
-		RecordError(errorMessage string, pos api.Positioned)
 		Declare(api.Token, byte, byte)
 		RecordNames()
 		EndRecording() map[string]Symbol
 		Print(w io.Writer)
+		
+		Introduce(map[string]Term)
+		Abolish()
 	}
 
 	Variable struct {
@@ -91,17 +85,7 @@ func FlatApply(as []Type) App {
 	return App{as, api.WeakenRangeOver(as[0], as[1:]...)}
 }
 
-func (as App) Pipe(into Type) Type {
-	return into.Apply(as)
-}
-
 func (as App) AsType(Solver) Type { return as }
-
-func (as App) Apply(b Type) App {
-	as.ts = append(as.ts, b)
-	as.Position = as.Position.Update(b)
-	return as
-}
 
 func (as App) Constant() string {
 	return ""

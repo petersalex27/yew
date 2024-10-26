@@ -5,11 +5,8 @@ package lexer
 
 import (
 	"maps"
-	"strings"
-
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/common/stack"
 	"github.com/petersalex27/yew/internal/source"
 )
 
@@ -19,8 +16,6 @@ type lexerState struct {
 	Line int
 	// current position in source
 	Pos int
-	// saved char number
-	SavedChar *stack.Stack[int]
 }
 
 type nextAction byte
@@ -31,7 +26,7 @@ const (
 )
 
 type Lexer struct {
-	keepComments, listening bool
+	listening bool
 	lexerState
 	restore lexerState
 	// keywords
@@ -73,7 +68,6 @@ func (lex *Lexer) copyState() lexerState {
 		SourceCode: lex.SourceCode.Copy(),
 		Line:       lex.Line,
 		Pos:        lex.Pos,
-		SavedChar:  lex.SavedChar.Copy(),
 	}
 }
 
@@ -101,10 +95,8 @@ func (lex *Lexer) additionListener() {
 func New() *Lexer {
 	lex := new(Lexer)
 
-	lex.SetKeepComments(false)
 	lex.SourceCode = source.SourceCode{}
 	lex.Line = 1
-	lex.SavedChar = stack.New[int]()
 
 	lex.action = make(chan nextAction, 1)
 	lex.additions = make(chan string, 1)
@@ -161,10 +153,6 @@ func InitListening(src api.Source) *Lexer {
 	return lex
 }
 
-func (lex *Lexer) SetKeepComments(truthy bool) {
-	lex.keepComments = truthy
-}
-
 // returns index position for given line from start (inclusive) to end (exclusive)
 func (lexer *Lexer) LinePos(line int) (start, end int) {
 	endPositions := lexer.EndPositions()
@@ -193,12 +181,6 @@ func (lex *Lexer) addCommandKeys() {
 	}
 }
 
-func (lex *Lexer) output(token token.Token) token.Token {
-	start, _ := lex.SavedChar.Pop()
-	token.Start, token.End = start, lex.Pos
-	return token
-}
-
 // returns current char of source
 func (lex *Lexer) currentSourceChar() (char byte, ok bool) {
 	if lex.Pos >= len(lex.Source) {
@@ -217,36 +199,10 @@ func (lex *Lexer) currentSourceLine() (line string, ok bool) {
 	return line, ok
 }
 
-// reads input through byte `end` and returns it and true iff successful
-func (lex *Lexer) readThrough(end byte) (string, bool) {
-	res, ok := lex.readUntil(end)
-	if !ok {
-		return res, ok
-	}
-
-	last, eof := lex.nextChar()
-	if ok = !eof; !ok {
-		return res, ok
-	}
-
-	return res + string(last), ok
-}
-
-// reads input to (but not including) byte `end` and returns it and true iff successful
-func (lex *Lexer) readUntil(char byte) (string, bool) {
-	var builder strings.Builder
-	c, ok := lex.currentSourceChar()
-	for ; c != char && ok; c, ok = lex.currentSourceChar() {
-		in, _ := lex.nextChar()
-		builder.WriteByte(in)
-	}
-	return builder.String(), ok
-}
 
 // ready to load source code
 func (lex *Lexer) CreateSimilar() api.ScannerPlus {
 	out := New()
 	out.LoadReserved(lex.keywords)
-	out.SetKeepComments(lex.keepComments)
 	return out
 }

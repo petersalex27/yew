@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/petersalex27/yew/api"
+	"github.com/petersalex27/yew/common/data"
 	t "github.com/petersalex27/yew/internal/parser/typ"
 )
 
@@ -33,5 +34,10 @@ func (n versionRelative) Describe() (string, []api.Node) {
 	return n.Type().String(), n.Children()
 }
 func (n YewPackageSource) Describe() (string, []api.Node) {
-	return n.Type().String(), []api.Node{n.name, n.lang, n.body, n.mods}
+	mods := data.Nil[YewModule](len(n.mods))
+	for _, mod := range n.mods {
+		mods = mods.Snoc(mod)
+	}
+
+	return n.Type().String(), []api.Node{n.name, n.lang, n.body, mods}
 }

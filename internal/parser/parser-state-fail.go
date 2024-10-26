@@ -3,17 +3,19 @@ package parser
 import (
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
+	"github.com/petersalex27/yew/common/data"
 	"github.com/petersalex27/yew/internal/kind"
-	"github.com/petersalex27/yew/internal/symbol"
 )
 
 type ParserStateFail struct{ bad *ParserState }
 
-func (p *ParserStateFail) declare(api.Token, ...byte) {}
+func (p *ParserStateFail) declare(declaration, ...byte) *data.Ers {
+	return nil
+}
 
 func (p *ParserStateFail) newScope() {}
 
-func (p *ParserStateFail) exitScope() map[string]symbol.Symbol { return nil }
+func (p *ParserStateFail) exitScope() map[string]symbolic[declaration] { return nil }
 
 // still create a new variable despite being in a fail state--this avoids nil pointer panics
 func (p *ParserStateFail) newVar() kind.Type {
@@ -22,7 +24,7 @@ func (p *ParserStateFail) newVar() kind.Type {
 
 func (p *ParserStateFail) dropNewlines() { /* noop */ }
 
-func (p *ParserStateFail) srcCode() api.SourceCode {
+func (p *ParserStateFail) SrcCode() api.SourceCode {
 	return p.bad.scanner.SrcCode()
 }
 

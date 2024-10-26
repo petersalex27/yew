@@ -1,4 +1,4 @@
-package util_test
+package tree_test
 
 import (
 	"strings"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/petersalex27/yew/api"
 	"github.com/petersalex27/yew/api/token"
-	"github.com/petersalex27/yew/api/util"
+	"github.com/petersalex27/yew/api/util/tree"
 )
 
 type node struct {
@@ -130,7 +130,7 @@ func TestPrintTree(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input.name, func(t *testing.T) {
 			b := &strings.Builder{}
-			util.PrintTree(b, tt.input)
+			tree.PrintTree(b, tt.input)
 			got := b.String()
 			if got != tt.want {
 				t.Errorf("printTree() = \n%s\n, want \n%s", got, tt.want)

@@ -71,6 +71,12 @@ func Construct[a api.Node](first a, rest ...a) NonEmpty[a] {
 	return ne
 }
 
+func EmbMapNonEmpty[ene EmbedsNonEmpty[b], a, b api.Node](f func(a) b) func(NonEmpty[a]) ene {
+	return func(xs NonEmpty[a]) ene {
+		return ene{MapNonEmpty(f)(xs)}
+	}
+}
+
 func MapNonEmpty[a, b api.Node](f func(a) b) func(xs NonEmpty[a]) NonEmpty[b] {
 	listMap := ListMap(f)
 	return func(xs NonEmpty[a]) NonEmpty[b] {
@@ -97,4 +103,12 @@ func (xs NonEmpty[a]) Elements() []a {
 
 func (xs NonEmpty[a]) Weaken() List[a] {
 	return Nil[a](xs.Len()).Snoc(xs.Head()).Append(xs.rest.Elements()...)
+}
+
+// does not check for out of bounds
+func (xs NonEmpty[a]) At(i int) a {
+	if i == 0 {
+		return xs.first
+	}
+	return xs.rest.At(i - 1)
 }
